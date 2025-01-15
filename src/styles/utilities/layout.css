@@ -1,0 +1,32 @@
+@layer utilities {
+  /* Glass Effects */
+  .glass-panel {
+    @apply backdrop-blur-xl rounded-2xl border border-secondary-700/30 
+    shadow-glass w-full;
+  }
+
+  /* Stats Grid */
+  .stats-grid {
+    @apply grid grid-cols-2 gap-4 w-full;
+  }
+
+  /* Media Queries */
+  @media (min-width: 768px) {
+    .glass-card {
+      @apply p-8;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .stats-grid {
+      @apply grid-cols-2;
+    }
+  }
+
+  /* Print Styles */
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+  }
+} 

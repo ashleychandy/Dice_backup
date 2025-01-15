@@ -1,0 +1,42 @@
+@layer components {
+  /* History Styles */
+  .betting-history {
+    @apply mt-8 p-6 rounded-2xl border border-secondary-700 
+    shadow-glass w-full;
+  }
+
+  .history-list {
+    @apply space-y-4 overflow-y-auto pr-2 scrollbar-gaming;
+    max-height: calc(100vh - 500px);
+    min-height: 200px;
+  }
+
+  .history-item {
+    @apply relative p-4 rounded-2xl border border-secondary-700 
+    bg-opacity-90
+    transform transition-all duration-300 hover:translate-y-[-2px] 
+    hover:shadow-glass hover:border-gaming-primary/50;
+  }
+
+  .history-details {
+    @apply mt-4 pt-4 border-t border-secondary-700;
+  }
+
+  .history-bet-item {
+    @apply px-3 py-1.5 rounded-lg border border-secondary-700 
+    transition-all duration-300 hover:border-gaming-primary/50 hover:translate-y-[-2px] 
+    hover:shadow-glass-sm;
+  }
+
+  .history-bet-type {
+    @apply text-sm font-medium text-white;
+  }
+
+  .history-bet-amount {
+    @apply text-xs text-secondary-400;
+  }
+
+  .history-bet-payout {
+    @apply text-xs text-gaming-primary font-semibold;
+  }
+} 

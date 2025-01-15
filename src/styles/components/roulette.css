@@ -1,0 +1,48 @@
+@layer components {
+  /* Number Buttons */
+  .number-button {
+    @apply aspect-square w-full rounded-xl font-bold flex items-center justify-center 
+    transition-all duration-300 hover:scale-105 shadow-glass-sm 
+    border border-secondary-700 hover:border-gaming-primary/50 text-white;
+  }
+
+  /* Column Bets */
+  .column-bet {
+    @apply text-white rounded-xl border border-secondary-700 hover:border-gaming-primary/50 
+    shadow-glass-sm hover:shadow-glass transition-all duration-300 font-bold text-sm h-full w-[45px] 
+    flex items-center justify-center transform hover:scale-105;
+  }
+
+  .column-bet-highlighted {
+    @apply border-gaming-primary shadow-glow scale-105 z-20;
+  }
+
+  /* Chip Styles */
+  .chip-stack {
+    @apply absolute -top-3 -right-3 rounded-full min-w-[28px] h-7 px-2.5 
+    flex items-center justify-center text-sm font-bold shadow-glass-sm 
+    border-2 border-secondary-700 backdrop-blur-md transform transition-all duration-300 
+    hover:scale-110 hover:border-gaming-primary z-20;
+  }
+
+  .chip-stack[data-value*="100"],
+  .chip-stack[data-value*="50"] {
+    @apply shadow-glow border-gaming-primary;
+  }
+
+  .chip-stack-value {
+    @apply text-white font-extrabold tracking-tight;
+  }
+
+  /* Controls */
+  .betting-controls-wrapper {
+    @apply fixed bottom-0 left-0 right-0 p-4 border-t border-secondary-700 
+    shadow-glass backdrop-blur-md z-50;
+  }
+
+  @media (max-width: 640px) {
+    .betting-controls {
+      @apply flex-col items-stretch;
+    }
+  }
+}

@@ -1,0 +1,22 @@
+/* Font Imports */
+@import url("https://rsms.me/inter/inter.css");
+@import url("https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap");
+
+/* Tailwind Directives */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base Styles */
+@import "./base/variables.css";
+
+/* Component Styles */
+@import "./components/forms.css";
+@import "./components/roulette.css";
+@import "./components/history.css";
+@import "./components/dice.css";
+
+/* Utility Styles */
+@import "./utilities/animations.css";
+@import "./utilities/layout.css";

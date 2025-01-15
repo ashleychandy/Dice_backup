@@ -1,0 +1,25 @@
+:root {
+  /* Colors */
+  --color-gaming-dark: 15, 23, 42;
+  --color-gaming-light: 248, 250, 252;
+  
+  /* Transitions */
+  --transition-base: all 0.3s ease;
+  --transition-fast: all 0.2s ease;
+  
+  /* Shadows */
+  --shadow-glass: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-glass-sm: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 20px rgba(255, 70, 85, 0.2);
+  
+  /* Border Radius */
+  --radius-base: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-full: 9999px;
+}
+
+/* Base styles */
+body {
+  @apply text-gaming-light font-display;
+  background-color: rgb(var(--color-gaming-dark));
+} 

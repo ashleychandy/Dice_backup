@@ -29,10 +29,11 @@ import { debounce } from "lodash";
 import {
   useQuery,
   useQueryClient,
+  QueryClient,
   QueryClientProvider,
 } from "@tanstack/react-query";
 
-import DicePage from "./pages/Dice";
+import DicePage from "./pages/Dice.jsx";
 
 import DiceABI from "./contracts/abi/Dice.json";
 import TokenABI from "./contracts/abi/GamaToken.json";
@@ -52,19 +53,19 @@ const NETWORKS = {
   MAINNET: {
     chainId: 50,
     name: "XDC Mainnet",
-    rpcUrl: process.env.REACT_APP_XDC_MAINNET_RPC,
+    rpcUrl: import.meta.env.VITE_XDC_MAINNET_RPC,
     contracts: {
-      token: process.env.REACT_APP_TOKEN_ADDRESS,
-      roulette: process.env.REACT_APP_DICE_ADDRESS,
+      token: import.meta.env.VITE_TOKEN_ADDRESS,
+      dice: import.meta.env.VITE_DICE_ADDRESS,
     },
   },
   APOTHEM: {
     chainId: 51,
     name: "XDC Apothem Testnet",
-    rpcUrl: process.env.REACT_APP_XDC_APOTHEM_RPC,
+    rpcUrl: import.meta.env.VITE_XDC_APOTHEM_RPC,
     contracts: {
-      token: process.env.REACT_APP_APOTHEM_TOKEN_ADDRESS,
-      roulette: process.env.REACT_APP_APOTHEM_DICE_ADDRESS,
+      token: import.meta.env.VITE_APOTHEM_TOKEN_ADDRESS,
+      dice: import.meta.env.VITE_APOTHEM_DICE_ADDRESS,
     },
   },
 };
@@ -105,7 +106,7 @@ const Toast = ({ message, type, onClose }) => (
                           ? "bg-gaming-warning/20"
                           : "bg-gaming-info/20"
                       }`}
-        ></div>
+        />
         <p className="text-white/90 font-medium">{message}</p>
       </div>
       <button
@@ -197,7 +198,7 @@ const switchNetwork = async (networkType) => {
 function App() {
   const [contracts, setContracts] = useState({
     token: null,
-    roulette: null,
+    dice: null,
   });
   const [account, setAccount] = useState("");
   const [chainId, setChainId] = useState(null);
@@ -407,7 +408,7 @@ function App() {
       addToast("Wallet connected successfully!", "success");
     } catch (err) {
       handleError(err, "connectWallet");
-      setContracts({ token: null, roulette: null });
+      setContracts({ token: null, dice: null });
     } finally {
       setLoadingStates((prev) => ({ ...prev, wallet: false }));
     }
@@ -488,7 +489,7 @@ function App() {
 
   const handleLogout = () => {
     setAccount("");
-    setContracts({ token: null, roulette: null });
+    setContracts({ token: null, dice: null });
     addToast("Logged out successfully", "success");
   };
 
@@ -514,7 +515,7 @@ function App() {
                   className="h-8 sm:h-9"
                 />
                 <span className="text-xl sm:text-2xl font-bold text-[#22AD74] bg-gradient-to-r from-[#22AD74] to-[#22AD74]/70 text-transparent bg-clip-text">
-                  Roulette
+                  Dice
                 </span>
               </a>
             </div>

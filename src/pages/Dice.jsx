@@ -1,3 +1,10 @@
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ethers } from "ethers";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+
+import "../index.css";
+
 const GameStats = ({ diceContract, account }) => {
   // Use React Query for fetching stats
   const { data: stats, isLoading } = useQuery({
@@ -946,8 +953,6 @@ const DicePage = ({
   const [chosenNumber, setChosenNumber] = useState(null);
   const [betAmount, setBetAmount] = useState(BigInt(0));
   const [showStats, setShowStats] = useState(false);
-  const [showWinAnimation, setShowWinAnimation] = useState(false);
-  const [showLoseAnimation, setShowLoseAnimation] = useState(false);
   const [gameState, setGameState] = useState({
     isProcessing: false,
     isRolling: false,
@@ -1099,15 +1104,13 @@ const DicePage = ({
           lastResult: Number(rolledNum),
         }));
 
-        // Show appropriate animation
+        // Show appropriate message
         if (isWin) {
-          setShowWinAnimation(true);
           addToast(
             `Congratulations! You won ${ethers.formatEther(payout)} GAMA!`,
             "success"
           );
         } else {
-          setShowLoseAnimation(true);
           addToast("Better luck next time!", "warning");
         }
       }
@@ -1280,15 +1283,8 @@ const DicePage = ({
           onError={onError}
         />
       </div>
-
-      <AnimatePresence>
-        {showWinAnimation && (
-          <WinAnimation onComplete={() => setShowWinAnimation(false)} />
-        )}
-        {showLoseAnimation && (
-          <LoseAnimation onComplete={() => setShowLoseAnimation(false)} />
-        )}
-      </AnimatePresence>
     </div>
   );
 };
+
+export default DicePage;

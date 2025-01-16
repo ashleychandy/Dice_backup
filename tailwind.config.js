@@ -35,8 +35,8 @@ module.exports = {
           950: "#020617",
         },
         gaming: {
-          primary: "#FF4655",
-          accent: "#FF7F50",
+          primary: "#3CB684",
+          accent: "#3CB684",
           success: "#10B981",
           error: "#EF4444",
           warning: "#F59E0B",
@@ -55,20 +55,20 @@ module.exports = {
         mono: ["Fira Code", ...defaultTheme.fontFamily.mono],
       },
       boxShadow: {
-        glow: "0 0 15px rgba(255, 70, 85, 0.3)",
-        "glow-lg": "0 0 30px rgba(255, 70, 85, 0.5)",
-        "glow-xl": "0 0 45px rgba(255, 70, 85, 0.7)",
+        glow: "0 0 15px rgba(60, 182, 132, 0.5)",
+        "glow-lg": "0 0 30px rgba(60, 182, 132, 0.7)",
+        "glow-xl": "0 0 45px rgba(60, 182, 132, 0.9)",
         glass: "0 8px 32px 0 rgba(31, 38, 135, 0.37)",
         "glass-sm": "0 4px 16px 0 rgba(31, 38, 135, 0.37)",
         "glass-lg": "0 12px 48px 0 rgba(31, 38, 135, 0.37)",
-        "inner-glow": "inset 0 0 15px rgba(255, 70, 85, 0.3)",
+        "inner-glow": "inset 0 0 15px rgba(60, 182, 132, 0.5)",
       },
       backgroundImage: {
         "gradient-gaming":
           "linear-gradient(to right, var(--tw-gradient-from), var(--tw-gradient-to))",
         "gradient-radial":
           "radial-gradient(circle at center, var(--tw-gradient-from), var(--tw-gradient-to))",
-        mesh: "url(\"data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h20v20H0V0zm10 10h10v10H10V10zM0 10h10v10H0V10z' fill='%23FF4655' fill-opacity='0.05'/%3E%3C/svg%3E\")",
+        mesh: "url(\"data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h20v20H0V0zm10 10h10v10H10V10zM0 10h10v10H0V10z' fill='%233CB684' fill-opacity='0.05'/%3E%3C/svg%3E\")",
       },
       animation: {
         "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
@@ -93,8 +93,8 @@ module.exports = {
           "50%": { transform: "translateY(-10px)" },
         },
         glowPulse: {
-          "0%, 100%": { boxShadow: "0 0 15px rgba(255, 70, 85, 0.3)" },
-          "50%": { boxShadow: "0 0 30px rgba(255, 70, 85, 0.6)" },
+          "0%, 100%": { boxShadow: "0 0 15px rgba(60, 182, 132, 0.5)" },
+          "50%": { boxShadow: "0 0 30px rgba(60, 182, 132, 0.8)" },
         },
         numberChange: {
           "0%": { transform: "scale(1.2)", opacity: "0" },
@@ -226,7 +226,7 @@ module.exports = {
             textShadow: value,
           }),
         },
-        { values: theme("textShadow") },
+        { values: theme("textShadow") }
       );
     },
   ],

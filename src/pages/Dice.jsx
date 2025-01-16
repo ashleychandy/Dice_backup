@@ -13,20 +13,20 @@ const GameStats = ({ diceContract, account }) => {
       if (!diceContract || !account) {
         return {
           gamesPlayed: 0,
-          totalBets: BigInt(0),
           totalWinnings: BigInt(0),
+          lastPlayed: 0,
         };
       }
 
       try {
         // Get user data directly from contract
-        const [gamesPlayed, totalBets, totalWinnings, lastPlayed] =
+        const [gamesPlayed, totalWinnings, lastPlayed] =
           await diceContract.getUserData(account);
 
         return {
           gamesPlayed: Number(gamesPlayed),
-          totalBets: BigInt(totalBets),
           totalWinnings: BigInt(totalWinnings),
+          lastPlayed: Number(lastPlayed),
         };
       } catch (error) {
         console.error("Error fetching game stats:", error);
@@ -56,15 +56,17 @@ const GameStats = ({ diceContract, account }) => {
         </p>
       </div>
       <div className="stat-card">
-        <h3 className="text-secondary-400">Total Bets</h3>
+        <h3 className="text-secondary-400">Total Winnings</h3>
         <p className="text-2xl font-bold text-gaming-accent">
-          {ethers.formatEther(stats?.totalBets || BigInt(0))} GAMA
+          {ethers.formatEther(stats?.totalWinnings || BigInt(0))} GAMA
         </p>
       </div>
       <div className="stat-card">
-        <h3 className="text-secondary-400">Total Winnings</h3>
+        <h3 className="text-secondary-400">Last Played</h3>
         <p className="text-2xl font-bold text-gaming-primary">
-          {ethers.formatEther(stats?.totalWinnings || BigInt(0))} GAMA
+          {stats?.lastPlayed
+            ? new Date(stats.lastPlayed * 1000).toLocaleString()
+            : "Never"}
         </p>
       </div>
     </div>
@@ -81,19 +83,32 @@ const GameHistory = ({ diceContract, account, onError }) => {
         return { games: [], stats: { totalGamesWon: 0, totalGamesLost: 0 } };
 
       try {
-        // Fetch bets using the new getBetHistory function
-        const bets = await diceContract.getBetHistory(account);
+        // Fetch bets using the getBetHistory function
+        let bets = [];
+        try {
+          bets = await diceContract.getBetHistory(account);
+        } catch (error) {
+          // If we get a BAD_DATA error with "0x", it means empty history
+          if (error.code === "BAD_DATA" && error.value === "0x") {
+            bets = [];
+          } else {
+            throw error;
+          }
+        }
 
         // Process bets and calculate stats
         const processedGames = bets
-          .map((bet) => ({
-            chosenNumber: Number(bet.chosenNumber),
-            rolledNumber: Number(bet.rolledNumber),
-            amount: bet.amount.toString(),
-            timestamp: Number(bet.timestamp),
-            isWin: Number(bet.chosenNumber) === Number(bet.rolledNumber),
-            payout: bet.payout.toString(),
-          }))
+          .map((bet) => {
+            // Each bet is a tuple with [chosenNumber, rolledNumber, amount, timestamp, payout]
+            return {
+              chosenNumber: Number(bet[0]), // chosenNumber
+              rolledNumber: Number(bet[1]), // rolledNumber
+              amount: bet[2].toString(), // amount
+              timestamp: Number(bet[3]), // timestamp
+              payout: bet[4].toString(), // payout
+              isWin: Number(bet[1]) === Number(bet[0]), // win if rolledNumber equals chosenNumber
+            };
+          })
           .reverse();
 
         // Calculate stats
@@ -734,7 +749,8 @@ const DiceVisualizer = ({ chosenNumber, isRolling, result }) => {
     );
   };
 
-  const displayNumber = result || chosenNumber || 1;
+  // Display chosen number when not rolling, and result number when available after rolling
+  const displayNumber = isRolling ? chosenNumber : result || chosenNumber || 1;
 
   return (
     <div className="relative w-full max-w-[200px] mx-auto">
@@ -747,12 +763,23 @@ const DiceVisualizer = ({ chosenNumber, isRolling, result }) => {
         >
           <div className="dice-container">
             <div className="dice-face">
-              <div className="absolute inset-0 bg-gradient-to-br from-gaming-primary/30 to-gaming-accent/30 rounded-xl backdrop-blur-sm" />
+              <div className="absolute inset-0 bg-gradient-to-br from-gaming-primary/50 to-gaming-accent/50 rounded-xl backdrop-blur-sm" />
               {renderDots(displayNumber)}
             </div>
           </div>
         </motion.div>
       </AnimatePresence>
+
+      {/* Show result text below the dice */}
+      {result && !isRolling && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mt-4 text-lg font-medium text-white"
+        >
+          Rolled: {result}
+        </motion.div>
+      )}
     </div>
   );
 };

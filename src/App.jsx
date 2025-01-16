@@ -154,48 +154,8 @@ const NetworkWarning = () => (
   </div>
 );
 
-// Add network switching function
-const switchNetwork = async (networkType) => {
-  if (!window.ethereum) return;
-
-  const network =
-    networkType === "mainnet" ? NETWORKS.MAINNET : NETWORKS.APOTHEM;
-  const chainIdHex = `0x${network.chainId.toString(16)}`;
-
-  try {
-    await window.ethereum.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: chainIdHex }],
-    });
-    setTimeout(() => window.location.reload(), 1000);
-  } catch (switchError) {
-    if (switchError.code === 4902) {
-      try {
-        await window.ethereum.request({
-          method: "wallet_addEthereumChain",
-          params: [
-            {
-              chainId: chainIdHex,
-              chainName: network.name,
-              rpcUrls: [network.rpcUrl],
-              nativeCurrency: {
-                name: "XDC",
-                symbol: "XDC",
-                decimals: 18,
-              },
-            },
-          ],
-        });
-      } catch (addError) {
-        throw addError;
-      }
-    } else {
-      throw switchError;
-    }
-  }
-};
-
 function App() {
+  const [provider, setProvider] = useState(null);
   const [contracts, setContracts] = useState({
     token: null,
     dice: null,
@@ -215,14 +175,11 @@ function App() {
   const addToast = useCallback((message, type = "info") => {
     const id = `toast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Check if a toast with the same message already exists
     setToasts((prev) => {
-      // Don't add if the same message already exists
       if (prev.some((toast) => toast.message === message)) {
         return prev;
       }
 
-      // Limit to 3 toasts at a time
       const newToasts = [...prev, { id, message, type }];
       if (newToasts.length > 3) {
         return newToasts.slice(-3);
@@ -230,12 +187,10 @@ function App() {
       return newToasts;
     });
 
-    // Clear this specific toast after 5 seconds
     const timeoutId = setTimeout(() => {
       setToasts((prev) => prev.filter((toast) => toast.id !== id));
     }, 5000);
 
-    // Store timeout ID for cleanup
     return () => clearTimeout(timeoutId);
   }, []);
 
@@ -245,12 +200,10 @@ function App() {
 
   const handleError = useCallback(
     (error, context = "") => {
-      // Prevent duplicate toasts by checking the error message and timestamp
       const errorKey = `${error.message || "Unknown error"}_${Math.floor(
         Date.now() / 1000
       )}`;
 
-      // Don't show another toast if the same error occurred in the last second
       if (window._lastErrorKey === errorKey) {
         return;
       }
@@ -285,68 +238,6 @@ function App() {
     [addToast]
   );
 
-  const initializeContracts = useCallback(
-    async (provider, account) => {
-      try {
-        const network = await provider.getNetwork();
-        const currentChainId =
-          typeof network.chainId === "bigint"
-            ? Number(network.chainId)
-            : Number(network.chainId);
-
-        const networkKey = Object.keys(NETWORKS).find(
-          (key) => NETWORKS[key].chainId === currentChainId
-        );
-
-        const networkConfig = NETWORKS[networkKey];
-
-        if (!networkConfig) {
-          throw new Error(
-            `Unsupported network. Connected to chain ID: ${currentChainId}. Supported chain IDs: ${SUPPORTED_CHAIN_IDS.join(
-              ", "
-            )}`
-          );
-        }
-
-        const tokenContract = new ethers.Contract(
-          networkConfig.contracts.token,
-          TokenABI.abi,
-          provider
-        );
-
-        const diceContract = new ethers.Contract(
-          networkConfig.contracts.dice,
-          DiceABI.abi,
-          provider
-        );
-
-        setContracts({
-          token: tokenContract,
-          dice: diceContract,
-        });
-
-        setLoadingStates((prev) => ({ ...prev, contracts: false }));
-        return { tokenContract, diceContract };
-      } catch (error) {
-        handleError(error, "initializeContracts");
-        setLoadingStates((prev) => ({ ...prev, contracts: false }));
-        return null;
-      }
-    },
-    [handleError]
-  );
-
-  const handleChainChanged = useCallback(async (newChainId) => {
-    const chainIdNumber = parseInt(newChainId);
-    setChainId(chainIdNumber);
-
-    if (!SUPPORTED_CHAIN_IDS.includes(chainIdNumber)) {
-      setContracts({ token: null, dice: null });
-    } else {
-      window.location.reload();
-    }
-  }, []);
-
   const validateNetwork = useCallback(async (provider) => {
     try {
       const network = await provider.getNetwork();
@@ -376,6 +267,95 @@ function App() {
     }
   }, []);
 
+  const initializeContracts = useCallback(
+    async (provider, account) => {
+      try {
+        const network = await provider.getNetwork();
+        const currentChainId =
+          typeof network.chainId === "bigint"
+            ? Number(network.chainId)
+            : Number(network.chainId);
+
+        const networkKey = Object.keys(NETWORKS).find(
+          (key) => NETWORKS[key].chainId === currentChainId
+        );
+
+        const networkConfig = NETWORKS[networkKey];
+
+        if (!networkConfig) {
+          throw new Error(
+            `Unsupported network. Connected to chain ID: ${currentChainId}. Supported chain IDs: ${SUPPORTED_CHAIN_IDS.join(
+              ", "
+            )}`
+          );
+        }
+
+        // Get signer for the connected account
+        const signer = await provider.getSigner(account);
+
+        const tokenContract = new ethers.Contract(
+          networkConfig.contracts.token,
+          TokenABI.abi,
+          signer // Use signer instead of provider
+        );
+
+        const diceContract = new ethers.Contract(
+          networkConfig.contracts.dice,
+          DiceABI.abi,
+          signer // Use signer instead of provider
+        );
+
+        setContracts({
+          token: tokenContract,
+          dice: diceContract,
+        });
+
+        setLoadingStates((prev) => ({ ...prev, contracts: false }));
+        return { tokenContract, diceContract };
+      } catch (error) {
+        handleError(error, "initializeContracts");
+        setContracts({ token: null, dice: null });
+        setLoadingStates((prev) => ({ ...prev, contracts: false }));
+        return null;
+      }
+    },
+    [handleError]
+  );
+
+  const handleChainChanged = useCallback(
+    async (newChainId) => {
+      const chainIdNumber = parseInt(newChainId);
+      setChainId(chainIdNumber);
+
+      try {
+        if (!SUPPORTED_CHAIN_IDS.includes(chainIdNumber)) {
+          setContracts({ token: null, dice: null });
+          setProvider(null);
+          addToast("Please switch to a supported network", "warning");
+        } else if (provider && account) {
+          // Create new provider instance on chain change
+          const newProvider = new ethers.BrowserProvider(window.ethereum);
+          setProvider(newProvider);
+          await validateNetwork(newProvider);
+          await initializeContracts(newProvider, account);
+          addToast("Network changed successfully", "success");
+        }
+      } catch (error) {
+        handleError(error, "handleChainChanged");
+        setContracts({ token: null, dice: null });
+        setProvider(null);
+      }
+    },
+    [
+      provider,
+      account,
+      initializeContracts,
+      handleError,
+      addToast,
+      validateNetwork,
+    ]
+  );
+
   const connectWallet = async () => {
     setLoadingStates((prev) => ({ ...prev, wallet: true }));
 
@@ -384,17 +364,11 @@ function App() {
         throw new Error("Please install MetaMask to use this application");
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const network = await provider.getNetwork();
-      const currentChainId = Number(network.chainId);
+      // Create provider if not exists
+      const currentProvider = new ethers.BrowserProvider(window.ethereum);
+      setProvider(currentProvider);
 
-      if (!SUPPORTED_CHAIN_IDS.includes(currentChainId)) {
-        await switchNetwork("mainnet");
-        return;
-      }
-
-      await validateNetwork(provider);
-
+      // First request accounts to ensure we have permission
       const accounts = await window.ethereum.request({
         method: "eth_requestAccounts",
       });
@@ -403,16 +377,130 @@ function App() {
         throw new Error("No accounts found");
       }
 
-      await initializeContracts(provider, accounts[0]);
+      // Then validate network and switch if needed
+      const network = await currentProvider.getNetwork();
+      const currentChainId = Number(network.chainId);
+
+      if (!SUPPORTED_CHAIN_IDS.includes(currentChainId)) {
+        // Clear state before switch
+        setContracts({ token: null, dice: null });
+        setProvider(null);
+        await switchNetwork("mainnet");
+        return;
+      }
+
+      // Validate network and initialize contracts
+      await validateNetwork(currentProvider);
+      await initializeContracts(currentProvider, accounts[0]);
       setAccount(accounts[0]);
       addToast("Wallet connected successfully!", "success");
     } catch (err) {
       handleError(err, "connectWallet");
       setContracts({ token: null, dice: null });
+      setProvider(null);
+      setAccount("");
     } finally {
       setLoadingStates((prev) => ({ ...prev, wallet: false }));
     }
   };
+
+  const switchNetwork = useCallback(
+    async (networkType) => {
+      if (!window.ethereum) return;
+
+      const network =
+        networkType === "mainnet" ? NETWORKS.MAINNET : NETWORKS.APOTHEM;
+      const chainIdHex = `0x${network.chainId.toString(16)}`;
+
+      try {
+        setLoadingStates((prev) => ({ ...prev, wallet: true }));
+        // Clear contracts during network switch
+        setContracts({ token: null, dice: null });
+
+        // Create a promise that resolves when the network change is complete
+        const networkSwitchPromise = new Promise((resolve, reject) => {
+          // Set a timeout for network switch
+          const timeoutId = setTimeout(() => {
+            reject(new Error("Network switch timeout"));
+          }, 10000); // 10 second timeout
+
+          // Listen for chain change
+          const chainChangeHandler = (newChainId) => {
+            const newChainIdNumber = parseInt(newChainId);
+            if (newChainIdNumber === network.chainId) {
+              clearTimeout(timeoutId);
+              window.ethereum.removeListener(
+                "chainChanged",
+                chainChangeHandler
+              );
+              resolve();
+            }
+          };
+
+          window.ethereum.on("chainChanged", chainChangeHandler);
+        });
+
+        // Request the network switch
+        try {
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: chainIdHex }],
+          });
+        } catch (switchError) {
+          if (switchError.code === 4902) {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [
+                {
+                  chainId: chainIdHex,
+                  chainName: network.name,
+                  rpcUrls: [network.rpcUrl],
+                  nativeCurrency: {
+                    name: "XDC",
+                    symbol: "XDC",
+                    decimals: 18,
+                  },
+                },
+              ],
+            });
+          } else {
+            throw switchError;
+          }
+        }
+
+        // Wait for the network switch to complete
+        await networkSwitchPromise;
+
+        // After successful switch, reinitialize if we have an account
+        if (account) {
+          const newProvider = new ethers.BrowserProvider(window.ethereum);
+          setProvider(newProvider);
+          await validateNetwork(newProvider);
+          await initializeContracts(newProvider, account);
+        }
+
+        addToast(`Successfully switched to ${network.name}`, "success");
+      } catch (error) {
+        handleError(error, "switchNetwork");
+        // Reset contracts and provider on error
+        setContracts({ token: null, dice: null });
+        setProvider(null);
+        throw error;
+      } finally {
+        setLoadingStates((prev) => ({ ...prev, wallet: false }));
+      }
+    },
+    [
+      account,
+      setProvider,
+      setContracts,
+      setLoadingStates,
+      handleError,
+      validateNetwork,
+      initializeContracts,
+      addToast,
+    ]
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -428,9 +516,11 @@ function App() {
       }
 
       try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        await validateNetwork(provider);
+        const newProvider = new ethers.BrowserProvider(window.ethereum);
+        if (!mounted) return;
+        setProvider(newProvider);
 
+        await validateNetwork(newProvider);
         if (!mounted) return;
 
         const accounts = await window.ethereum.request({
@@ -440,7 +530,7 @@ function App() {
         if (!mounted) return;
 
         if (accounts.length > 0) {
-          await initializeContracts(provider, accounts[0]);
+          await initializeContracts(newProvider, accounts[0]);
           setAccount(accounts[0]);
         }
       } catch (err) {

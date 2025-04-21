@@ -1,6 +1,6 @@
-@import url("https://rsms.me/inter/inter.css");
-@import url("https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap");
+@import url('https://rsms.me/inter/inter.css');
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -8,12 +8,11 @@
 
 @layer base {
   :root {
-    --color-gaming-dark: 15, 23, 42;
-    --color-gaming-light: 248, 250, 252;
+    /* Gaming color variables removed */
   }
 
   body {
-    @apply text-gaming-light font-display;
+    @apply text-white font-display;
   }
 }
 
@@ -63,8 +62,8 @@
     hover:scale-110 hover:border-gaming-primary z-20;
   }
 
-  .chip-stack[data-value*="100"],
-  .chip-stack[data-value*="50"] {
+  .chip-stack[data-value*='100'],
+  .chip-stack[data-value*='50'] {
     @apply shadow-glow border-gaming-primary;
   }
 

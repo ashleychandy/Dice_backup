@@ -1,0 +1,109 @@
+const { Web3 } = require("web3");
+
+async function grantRoles() {
+  // Connect to XDC Apothem testnet
+  const web3 = new Web3("https://erpc.apothem.network");
+
+  // Add account to wallet
+  const account = web3.eth.accounts.privateKeyToAccount(
+    "0xe34343163ccac54348180a01bb758d3952b8dc29e1e0ae639ad454a98b524379"
+  );
+  web3.eth.accounts.wallet.add(account);
+
+  // Contract addresses (convert from xdc to 0x format)
+  const tokenAddress = "0x0ea258D9A0D2C515e33aA26b860B6A8907Bf283C";
+  const diceAddress = "0x197425beDa4EcF114ED5eAec4C362bDA2F70B605";
+
+  // Role hashes
+  const DEFAULT_ADMIN_ROLE =
+    "0x0000000000000000000000000000000000000000000000000000000000000000";
+  const MINTER_ROLE =
+    "0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6";
+  const BURNER_ROLE =
+    "0x3c11d16cbaffd01df69ce1c404f6340ee057498f5f00246190ea54220576a848";
+
+  // Contract ABI
+  const abi = [
+    {
+      inputs: [
+        { internalType: "bytes32", name: "role", type: "bytes32" },
+        { internalType: "address", name: "account", type: "address" },
+      ],
+      name: "grantRole",
+      outputs: [],
+      stateMutability: "nonpayable",
+      type: "function",
+    },
+    {
+      inputs: [
+        { internalType: "bytes32", name: "role", type: "bytes32" },
+        { internalType: "address", name: "account", type: "address" },
+      ],
+      name: "hasRole",
+      outputs: [{ internalType: "bool", name: "", type: "bool" }],
+      stateMutability: "view",
+      type: "function",
+    },
+  ];
+
+  // Create contract instance
+  const contract = new web3.eth.Contract(abi, tokenAddress);
+
+  try {
+    // Check current roles
+    console.log("Checking current roles...");
+    const hasMinterRole = await contract.methods
+      .hasRole(MINTER_ROLE, diceAddress)
+      .call();
+    const hasBurnerRole = await contract.methods
+      .hasRole(BURNER_ROLE, diceAddress)
+      .call();
+
+    console.log("Current roles:");
+    console.log("MINTER_ROLE:", hasMinterRole);
+    console.log("BURNER_ROLE:", hasBurnerRole);
+
+    const gasPrice = await web3.eth.getGasPrice();
+    console.log("Gas Price:", gasPrice);
+
+    if (!hasMinterRole) {
+      console.log("Granting MINTER_ROLE...");
+      const tx1 = await contract.methods
+        .grantRole(MINTER_ROLE, diceAddress)
+        .send({
+          from: account.address,
+          gas: 200000,
+          gasPrice: gasPrice,
+        });
+      console.log("MINTER_ROLE granted successfully:", tx1.transactionHash);
+    }
+
+    if (!hasBurnerRole) {
+      console.log("Granting BURNER_ROLE...");
+      const tx2 = await contract.methods
+        .grantRole(BURNER_ROLE, diceAddress)
+        .send({
+          from: account.address,
+          gas: 200000,
+          gasPrice: gasPrice,
+        });
+      console.log("BURNER_ROLE granted successfully:", tx2.transactionHash);
+    }
+
+    // Verify final roles
+    const finalMinterRole = await contract.methods
+      .hasRole(MINTER_ROLE, diceAddress)
+      .call();
+    const finalBurnerRole = await contract.methods
+      .hasRole(BURNER_ROLE, diceAddress)
+      .call();
+
+    console.log("Final role verification:");
+    console.log("MINTER_ROLE:", finalMinterRole);
+    console.log("BURNER_ROLE:", finalBurnerRole);
+  } catch (error) {
+    console.error("Error:", error);
+  }
+}
+
+grantRoles().catch(console.error);

@@ -214,27 +214,34 @@ const BetInput = ({
   });
 
   useEffect(() => {
-    if (value) {
+    // Initialize with minimum value if value is 0 or undefined
+    if (!value || value <= BigInt(0)) {
+      const minValue = BigInt(min);
+      onChange(minValue);
+      setLocalValue(formatDisplayValue(minValue));
+    } else {
       setLocalValue(formatDisplayValue(value));
     }
-  }, [value]);
+  }, [value, min, onChange]);
 
   const formatDisplayValue = (weiValue) => {
     try {
+      if (!weiValue || weiValue <= BigInt(0)) {
+        return formatDisplayValue(BigInt(min));
+      }
       // Convert from wei to whole tokens
       return (BigInt(weiValue) / BigInt("1000000000000000000")).toString();
     } catch (error) {
       console.error("Error formatting display value:", error);
-      return "0";
+      return formatDisplayValue(BigInt(min));
     }
   };
 
   const validateInput = (input) => {
     if (input === "") return true;
-    // Only allow whole numbers
-    const regex = /^\d+$/;
+    // Only allow whole numbers greater than 0
+    const regex = /^[1-9]\d*$/;
     if (!regex.test(input)) return false;
-    if (input.startsWith("0") && input.length > 1) return false;
     return true;
   };
 
@@ -290,6 +297,13 @@ const BetInput = ({
         }
 
         const weiValue = parseTokenAmount(inputValue);
+        if (weiValue <= BigInt(0)) {
+          setError("Bet amount must be greater than 0");
+          onChange(BigInt(min));
+          setLocalValue(formatDisplayValue(BigInt(min)));
+          return;
+        }
+
         const maxValue = BigInt(maxBet);
         const balanceValue = BigInt(userBalance);
         const effectiveMaxValue =
@@ -364,15 +378,17 @@ const BetInput = ({
       const balanceValue = BigInt(userBalance);
       const effectiveMaxValue =
         maxValue < balanceValue ? maxValue : balanceValue;
-      const step = effectiveMaxValue / BigInt(100); // 1% step
       const minValue = BigInt(min);
       const MAX_UINT256 = BigInt(
         "115792089237316195423570985008687907853269984665640564039457584007913129639935"
       );
 
+      // Define base step as 1 GAMA
+      const baseStep = BigInt("1000000000000000000"); // 1 GAMA
+
       let newValue;
       if (increment) {
-        newValue = currentValue + step;
+        newValue = currentValue + baseStep;
         if (newValue > effectiveMaxValue) newValue = effectiveMaxValue;
 
         // Check for potential win overflow
@@ -382,8 +398,13 @@ const BetInput = ({
           return;
         }
       } else {
-        newValue = currentValue - step;
-        if (newValue < minValue) newValue = minValue;
+        // When decreasing, ensure we don't go below minValue
+        if (currentValue <= minValue || baseStep >= currentValue) {
+          newValue = minValue;
+        } else {
+          newValue = currentValue - baseStep;
+          if (newValue < minValue) newValue = minValue;
+        }
       }
 
       setError("");
@@ -545,7 +566,10 @@ const BalancePanel = ({ userBalance, allowance, potentialWinnings }) => {
     },
     {
       label: "Potential Win",
-      value: ethers.formatEther(potentialWinnings.toString()),
+      value:
+        potentialWinnings < BigInt("1000000000000000000")
+          ? "0"
+          : ethers.formatEther(potentialWinnings.toString()),
       icon: (
         <svg
           className="w-5 h-5"
@@ -565,9 +589,19 @@ const BalancePanel = ({ userBalance, allowance, potentialWinnings }) => {
   ];
 
   const formatValue = (value) => {
-    if (value === "Approved" || value === "Not Approved") return value;
-    const formatted = parseFloat(value).toFixed(0);
-    return formatted.replace(/\.?0+$/, "");
+    if (value === "Approved" || value === "Not Approved" || value === "0")
+      return value;
+
+    // For token amounts, preserve all digits but remove trailing zeros
+    const numValue = parseFloat(value);
+    if (isNaN(numValue) || numValue < 1) return "0";
+
+    // Format with commas for thousands and preserve significant digits
+    return new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0, // No decimals for GAMA tokens
+      useGrouping: true, // Use thousand separators
+    }).format(numValue);
   };
 
   return (
@@ -684,6 +718,16 @@ const BalancePanel = ({ userBalance, allowance, potentialWinnings }) => {
 };
 
 const DiceVisualizer = ({ chosenNumber, isRolling, result }) => {
+  // Add validation for input numbers
+  const validateDiceNumber = (num) => {
+    const parsed = Number(num);
+    if (isNaN(parsed) || parsed < 1 || parsed > 6) {
+      console.warn(`Invalid dice number: ${num}, defaulting to 1`);
+      return 1;
+    }
+    return parsed;
+  };
+
   const diceVariants = {
     rolling: {
       rotate: [0, 360, 720, 1080],
@@ -719,7 +763,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling, result }) => {
   };
 
   const renderDots = (number) => {
-    const validNumber = Math.max(1, Math.min(6, Number(number) || 1));
+    const validNumber = validateDiceNumber(number);
     const dots = dotPositions[validNumber] || [];
 
     return (
@@ -749,8 +793,10 @@ const DiceVisualizer = ({ chosenNumber, isRolling, result }) => {
     );
   };
 
-  // Display chosen number when not rolling, and result number when available after rolling
-  const displayNumber = isRolling ? chosenNumber : result || chosenNumber || 1;
+  // Validate both chosen number and result
+  const displayNumber = isRolling
+    ? validateDiceNumber(chosenNumber)
+    : validateDiceNumber(result || chosenNumber || 1);
 
   return (
     <div className="relative w-full max-w-[200px] mx-auto">
@@ -923,50 +969,61 @@ const EmptyState = () => (
   </div>
 );
 
-const GameHistoryItem = ({ game, index }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: -20 }}
-    transition={{ delay: index * 0.05 }}
-    className={`
-      relative p-4 rounded-xl border backdrop-blur-sm
-      ${
-        game.isWin
-          ? "border-gaming-success/20 bg-gaming-success/5"
-          : "border-gaming-error/20 bg-gaming-error/5"
-      }
-      hover:transform hover:scale-[1.02] transition-all duration-300
-    `}
-  >
-    <div className="flex justify-between items-center">
-      <div className="space-y-1">
-        <div className="text-lg font-semibold">
-          {ethers.formatEther(game.amount)} GAMA
+const GameHistoryItem = ({ game, index }) => {
+  // Add validation for game numbers
+  const validateGameNumber = (num) => {
+    const parsed = Number(num);
+    return !isNaN(parsed) && parsed >= 1 && parsed <= 6 ? parsed : "?";
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ delay: index * 0.05 }}
+      className={`
+        relative p-4 rounded-xl border backdrop-blur-sm
+        ${
+          game.isWin
+            ? "border-gaming-success/20 bg-gaming-success/5"
+            : "border-gaming-error/20 bg-gaming-error/5"
+        }
+        hover:transform hover:scale-[1.02] transition-all duration-300
+      `}
+    >
+      <div className="flex justify-between items-center">
+        <div className="space-y-1">
+          <div className="text-lg font-semibold">
+            {ethers.formatEther(game.amount)} GAMA
+          </div>
+          <div className="text-sm text-secondary-400">
+            <span
+              className={
+                game.isWin ? "text-gaming-success" : "text-gaming-error"
+              }
+            >
+              {game.isWin ? "Won" : "Lost"}
+            </span>
+            <span className="mx-2">•</span>
+            Rolled: {validateGameNumber(game.rolledNumber)} | Chosen:{" "}
+            {validateGameNumber(game.chosenNumber)}
+          </div>
         </div>
-        <div className="text-sm text-secondary-400">
-          <span
-            className={game.isWin ? "text-gaming-success" : "text-gaming-error"}
-          >
-            {game.isWin ? "Won" : "Lost"}
-          </span>
-          <span className="mx-2">•</span>
-          Rolled: {game.rolledNumber} | Chosen: {game.chosenNumber}
+        <div className="text-right">
+          <div className="text-sm text-secondary-400">
+            {new Date(game.timestamp * 1000).toLocaleString()}
+          </div>
+          <div className="text-xs text-secondary-500 mt-1">
+            {game.isWin
+              ? `Won ${ethers.formatEther(game.payout)} GAMA`
+              : "No Payout"}
+          </div>
         </div>
       </div>
-      <div className="text-right">
-        <div className="text-sm text-secondary-400">
-          {new Date(game.timestamp * 1000).toLocaleString()}
-        </div>
-        <div className="text-xs text-secondary-500 mt-1">
-          {game.isWin
-            ? `Won ${ethers.formatEther(game.payout)} GAMA`
-            : "No Payout"}
-        </div>
-      </div>
-    </div>
-  </motion.div>
-);
+    </motion.div>
+  );
+};
 
 const DicePage = ({
   contracts,
@@ -978,7 +1035,7 @@ const DicePage = ({
 }) => {
   const queryClient = useQueryClient();
   const [chosenNumber, setChosenNumber] = useState(null);
-  const [betAmount, setBetAmount] = useState(BigInt(0));
+  const [betAmount, setBetAmount] = useState(BigInt("1000000000000000000")); // Initialize with 1 GAMA
   const [showStats, setShowStats] = useState(false);
   const [gameState, setGameState] = useState({
     isProcessing: false,
@@ -1083,10 +1140,12 @@ const DicePage = ({
     if (gameState.isProcessing) return;
 
     try {
+      // Start processing and rolling immediately
       setGameState((prev) => ({
         ...prev,
         isProcessing: true,
         isRolling: true,
+        lastResult: null, // Clear previous result
       }));
 
       // First check and handle token approval
@@ -1105,6 +1164,8 @@ const DicePage = ({
 
       // Place the bet
       const tx = await contracts.dice.playDice(chosenNumber, betAmount);
+
+      // Keep rolling while waiting for transaction
       const receipt = await tx.wait();
 
       // Get the result from the transaction events
@@ -1125,9 +1186,10 @@ const DicePage = ({
         const [player, chosenNum, rolledNum, betAmt, payout] = event.args;
         const isWin = payout > 0;
 
-        // Update game state with result
+        // First stop rolling, then update with result
         setGameState((prev) => ({
           ...prev,
+          isRolling: false,
           lastResult: Number(rolledNum),
         }));
 
@@ -1147,11 +1209,17 @@ const DicePage = ({
     } catch (error) {
       console.error("Bet placement error:", error);
       handleContractError(error, onError);
+      // Make sure to stop rolling on error
+      setGameState((prev) => ({
+        ...prev,
+        isRolling: false,
+        lastResult: null,
+      }));
     } finally {
+      // Only update isProcessing in finally
       setGameState((prev) => ({
         ...prev,
         isProcessing: false,
-        isRolling: false,
       }));
     }
   };
@@ -1261,7 +1329,9 @@ const DicePage = ({
             <BalancePanel
               userBalance={balanceData?.balance || BigInt(0)}
               allowance={balanceData?.allowance || BigInt(0)}
-              potentialWinnings={betAmount * BigInt(6)}
+              potentialWinnings={
+                betAmount <= BigInt(0) ? BigInt(0) : betAmount * BigInt(6)
+              }
             />
           </div>
 

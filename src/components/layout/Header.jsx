@@ -55,7 +55,7 @@ const Header = () => {
         <NetworkWarning onSwitchNetwork={switchNetwork} />
       )}
 
-      <header className="bg-secondary-900/90 backdrop-blur-sm border-b border-secondary-800 py-4">
+      <header className="bg-secondary-900 border-b border-secondary-800 py-4">
         <div className="container mx-auto px-4 flex justify-between items-center">
           <Link to="/" className="flex items-center">
             <img

@@ -36,7 +36,7 @@ class ErrorBoundary extends Component {
       return this.props.fallback ? (
         this.props.fallback(this.state.error, this.state.errorInfo)
       ) : (
-        <div className="error-boundary glass-panel p-8 text-center my-8">
+        <div className="error-boundary solid-panel p-8 text-center my-8">
           <h2 className="text-2xl font-bold text-red-500 mb-4">
             Something went wrong
           </h2>

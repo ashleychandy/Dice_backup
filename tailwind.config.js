@@ -36,6 +36,7 @@ module.exports = {
         },
         gaming: {
           primary: '#3CB684',
+          'primary-dark': '#2A9A6B',
           accent: '#3CB684',
           success: '#10B981',
           error: '#EF4444',
@@ -52,13 +53,18 @@ module.exports = {
         mono: ['Fira Code', ...defaultTheme.fontFamily.mono],
       },
       boxShadow: {
-        glow: '0 0 15px rgba(60, 182, 132, 0.5)',
-        'glow-lg': '0 0 30px rgba(60, 182, 132, 0.7)',
-        'glow-xl': '0 0 45px rgba(60, 182, 132, 0.9)',
-        glass: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-        'glass-sm': '0 4px 16px 0 rgba(31, 38, 135, 0.37)',
-        'glass-lg': '0 12px 48px 0 rgba(31, 38, 135, 0.37)',
-        'inner-glow': 'inset 0 0 15px rgba(60, 182, 132, 0.5)',
+        'glow-sm': '0 0 8px 2px rgba(255, 70, 85, 0.3)',
+        glow: '0 0 15px 3px rgba(255, 70, 85, 0.4)',
+        'glow-lg': '0 0 25px 5px rgba(255, 70, 85, 0.5)',
+        inner: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
+        DEFAULT:
+          '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+        md: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        lg: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        xl: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+        '2xl': '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        outline: '0 0 0 3px rgba(66, 153, 225, 0.5)',
+        none: 'none',
       },
       backgroundImage: {
         'gradient-gaming':
@@ -170,11 +176,11 @@ module.exports = {
     plugin(({ addComponents, addUtilities }) => {
       addComponents({
         '.btn-gaming': {
-          '@apply bg-gaming-primary text-white px-6 py-3 rounded-lg font-semibold':
+          '@apply bg-gaming-primary text-white font-bold px-6 py-3 rounded-lg':
             {},
-          '@apply transition-all duration-300 ease-in-out': {},
-          '@apply hover:bg-gaming-primary/90 hover:shadow-glow': {},
+          '@apply transition-all duration-300 text-center': {},
           '@apply disabled:opacity-50 disabled:cursor-not-allowed': {},
+          '@apply hover:bg-gaming-primary-dark active:scale-95': {},
           '@apply focus:outline-none focus:ring-2 focus:ring-gaming-primary/50':
             {},
         },
@@ -185,17 +191,17 @@ module.exports = {
             {},
           '@apply placeholder-secondary-500': {},
         },
-        '.glass-panel': {
-          '@apply bg-secondary-900/60 backdrop-blur-lg': {},
+        '.solid-panel': {
+          '@apply bg-secondary-900 rounded-xl': {},
           '@apply border border-secondary-700/50': {},
-          '@apply rounded-xl shadow-glass': {},
+          '@apply shadow-md': {},
         },
         '.stat-card': {
-          '@apply glass-panel p-4 flex flex-col space-y-2': {},
+          '@apply solid-panel p-4 flex flex-col space-y-2': {},
           '@apply hover:scale-105 transition-transform duration-300': {},
         },
         '.game-card': {
-          '@apply glass-panel p-6 flex flex-col space-y-4': {},
+          '@apply solid-panel p-6 flex flex-col space-y-4': {},
           '@apply hover:shadow-glow transition-all duration-300': {},
           '@apply border border-gaming-primary/20': {},
         },
@@ -210,9 +216,6 @@ module.exports = {
           '.scrollbar-gaming': {
             'scrollbar-width': 'thin',
             'scrollbar-color': '#FF4655 #1F2937',
-          },
-          '.backdrop-gaming': {
-            'backdrop-filter': 'blur(16px) brightness(0.9)',
           },
         });
     }),

@@ -47,7 +47,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
         </div>
 
         {balanceLoading && (
-          <div className="glass-panel p-4">
+          <div className="solid-panel p-4">
             <div className="flex items-center justify-center space-x-2">
               <LoadingSpinner size="small" />
               <span className="text-secondary-400">Updating balance...</span>
@@ -57,7 +57,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-8">
-            <div className="glass-panel p-8">
+            <div className="solid-panel p-8">
               <h2 className="text-2xl font-bold mb-8 text-white/90">
                 Place Your Bet
               </h2>
@@ -131,7 +131,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
               </div>
             </div>
 
-            <div className="glass-panel p-8">
+            <div className="solid-panel p-8">
               <h2 className="text-2xl font-bold mb-6 text-white/90">
                 Game Visualization
               </h2>
@@ -144,7 +144,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
           </div>
 
           <div className="space-y-8">
-            <div className="glass-panel p-8">
+            <div className="solid-panel p-8">
               <h2 className="text-2xl font-bold mb-6 text-white/90">
                 Your Balance
               </h2>
@@ -156,7 +156,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
               />
             </div>
 
-            <div className="glass-panel p-8">
+            <div className="solid-panel p-8">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-white/90">
                   {showStats ? 'Game Stats' : 'Game History'}

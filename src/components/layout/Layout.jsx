@@ -10,7 +10,16 @@ const Layout = ({ children, showNetworkWarning = true }) => {
   const switchNetwork = account ? handleSwitchNetwork : connectWallet;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen relative">
+      {/* Background Image */}
+      <div
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat z-0"
+        style={{ backgroundImage: 'url("/assets/bg.jpg")' }}
+      >
+        {/* Optional overlay for better text readability */}
+        <div className="absolute inset-0 bg-black bg-opacity-50"></div>
+      </div>
+
       {showNetworkWarning &&
         chainId &&
         !SUPPORTED_CHAIN_IDS.includes(chainId) && (
@@ -24,7 +33,9 @@ const Layout = ({ children, showNetworkWarning = true }) => {
         switchNetwork={switchNetwork}
       />
 
-      <main className="responsive-container">{children}</main>
+      <main className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {children}
+      </main>
     </div>
   );
 };

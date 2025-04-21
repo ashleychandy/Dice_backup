@@ -16,7 +16,7 @@ const GameHistoryItem = ({ game, index }) => {
       exit={{ opacity: 0, y: -20 }}
       transition={{ delay: index * 0.05 }}
       className={`
-        relative p-4 rounded-xl border backdrop-blur-sm
+        relative p-4 rounded-xl border
         ${
           game.isWin
             ? 'border-gaming-success/20 bg-gaming-success/5'

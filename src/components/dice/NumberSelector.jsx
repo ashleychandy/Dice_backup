@@ -26,7 +26,7 @@ const NumberSelector = ({ value, onChange, disabled = false }) => {
               ${
                 disabled
                   ? 'opacity-60 cursor-not-allowed'
-                  : 'hover:border-gaming-primary/70 hover:shadow-glass-sm'
+                  : 'hover:border-gaming-primary/70 hover:shadow-md'
               }
             `}
           >

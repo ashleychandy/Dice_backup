@@ -17,7 +17,7 @@ const Card = ({
 
   return (
     <Component
-      className={`glass-panel p-6 rounded-2xl ${className}`}
+      className={`solid-panel p-6 rounded-2xl ${className}`}
       {...animationProps}
       {...props}
     >

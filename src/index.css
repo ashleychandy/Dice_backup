@@ -26,28 +26,26 @@
 
   /* Game Elements */
   .dice-container {
-    @apply relative w-full mx-auto transform transition-all duration-300 hover:scale-[1.02] 
-    p-4 rounded-xl border border-secondary-700 hover:border-gaming-primary/50;
-    aspect-ratio: 1 / 1;
+    @apply relative h-64 w-64 mx-auto;
   }
 
   .dice-face {
-    @apply absolute inset-0 rounded-xl border border-secondary-700 
-    shadow-glass transition-all duration-300 p-4;
+    @apply rounded-xl bg-secondary-800 border-2 border-secondary-700 
+    shadow-md transition-all duration-300 p-4;
   }
 
   /* Number Buttons - Preserving original colors for roulette numbers */
   .number-button {
-    @apply aspect-square w-full rounded-xl font-bold flex items-center justify-center 
-    transition-all duration-300 hover:scale-105 shadow-glass-sm 
-    border border-secondary-700 hover:border-gaming-primary/50 text-white;
+    @apply rounded-xl bg-secondary-800 border-2 border-secondary-700 
+    transition-all duration-300 hover:scale-105 shadow-md
+    flex items-center justify-center cursor-pointer;
   }
 
   /* Column Bets */
   .column-bet {
-    @apply text-white rounded-xl border border-secondary-700 hover:border-gaming-primary/50 
-    shadow-glass-sm hover:shadow-glass transition-all duration-300 font-bold text-sm h-full w-[45px] 
-    flex items-center justify-center transform hover:scale-105;
+    @apply rounded-lg bg-secondary-800/80 border border-secondary-700 p-2
+    shadow-md hover:shadow-md transition-all duration-300 font-bold text-sm h-full w-[45px]
+    flex items-center justify-center cursor-pointer;
   }
 
   .column-bet-highlighted {
@@ -56,10 +54,9 @@
 
   /* Chip Styles */
   .chip-stack {
-    @apply absolute -top-3 -right-3 rounded-full min-w-[28px] h-7 px-2.5 
-    flex items-center justify-center text-sm font-bold shadow-glass-sm 
-    border-2 border-secondary-700 backdrop-blur-md transform transition-all duration-300 
-    hover:scale-110 hover:border-gaming-primary z-20;
+    @apply flex flex-col items-center relative border-2 border-secondary-700 rounded-full
+    flex items-center justify-center text-sm font-bold shadow-md
+    -space-y-3 hover:scale-105 transition-all duration-200;
   }
 
   .chip-stack[data-value*='100'],
@@ -73,8 +70,8 @@
 
   /* History Styles */
   .betting-history {
-    @apply mt-8 p-6 rounded-2xl border border-secondary-700 
-    shadow-glass w-full;
+    @apply overflow-y-auto max-h-60 bg-secondary-800/50 rounded-lg border border-secondary-700
+    shadow-md w-full;
   }
 
   .history-list {
@@ -84,10 +81,8 @@
   }
 
   .history-item {
-    @apply relative p-4 rounded-2xl border border-secondary-700 
-    bg-opacity-90
-    transform transition-all duration-300 hover:translate-y-[-2px] 
-    hover:shadow-glass hover:border-gaming-primary/50;
+    @apply p-3 border-b border-secondary-700/50 last:border-b-0 rounded-md
+    hover:bg-secondary-700/50 hover:shadow-md hover:border-gaming-primary/50;
   }
 
   .history-details {
@@ -95,9 +90,8 @@
   }
 
   .history-bet-item {
-    @apply px-3 py-1.5 rounded-lg border border-secondary-700 
-    transition-all duration-300 hover:border-gaming-primary/50 hover:translate-y-[-2px] 
-    hover:shadow-glass-sm;
+    @apply p-2 border border-secondary-700/50 rounded-md
+    hover:shadow-md;
   }
 
   .history-bet-type {
@@ -114,15 +108,15 @@
 
   /* Controls */
   .betting-controls-wrapper {
-    @apply fixed bottom-0 left-0 right-0 p-4 border-t border-secondary-700 
-    shadow-glass backdrop-blur-md z-50;
+    @apply fixed bottom-0 left-0 right-0 p-4 z-10
+    bg-secondary-900 rounded-t-xl border-t border-secondary-700/50
+    shadow-md;
   }
 
   .action-button {
-    @apply px-6 py-3 rounded-xl font-bold text-white transition-all duration-300 
-    shadow-glass-sm hover:shadow-glass hover:scale-105 
-    disabled:opacity-50 disabled:cursor-not-allowed border border-secondary-700 
-    hover:border-gaming-primary/50;
+    @apply bg-secondary-800 hover:bg-secondary-700 rounded-lg p-3
+    shadow-md hover:shadow-md hover:scale-105
+    transition-all duration-300 text-white font-bold;
   }
 
   .action-button-spin {
@@ -168,7 +162,7 @@
 }
 
 @media (min-width: 768px) {
-  .glass-card {
+  .solid-card {
     @apply p-8;
   }
 }
@@ -190,9 +184,9 @@
 }
 
 /* Stats Cards */
-.glass-panel {
-  @apply backdrop-blur-xl rounded-2xl border border-secondary-700/30 
-  shadow-glass w-full;
+.solid-panel {
+  @apply rounded-2xl border border-secondary-700/30 
+  shadow-md w-full;
 }
 
 .stats-grid {

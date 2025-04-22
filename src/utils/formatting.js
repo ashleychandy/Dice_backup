@@ -3,10 +3,10 @@ import { ethers } from 'ethers';
 /**
  * Format token amount to display value
  * @param {BigInt|String|Number} value - Amount in wei
- * @param {Number} decimals - Number of decimals to display
+ * @param {Number} decimals - Number of decimals to display (0 for whole numbers)
  * @returns {String} Formatted amount
  */
-export const formatTokenAmount = (value, decimals = 4) => {
+export const formatTokenAmount = (value, decimals = 0) => {
   if (!value) return '0';
 
   try {
@@ -24,15 +24,19 @@ export const formatTokenAmount = (value, decimals = 4) => {
     // Format with ethers
     const formatted = ethers.formatEther(bigIntValue);
 
-    // Limit decimal places
-    if (decimals > 0) {
-      const parts = formatted.split('.');
-      if (parts.length === 2) {
-        return `${parts[0]}.${parts[1].substring(0, decimals)}`;
-      }
+    // If decimals is 0, return only the whole number part
+    if (decimals === 0) {
+      const wholePart = formatted.split('.')[0];
+      return wholePart;
     }
 
-    return formatted;
+    // Otherwise, limit decimal places as requested
+    const parts = formatted.split('.');
+    if (parts.length === 2) {
+      return `${parts[0]}.${parts[1].substring(0, decimals)}`;
+    }
+
+    return parts[0];
   } catch (error) {
     console.error('Error formatting token amount:', error);
     return '0';
@@ -41,21 +45,25 @@ export const formatTokenAmount = (value, decimals = 4) => {
 
 /**
  * Parse string input to token amount in wei
- * @param {String} input - Input string representing amount
+ * @param {String} input - Input string representing amount (whole numbers only)
  * @returns {BigInt} Amount in wei
  */
 export const parseTokenAmount = input => {
   if (!input || input === '') return BigInt(0);
 
   try {
-    // Remove all non-numeric characters except decimal point
-    const sanitized = input.replace(/[^0-9.]/g, '');
+    // Only allow digits (whole numbers)
+    const sanitized = input.replace(/[^\d]/g, '');
 
-    // Handle multiple decimal points
-    const parts = sanitized.split('.');
-    const cleanInput = parts[0] + (parts.length > 1 ? '.' + parts[1] : '');
+    // Debug logs
+    console.log('parseTokenAmount:', {
+      input,
+      sanitized,
+      result: `${sanitized} * 10^18`,
+    });
 
-    return ethers.parseEther(cleanInput);
+    // Convert to whole token amount (no decimals)
+    return BigInt(sanitized) * BigInt(10) ** BigInt(18);
   } catch (error) {
     console.error('Error parsing token amount:', error);
     return BigInt(0);
@@ -110,5 +118,31 @@ export const calculatePercentage = (value, percentage) => {
   } catch (error) {
     console.error('Error calculating percentage:', error);
     return BigInt(0);
+  }
+};
+
+/**
+ * Format dice roll result for display, handling special result codes
+ * @param {Number} result - Dice roll result (1-6 or special code)
+ * @returns {String} Formatted result
+ */
+export const formatDiceResult = result => {
+  if (!result && result !== 0) return '?';
+
+  const num = Number(result);
+
+  // Regular dice roll (1-6)
+  if (num >= 1 && num <= 6) {
+    return num.toString();
+  }
+
+  // Special result codes
+  switch (num) {
+    case 254: // RESULT_FORCE_STOPPED
+      return '⚠️';
+    case 255: // RESULT_RECOVERED
+      return '♻️';
+    default:
+      return num > 250 ? '⚠️' : num.toString();
   }
 };

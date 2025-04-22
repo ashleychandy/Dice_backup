@@ -54,7 +54,7 @@ export const NotificationProvider = ({ children }) => {
   return (
     <NotificationContext.Provider value={value}>
       {children}
-      <div className="fixed bottom-0 right-0 p-4 space-y-4 z-50">
+      <div className="fixed bottom-0 right-0 p-4 flex flex-col gap-3 items-end z-50">
         <AnimatePresence>
           {toasts.map(toast => (
             <Toast

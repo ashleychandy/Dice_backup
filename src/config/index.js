@@ -11,12 +11,9 @@ export const NETWORK_CONFIG = {
     chainId: 50,
     name: 'XDC Mainnet',
     contracts: {
-      token:
-        import.meta.env.VITE_TOKEN_ADDRESS ||
-        '0x678adf7955d8f6dcaa9e2fcc1c5ba70bccc464e6',
-      dice:
-        import.meta.env.VITE_DICE_ADDRESS ||
-        '0x1234567890123456789012345678901234567890',
+      // Use environment variables for contract addresses
+      token: import.meta.env.VITE_TOKEN_ADDRESS || '',
+      dice: import.meta.env.VITE_DICE_ADDRESS || '',
     },
     explorer: 'https://explorer.xinfin.network',
     dexUrl: 'https://app.weswap.io/#/swap',
@@ -27,12 +24,9 @@ export const NETWORK_CONFIG = {
     chainId: 51,
     name: 'XDC Apothem Testnet',
     contracts: {
-      token:
-        import.meta.env.VITE_APOTHEM_TOKEN_ADDRESS ||
-        '0x0ea258D9A0D2C515e33aA26b860B6A8907Bf283C',
-      dice:
-        import.meta.env.VITE_APOTHEM_DICE_ADDRESS ||
-        '0x197425beDa4EcF114ED5eAec4C362bDA2F70B605',
+      // Use environment variables for contract addresses
+      token: import.meta.env.VITE_APOTHEM_TOKEN_ADDRESS || '',
+      dice: import.meta.env.VITE_APOTHEM_DICE_ADDRESS || '',
     },
     explorer: 'https://explorer.apothem.network',
     dexUrl: 'https://app-apothem.weswap.io/#/swap',
@@ -45,7 +39,7 @@ export const SUPPORTED_CHAIN_IDS = Object.values(NETWORK_CONFIG).map(
 );
 
 // Default network
-export const DEFAULT_NETWORK = 'mainnet';
+export const DEFAULT_NETWORK = 'apothem';
 
 // API configuration
 export const API_CONFIG = {

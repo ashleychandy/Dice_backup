@@ -33,8 +33,21 @@ const Navbar = ({ account, chainId, handleLogout, switchNetwork }) => {
     };
   }, []);
 
+  // Handle network switching with specific network types
+  const handleSwitchNetwork = async networkType => {
+    try {
+      if (typeof switchNetwork === 'function') {
+        await switchNetwork(networkType);
+      } else {
+        console.error('switchNetwork is not a function');
+      }
+    } catch (error) {
+      console.error('Error switching network:', error);
+    }
+  };
+
   return (
-    <header className="px-6 border-b border-[#22AD74]/20 bg-white sticky top-0 z-50 shadow-sm">
+    <header className="px-6 border-b border-[#22AD74]/20 bg-white sticky top-0 z-50 shadow-sm w-full">
       <div className="max-w-7xl mx-auto flex justify-between items-center h-16">
         <div className="flex items-center">
           <a
@@ -118,7 +131,7 @@ const Navbar = ({ account, chainId, handleLogout, switchNetwork }) => {
                   >
                     <button
                       onClick={() => {
-                        switchNetwork('mainnet');
+                        handleSwitchNetwork('mainnet');
                         setDropdownOpen(false);
                       }}
                       className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-[#22AD74]/5 flex items-center gap-2"
@@ -132,7 +145,7 @@ const Navbar = ({ account, chainId, handleLogout, switchNetwork }) => {
                     </button>
                     <button
                       onClick={() => {
-                        switchNetwork('testnet');
+                        handleSwitchNetwork('apothem');
                         setDropdownOpen(false);
                       }}
                       className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-[#22AD74]/5 flex items-center gap-2"

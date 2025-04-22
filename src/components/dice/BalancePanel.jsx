@@ -1,19 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ethers } from 'ethers';
 
-const BalancePanel = ({ userBalance, allowance, potentialWinnings }) => {
+const BalancePanel = ({
+  userBalance,
+  allowance,
+  potentialWinnings,
+  betAmount = BigInt(0),
+}) => {
   const [showDetails, setShowDetails] = useState(false);
+
+  // Debug logs for incoming prop values
+  useEffect(() => {
+    console.log('BalancePanel - Props received:', {
+      userBalance: userBalance ? userBalance.toString() : 'undefined',
+      allowance: allowance ? allowance.toString() : 'undefined',
+      potentialWinnings: potentialWinnings
+        ? potentialWinnings.toString()
+        : 'undefined',
+      betAmount: betAmount ? betAmount.toString() : '0',
+    });
+  }, [userBalance, allowance, potentialWinnings, betAmount]);
 
   // Safe formatting function for ethers values
   const safeFormatEther = value => {
     if (!value || typeof value === 'undefined') return '0';
     try {
-      return ethers.formatEther(value.toString());
+      console.log('safeFormatEther - input:', value.toString());
+      const formatted = ethers.formatEther(value.toString());
+      console.log('safeFormatEther - output:', formatted);
+      return formatted;
     } catch (error) {
-      console.error('Error formatting ether value:', error);
+      console.error(
+        'Error formatting ether value:',
+        error,
+        'Value was:',
+        value
+      );
       return '0';
     }
+  };
+
+  // Check if approval is sufficient for the current bet amount
+  const isApprovalSufficient = () => {
+    if (!allowance) return false;
+    if (betAmount <= BigInt(0)) return allowance > BigInt(0);
+    const isSufficient = allowance >= betAmount;
+    console.log(
+      'isApprovalSufficient:',
+      isSufficient,
+      'allowance:',
+      allowance.toString(),
+      'betAmount:',
+      betAmount.toString()
+    );
+    return isSufficient;
   };
 
   const balanceItems = [
@@ -38,10 +79,10 @@ const BalancePanel = ({ userBalance, allowance, potentialWinnings }) => {
     },
     {
       label: 'Token Allowance',
-      value: (allowance || 0) > 0 ? 'Approved' : 'Not Approved',
+      value: isApprovalSufficient() ? 'Approved' : 'Not Approved',
       icon: (
         <svg
-          className="w-5 h-5"
+          className={`w-5 h-5 ${isApprovalSufficient() ? 'text-green-500' : 'text-red-500'}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -50,7 +91,11 @@ const BalancePanel = ({ userBalance, allowance, potentialWinnings }) => {
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={2}
-            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            d={
+              isApprovalSufficient()
+                ? 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+                : 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+            }
           />
         </svg>
       ),
@@ -84,12 +129,17 @@ const BalancePanel = ({ userBalance, allowance, potentialWinnings }) => {
     const numValue = parseFloat(value);
     if (isNaN(numValue) || numValue < 1) return '0';
 
+    console.log('formatValue - input:', value, 'parsed:', numValue);
+
     // Format with commas for thousands and preserve significant digits
-    return new Intl.NumberFormat('en-US', {
+    const formatted = new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0, // No decimals for GAMA tokens
       useGrouping: true, // Use thousand separators
     }).format(numValue);
+
+    console.log('formatValue - output:', formatted);
+    return formatted;
   };
 
   return (

@@ -6,8 +6,8 @@ const Toast = ({ message, type, onClose }) => (
     initial={{ opacity: 0, y: 50 }}
     animate={{ opacity: 1, y: 0 }}
     exit={{ opacity: 0, y: 20 }}
-    className={`fixed bottom-4 right-4 max-w-md w-full mx-4 p-4 rounded-xl shadow-xl 
-                border transition-all duration-300 z-50
+    className={`max-w-md w-full p-4 rounded-xl shadow-xl 
+                border transition-all duration-300
                 ${
                   type === 'success'
                     ? 'bg-gaming-success/10 border-gaming-success/30'

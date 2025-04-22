@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../ui/Button';
 import { useWallet } from '../../contexts/WalletContext';
 import { truncateAddress } from '../../utils/formatting';
+import ConnectWalletButton from '../wallet/ConnectWalletButton';
+import WalletStatus from '../wallet/WalletStatus';
 
 const NetworkWarning = ({ onSwitchNetwork }) => (
   <div className="bg-gaming-error/90 text-white px-4 py-2 text-center">
@@ -21,7 +23,7 @@ const NetworkWarning = ({ onSwitchNetwork }) => (
       </Button>
       <Button
         size="sm"
-        onClick={() => onSwitchNetwork('testnet')}
+        onClick={() => onSwitchNetwork('apothem')}
         className="bg-white/20 hover:bg-white/30"
       >
         Switch to Apothem Testnet
@@ -33,10 +35,10 @@ const NetworkWarning = ({ onSwitchNetwork }) => (
 const Header = () => {
   const {
     account,
+    chainId,
     isNetworkSupported,
-    connectWallet,
-    disconnectWallet,
-    switchNetwork,
+    handleLogout,
+    handleSwitchNetwork,
     isConnecting,
   } = useWallet();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -49,10 +51,26 @@ const Header = () => {
     setIsDropdownOpen(false);
   };
 
+  // Determine the current network
+  const getNetworkName = () => {
+    if (!chainId) return null;
+
+    switch (chainId) {
+      case 50:
+        return { name: 'XDC Mainnet', color: 'text-green-400' };
+      case 51:
+        return { name: 'Apothem Testnet', color: 'text-blue-400' };
+      default:
+        return { name: `Chain ID: ${chainId}`, color: 'text-red-400' };
+    }
+  };
+
+  const network = getNetworkName();
+
   return (
     <>
       {!isNetworkSupported && account && (
-        <NetworkWarning onSwitchNetwork={switchNetwork} />
+        <NetworkWarning onSwitchNetwork={handleSwitchNetwork} />
       )}
 
       <header className="bg-secondary-900 border-b border-secondary-800 py-4">
@@ -67,6 +85,11 @@ const Header = () => {
           </Link>
 
           <div className="flex items-center space-x-4">
+            {/* Display wallet status for mobile and desktop */}
+            <div className="hidden md:block">
+              <WalletStatus />
+            </div>
+
             {account ? (
               <div className="relative">
                 <button
@@ -74,6 +97,11 @@ const Header = () => {
                   className="flex items-center bg-secondary-800 hover:bg-secondary-700 
                             transition-colors duration-300 rounded-xl py-2 px-4 text-white"
                 >
+                  {network && (
+                    <span className={`text-xs mr-2 ${network.color}`}>
+                      {network.name}
+                    </span>
+                  )}
                   <span className="mr-2">{truncateAddress(account)}</span>
                   <svg
                     className={`w-4 h-4 transition-transform duration-300 ${
@@ -101,12 +129,33 @@ const Header = () => {
                       transition={{ duration: 0.2 }}
                       className="absolute right-0 mt-2 w-48 bg-secondary-800 rounded-xl shadow-xl border border-secondary-700 z-50"
                     >
+                      {chainId === 50 ? (
+                        <button
+                          onClick={() => {
+                            handleSwitchNetwork('apothem');
+                            closeDropdown();
+                          }}
+                          className="w-full text-left px-4 py-3 hover:bg-secondary-700 transition-colors rounded-t-xl text-white/90"
+                        >
+                          Switch to Apothem Testnet
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            handleSwitchNetwork('mainnet');
+                            closeDropdown();
+                          }}
+                          className="w-full text-left px-4 py-3 hover:bg-secondary-700 transition-colors rounded-t-xl text-white/90"
+                        >
+                          Switch to XDC Mainnet
+                        </button>
+                      )}
                       <button
                         onClick={() => {
-                          disconnectWallet();
+                          handleLogout();
                           closeDropdown();
                         }}
-                        className="w-full text-left px-4 py-3 hover:bg-secondary-700 transition-colors rounded-xl text-white/90"
+                        className="w-full text-left px-4 py-3 hover:bg-secondary-700 transition-colors rounded-b-xl text-white/90"
                       >
                         Disconnect Wallet
                       </button>
@@ -115,13 +164,7 @@ const Header = () => {
                 </AnimatePresence>
               </div>
             ) : (
-              <Button
-                onClick={connectWallet}
-                isLoading={isConnecting}
-                variant="primary"
-              >
-                Connect Wallet
-              </Button>
+              <ConnectWalletButton />
             )}
           </div>
         </div>

@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 
 const variants = {
-  primary: 'bg-gaming-primary hover:bg-gaming-primary/90 text-white',
+  primary: 'bg-green-600 hover:bg-green-700 text-white',
   secondary: 'bg-secondary-800 hover:bg-secondary-700 text-white',
   danger: 'bg-gaming-error hover:bg-gaming-error/90 text-white',
   success: 'bg-gaming-success hover:bg-gaming-success/90 text-white',
@@ -10,7 +10,7 @@ const variants = {
   info: 'bg-gaming-info hover:bg-gaming-info/90 text-white',
   ghost: 'bg-transparent hover:bg-secondary-800 text-white',
   outline:
-    'bg-transparent border border-secondary-700 hover:border-gaming-primary text-white',
+    'bg-transparent border border-secondary-700 hover:border-green-600 text-white',
 };
 
 const sizes = {

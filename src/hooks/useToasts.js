@@ -23,15 +23,30 @@ export const useToasts = () => {
     (message, type = 'info', duration = 5000) => {
       const id = Date.now().toString();
 
-      setToasts(prevToasts => [
-        ...prevToasts,
-        {
-          id,
-          message,
-          type,
-          duration,
-        },
-      ]);
+      setToasts(prevToasts => {
+        // Check for duplicate message
+        const existingToast = prevToasts.find(
+          toast => toast.message === message
+        );
+        if (existingToast) {
+          // Return the same array if message already exists
+          return prevToasts;
+        }
+
+        // Add new toast and limit to 5 maximum
+        const newToasts = [
+          ...prevToasts,
+          {
+            id,
+            message,
+            type,
+            duration,
+          },
+        ];
+
+        // Keep only the most recent 5 toasts
+        return newToasts.slice(-5);
+      });
 
       // Auto-remove toast after duration (if not persistent)
       if (duration > 0) {

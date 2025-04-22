@@ -1,15 +1,20 @@
 import React from 'react';
 
-const FilterButton = ({ children, active, onClick }) => (
+const FilterButton = ({ onClick, active, count, children }) => (
   <button
     onClick={onClick}
-    className={`px-3 py-1 rounded-lg text-sm transition-colors ${
+    className={`px-3 py-1 rounded-lg text-sm transition-colors flex items-center ${
       active
-        ? 'bg-gaming-primary text-white'
-        : 'bg-gaming-primary/20 text-gaming-primary hover:bg-gaming-primary/30'
+        ? 'bg-green-600 text-white'
+        : 'bg-green-600/20 text-green-700 hover:bg-green-600/30'
     }`}
   >
-    {children}
+    <span>{children}</span>
+    {count !== undefined && (
+      <span className="ml-1 rounded-full bg-black/20 text-xs px-1.5 py-0.5 min-w-[20px] text-center">
+        {count}
+      </span>
+    )}
   </button>
 );
 

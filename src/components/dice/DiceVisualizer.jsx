@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
-import { formatDiceResult } from '../../utils/formatting';
+import { ethers } from 'ethers';
 
 // Special result constants
 const RESULT_FORCE_STOPPED = 254;
@@ -14,23 +14,51 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
   // Animation and state management
   const [showResultAnimation, setShowResultAnimation] = useState(false);
   const [betOutcome, setBetOutcome] = useState(null); // 'win', 'lose', 'recovered', 'forceStopped' or null
-  const [showWinConfetti, setShowWinConfetti] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
   const [rollCount, setRollCount] = useState(0);
   const confettiTimeoutsRef = useRef([]);
   const animationTimeoutsRef = useRef([]);
 
+  // Helper function to get a random dice number for animation
+  const getRandomDiceNumber = () => Math.floor(Math.random() * 6) + 1;
+
+  // Extract the rolled number from result object if needed
+  const rolledNumber = useMemo(() => {
+    if (result === null) return null;
+
+    // If result is a number, use it directly
+    if (typeof result === 'number') return result;
+
+    // If result is an object with rolledNumber property, use that
+    if (result.rolledNumber !== undefined) return result.rolledNumber;
+
+    // Handle other properties that might contain the result
+    if (result.result !== undefined) return result.result;
+
+    // Default fallback
+    return null;
+  }, [result]);
+
+  // Get a random dice number for animation that varies each time
+  const randomDiceNumber = useMemo(() => {
+    return getRandomDiceNumber();
+    // We intentionally only want to recalculate when rollCount changes,
+    // which happens during the rolling animation
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rollCount]);
+
   // Check if result is a special code
   const isSpecialResult =
-    result === RESULT_FORCE_STOPPED || result === RESULT_RECOVERED;
+    rolledNumber === RESULT_FORCE_STOPPED || rolledNumber === RESULT_RECOVERED;
 
   // Get dice number to display
   const getDisplayNumber = () => {
-    if (result !== null) {
+    if (rolledNumber !== null) {
       // If we have a result, validate it
-      if (result >= 1 && result <= 6) {
-        return result; // Normal dice number
+      if (rolledNumber >= 1 && rolledNumber <= 6) {
+        return rolledNumber; // Normal dice number
       } else if (isSpecialResult) {
-        return result; // Special result code
+        return rolledNumber; // Special result code
       }
       return 1; // Default fallback
     }
@@ -72,17 +100,18 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
   useEffect(() => {
     clearAllTimeouts();
 
-    if (result !== null && !isRolling) {
+    if (rolledNumber !== null && !isRolling) {
       // Determine outcome based on result
       let outcome;
 
-      if (result === RESULT_RECOVERED) {
+      if (rolledNumber === RESULT_RECOVERED) {
         outcome = 'recovered';
-      } else if (result === RESULT_FORCE_STOPPED) {
+      } else if (rolledNumber === RESULT_FORCE_STOPPED) {
         outcome = 'forceStopped';
       } else {
         // Normal game result
-        outcome = result === chosenNumber ? 'win' : 'lose';
+        const isWin = result?.isWin || rolledNumber === chosenNumber;
+        outcome = isWin ? 'win' : 'lose';
       }
 
       // Short delay to show the dice face before showing result animation
@@ -91,7 +120,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
         setBetOutcome(outcome);
 
         if (outcome === 'win') {
-          setShowWinConfetti(true);
+          setShowConfetti(true);
 
           // Enhanced confetti effect with smoother particle distribution
           const launchConfetti = () => {
@@ -156,7 +185,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       // Hide animations after a delay
       const hideAnimationsDelay = setTimeout(() => {
         setShowResultAnimation(false);
-        setShowWinConfetti(false);
+        setShowConfetti(false);
       }, 4000);
 
       // Store animation timeout IDs for cleanup
@@ -164,23 +193,17 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     } else {
       // Reset animations when not showing a result
       setShowResultAnimation(false);
-      setShowWinConfetti(false);
+      setShowConfetti(false);
       setBetOutcome(null);
     }
 
     // Clean up all timeouts on unmount or when dependencies change
     return clearAllTimeouts;
-  }, [result, chosenNumber, isRolling]);
+  }, [result, rolledNumber, chosenNumber, isRolling]);
 
   // Render a single dot for the dice face
   const renderDot = (size = 'w-2 h-2') => (
-    <div
-      className={`${size} bg-white rounded-full`}
-      style={{
-        boxShadow:
-          'inset 0 2px 3px rgba(0, 0, 0, 0.2), 0 1px 1px rgba(255, 255, 255, 0.3)',
-      }}
-    />
+    <div className={`${size} dice-dot`} />
   );
 
   // Render the dice face with dots
@@ -204,98 +227,110 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     const dotConfigurations = {
       1: (
         <div className="absolute inset-0 flex items-center justify-center">
-          {renderDot('w-5 h-5')}
+          {renderDot('w-6 h-6')}
         </div>
       ),
       2: (
-        <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 p-4">
-          <div className="flex items-center justify-center">
-            {renderDot('w-4 h-4')}
-          </div>
-          <div className="flex items-center justify-center"></div>
-          <div className="flex items-center justify-center"></div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-4 h-4')}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="grid grid-cols-2 grid-rows-2 gap-2 w-full h-full p-4">
+            <div className="flex items-start justify-start">
+              {renderDot('w-5 h-5')}
+            </div>
+            <div className="flex items-end justify-end">
+              {renderDot('w-5 h-5')}
+            </div>
           </div>
         </div>
       ),
       3: (
-        <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 p-3">
-          <div className="flex items-center justify-center">
-            {renderDot('w-3 h-3')}
-          </div>
-          <div className="flex items-center justify-center"></div>
-          <div className="flex items-center justify-center"></div>
-          <div className="flex items-center justify-center"></div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-3 h-3')}
-          </div>
-          <div className="flex items-center justify-center"></div>
-          <div className="flex items-center justify-center"></div>
-          <div className="flex items-center justify-center"></div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-3 h-3')}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="grid grid-cols-3 grid-rows-3 gap-1 w-full h-full p-3">
+            <div className="flex items-start justify-start">
+              {renderDot('w-4 h-4')}
+            </div>
+            <div></div>
+            <div className="flex items-start justify-end">
+              {renderDot('w-4 h-4')}
+            </div>
+            <div></div>
+            <div className="flex items-center justify-center">
+              {renderDot('w-4 h-4')}
+            </div>
+            <div></div>
+            <div className="flex items-end justify-start">
+              {renderDot('w-4 h-4')}
+            </div>
+            <div></div>
+            <div className="flex items-end justify-end">
+              {renderDot('w-4 h-4')}
+            </div>
           </div>
         </div>
       ),
       4: (
-        <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 p-4">
-          <div className="flex items-center justify-center">
-            {renderDot('w-4 h-4')}
-          </div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-4 h-4')}
-          </div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-4 h-4')}
-          </div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-4 h-4')}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="grid grid-cols-2 grid-rows-2 gap-2 w-full h-full p-4">
+            <div className="flex items-start justify-start">
+              {renderDot('w-5 h-5')}
+            </div>
+            <div className="flex items-start justify-end">
+              {renderDot('w-5 h-5')}
+            </div>
+            <div className="flex items-end justify-start">
+              {renderDot('w-5 h-5')}
+            </div>
+            <div className="flex items-end justify-end">
+              {renderDot('w-5 h-5')}
+            </div>
           </div>
         </div>
       ),
       5: (
-        <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 p-3">
-          <div className="flex items-center justify-center">
-            {renderDot('w-3 h-3')}
-          </div>
-          <div className="flex items-center justify-center"></div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-3 h-3')}
-          </div>
-          <div className="flex items-center justify-center"></div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-3 h-3')}
-          </div>
-          <div className="flex items-center justify-center"></div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-3 h-3')}
-          </div>
-          <div className="flex items-center justify-center"></div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-3 h-3')}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="grid grid-cols-3 grid-rows-3 gap-1 w-full h-full p-3">
+            <div className="flex items-start justify-start">
+              {renderDot('w-4 h-4')}
+            </div>
+            <div></div>
+            <div className="flex items-start justify-end">
+              {renderDot('w-4 h-4')}
+            </div>
+            <div></div>
+            <div className="flex items-center justify-center">
+              {renderDot('w-4 h-4')}
+            </div>
+            <div></div>
+            <div className="flex items-end justify-start">
+              {renderDot('w-4 h-4')}
+            </div>
+            <div></div>
+            <div className="flex items-end justify-end">
+              {renderDot('w-4 h-4')}
+            </div>
           </div>
         </div>
       ),
       6: (
-        <div className="absolute inset-0 grid grid-cols-2 grid-rows-3 p-4">
-          <div className="flex items-center justify-center">
-            {renderDot('w-3 h-3')}
-          </div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-3 h-3')}
-          </div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-3 h-3')}
-          </div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-3 h-3')}
-          </div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-3 h-3')}
-          </div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-3 h-3')}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="grid grid-cols-2 grid-rows-3 gap-2 w-full h-full p-4">
+            <div className="flex items-start justify-start">
+              {renderDot('w-4 h-4')}
+            </div>
+            <div className="flex items-start justify-end">
+              {renderDot('w-4 h-4')}
+            </div>
+            <div className="flex items-center justify-start">
+              {renderDot('w-4 h-4')}
+            </div>
+            <div className="flex items-center justify-end">
+              {renderDot('w-4 h-4')}
+            </div>
+            <div className="flex items-end justify-start">
+              {renderDot('w-4 h-4')}
+            </div>
+            <div className="flex items-end justify-end">
+              {renderDot('w-4 h-4')}
+            </div>
           </div>
         </div>
       ),
@@ -305,15 +340,12 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     return dotConfigurations[number] || dotConfigurations[1];
   };
 
-  // Get a random dice number for animation
-  const getRandomDiceNumber = () => Math.floor(Math.random() * 6) + 1;
-
   // Get text to display for special results
   const getSpecialResultText = () => {
-    if (result === RESULT_RECOVERED) {
+    if (rolledNumber === RESULT_RECOVERED) {
       return 'Game Recovered';
     }
-    if (result === RESULT_FORCE_STOPPED) {
+    if (rolledNumber === RESULT_FORCE_STOPPED) {
       return 'Game Stopped';
     }
     return '';
@@ -321,71 +353,74 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
 
   return (
     <div className="dice-container">
-      <div className="relative w-full h-32 md:h-48">
-        {/* Main Dice */}
-        <motion.div
-          initial={{ scale: 1 }}
-          animate={{
-            scale: isRolling ? [1, 0.9, 1.1, 0.95, 1.05, 1] : 1,
-            rotate: isRolling ? [0, -10, 20, -15, 5, 0] : 0,
-          }}
-          transition={{
-            duration: isRolling ? 0.5 : 0.3,
-            ease: 'easeInOut',
-            repeat: isRolling ? Infinity : 0,
-          }}
-          className="dice-face bg-gray-800 shadow-lg"
-        >
-          {isRolling ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              {renderDiceFace(getRandomDiceNumber())}
-            </div>
-          ) : (
-            renderDiceFace(getDisplayNumber())
-          )}
-        </motion.div>
+      {/* Main Dice */}
+      <motion.div
+        initial={{ scale: 1 }}
+        animate={{
+          scale: isRolling && !rolledNumber ? [1, 0.9, 1.1, 0.95, 1.05, 1] : 1,
+          rotate: isRolling && !rolledNumber ? [0, -10, 20, -15, 5, 0] : 0,
+        }}
+        transition={{
+          duration: isRolling ? 0.5 : 0.3,
+          ease: 'easeInOut',
+          repeat: isRolling && !rolledNumber ? Infinity : 0,
+        }}
+        className="dice-face"
+      >
+        {isRolling && !rolledNumber ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            {renderDiceFace(randomDiceNumber)}
+          </div>
+        ) : (
+          renderDiceFace(getDisplayNumber())
+        )}
+      </motion.div>
 
-        {/* Win/Lose Overlay */}
-        <AnimatePresence>
-          {showResultAnimation && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.3 }}
-              className="absolute inset-0 flex items-center justify-center"
+      {/* Confetti Animation */}
+      {showConfetti && <div className="absolute inset-0 pointer-events-none" />}
+
+      {/* Win/Lose Overlay */}
+      <AnimatePresence>
+        {showResultAnimation && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.3 }}
+            className="absolute inset-0 flex items-center justify-center"
+            style={{ zIndex: 10 }}
+          >
+            <div
+              className={`text-center p-4 rounded-xl flex flex-col items-center justify-center shadow-xl
+                ${
+                  betOutcome === 'win'
+                    ? 'bg-gaming-success text-white'
+                    : betOutcome === 'lose'
+                      ? 'bg-gaming-error text-white'
+                      : 'bg-blue-500 text-white'
+                }`}
+              style={{ maxWidth: '80%' }}
             >
-              <div
-                className={`text-center p-4 rounded-xl flex flex-col items-center justify-center shadow-xl
-                  ${
-                    betOutcome === 'win'
-                      ? 'bg-gaming-success text-white'
-                      : betOutcome === 'lose'
-                        ? 'bg-gaming-error text-white'
-                        : 'bg-blue-500 text-white'
-                  }`}
-              >
-                <div className="text-xl md:text-3xl font-bold mb-1">
-                  {betOutcome === 'win'
-                    ? 'Winner!'
-                    : betOutcome === 'lose'
-                      ? 'Try Again!'
-                      : getSpecialResultText()}
-                </div>
-                <div className="text-sm md:text-base opacity-90">
-                  {betOutcome === 'win'
-                    ? 'Congratulations!'
-                    : betOutcome === 'lose'
-                      ? 'Better luck next time'
-                      : betOutcome === 'recovered'
-                        ? 'Game refunded'
-                        : 'Game ended'}
-                </div>
+              <div className="text-xl md:text-3xl font-bold mb-1">
+                {betOutcome === 'win'
+                  ? 'Winner!'
+                  : betOutcome === 'lose'
+                    ? 'Try Again!'
+                    : getSpecialResultText()}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+              <div className="text-sm md:text-base opacity-90">
+                {betOutcome === 'win'
+                  ? `Congratulations! ${result?.payout ? `+${ethers.formatEther(result.payout).slice(0, 6)} GAMA` : ''}`
+                  : betOutcome === 'lose'
+                    ? 'Better luck next time'
+                    : betOutcome === 'recovered'
+                      ? 'Game refunded'
+                      : 'Game ended'}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

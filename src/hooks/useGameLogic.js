@@ -299,7 +299,11 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           const isWin = payout > 0;
 
           setRollingState(false);
-          setLastResult(Number(rolledNum));
+          setLastResult({
+            rolledNumber: Number(rolledNum),
+            isWin,
+            payout,
+          });
 
           // Show appropriate message
           addToast(

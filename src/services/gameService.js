@@ -336,27 +336,6 @@ class GameService {
             'GameService.getGameHistory: Raw bet structure of first item:',
             this.safeSerialize(bets[0])
           );
-          // Check if the structure matches what we expect
-          const expectedFields = [
-            'timestamp',
-            'betNumber',
-            'betAmount',
-            'result',
-            'payout',
-          ];
-          const missingFields = expectedFields.filter(
-            field => bets[0][field] === undefined
-          );
-          if (missingFields.length > 0) {
-            console.warn(
-              'GameService.getGameHistory: Missing expected fields in bet data:',
-              missingFields
-            );
-            console.log(
-              'GameService.getGameHistory: Available fields:',
-              Object.keys(bets[0])
-            );
-          }
         }
       } catch (error) {
         console.error(
@@ -371,12 +350,6 @@ class GameService {
           );
           bets = this._generateTestBetHistory(account);
           usedTestData = true;
-        }
-        // Special handling for certain error cases
-        if (error.code === 'CALL_EXCEPTION') {
-          console.log(
-            "GameService.getGameHistory: Contract call exception, likely method doesn't exist"
-          );
         }
       }
 
@@ -402,48 +375,29 @@ class GameService {
               this.safeSerialize(bet)
             );
 
-            // Extract bet data - handle both object and array formats with safeguards
-            let timestamp, betNumber, betAmount, result, payout;
+            // The contract returns BetHistory structs which have these fields:
+            // - chosenNumber (uint8)
+            // - rolledNumber (uint8)
+            // - timestamp (uint32)
+            // - amount (uint256)
+            // - payout (uint256)
 
-            // Handle object format
-            if (bet && typeof bet === 'object' && !Array.isArray(bet)) {
-              timestamp = bet.timestamp || bet[0] || 0;
-              betNumber = bet.betNumber || bet.chosenNumber || bet[1] || 0;
-              betAmount = bet.betAmount || bet.amount || bet[2] || 0;
-              result = bet.result || bet.rolledNumber || bet[3] || 0;
-              payout = bet.payout || bet[4] || 0;
-            }
-            // Handle array format
-            else if (Array.isArray(bet)) {
-              // Depending on contract, array indices might be different
-              timestamp = bet[0] || 0; // Or bet[2] in some contracts
-              betNumber = bet[1] || 0;
-              betAmount = bet[2] || 0; // Or bet[3] in some contracts
-              result = bet[3] || 0;
-              payout = bet[4] || 0;
-            }
-            // Last resort fallback
-            else {
-              console.error(
-                'GameService.getGameHistory: Unable to process bet, invalid format:',
-                bet
-              );
-              continue; // Skip this bet
-            }
-
-            // Convert to proper types
-            timestamp = Number(timestamp.toString());
-            betNumber = Number(betNumber.toString());
-            result = Number(result.toString());
-            // Keep betAmount and payout as strings for BigInt operations
-            betAmount = betAmount.toString();
-            payout = payout.toString();
+            // Access fields directly without trying to guess the format
+            const chosenNumber = Number(bet.chosenNumber || 0);
+            const rolledNumber = Number(bet.rolledNumber || 0);
+            const timestamp = Number(bet.timestamp || 0);
+            const amount = bet.amount ? bet.amount.toString() : '0';
+            const payout = bet.payout ? bet.payout.toString() : '0';
 
             // Calculate if this is a winning bet
-            const isWin = Number(result) === Number(betNumber);
-            const isRecovered = Number(result) === Number(RESULT_RECOVERED);
+            const isWin =
+              rolledNumber === chosenNumber &&
+              rolledNumber >= 1 &&
+              rolledNumber <= 6;
+
+            const isRecovered = rolledNumber === Number(RESULT_RECOVERED);
             const isForceStopped =
-              Number(result) === Number(RESULT_FORCE_STOPPED);
+              rolledNumber === Number(RESULT_FORCE_STOPPED);
             const isSpecialResult = isRecovered || isForceStopped;
 
             // Increment counters
@@ -455,10 +409,10 @@ class GameService {
             // Add processed bet to array
             processedBets.push({
               timestamp: timestamp.toString(),
-              chosenNumber: betNumber.toString(),
-              rolledNumber: result.toString(),
-              amount: betAmount,
-              payout: payout,
+              chosenNumber: chosenNumber.toString(),
+              rolledNumber: rolledNumber.toString(),
+              amount,
+              payout,
               isWin,
               isRecovered,
               isForceStopped,
@@ -499,7 +453,6 @@ class GameService {
           processedBets.length > 0
             ? this.safeSerialize(processedBets[0])
             : null,
-        allProcessedBets: this.safeSerialize(processedBets),
       });
 
       // Update cache

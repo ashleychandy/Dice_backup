@@ -339,6 +339,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
               className="bg-white backdrop-blur-md rounded-xl border border-secondary-200 p-6 shadow-xl flex flex-col items-center justify-center"
+              style={{ minHeight: '20rem' }}
             >
               <h2 className="text-2xl font-bold mb-2 text-secondary-800 text-center">
                 Game Visualization
@@ -348,11 +349,13 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                   ? `You selected number ${chosenNumber}`
                   : 'Select a number to start'}
               </p>
-              <DiceVisualizer
-                isRolling={gameState.isRolling}
-                result={gameState.lastResult}
-                chosenNumber={chosenNumber}
-              />
+              <div className="flex-grow w-full flex items-center justify-center p-4">
+                <DiceVisualizer
+                  isRolling={gameState.isRolling}
+                  result={gameState.lastResult}
+                  chosenNumber={chosenNumber}
+                />
+              </div>
             </motion.div>
 
             <motion.div

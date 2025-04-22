@@ -72,15 +72,35 @@ export const parseTokenAmount = input => {
 
 /**
  * Format timestamp to readable date
- * @param {Number} timestamp - Unix timestamp in seconds
+ * @param {Number|String} timestamp - Unix timestamp in seconds or milliseconds
  * @returns {String} Formatted date
  */
 export const formatTimestamp = timestamp => {
   if (!timestamp) return 'Never';
 
   try {
-    const date = new Date(timestamp * 1000);
-    return date.toLocaleString();
+    // Parse timestamp to number
+    const ts = Number(timestamp);
+
+    // Determine if timestamp is in seconds (standard blockchain) or milliseconds
+    // Timestamps before year 2001 are assumed to be in milliseconds
+    const date = new Date(ts < 10000000000 ? ts * 1000 : ts);
+
+    // Validate the date
+    if (isNaN(date.getTime()) || date.getFullYear() < 1990) {
+      console.warn('Invalid timestamp detected:', timestamp);
+      return 'Invalid date';
+    }
+
+    // Format with locale
+    return date.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
   } catch (error) {
     console.error('Error formatting timestamp:', error);
     return 'Invalid date';
@@ -123,7 +143,7 @@ export const calculatePercentage = (value, percentage) => {
 
 /**
  * Format dice roll result for display, handling special result codes
- * @param {Number} result - Dice roll result (1-6 or special code)
+ * @param {Number|String} result - Dice roll result (1-6 or special code)
  * @returns {String} Formatted result
  */
 export const formatDiceResult = result => {
@@ -139,10 +159,10 @@ export const formatDiceResult = result => {
   // Special result codes
   switch (num) {
     case 254: // RESULT_FORCE_STOPPED
-      return '⚠️';
+      return 'Stopped';
     case 255: // RESULT_RECOVERED
-      return '♻️';
+      return 'Recovered';
     default:
-      return num > 250 ? '⚠️' : num.toString();
+      return num > 250 ? 'Special' : num.toString();
   }
 };

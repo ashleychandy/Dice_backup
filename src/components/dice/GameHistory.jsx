@@ -233,7 +233,7 @@ const GameHistory = ({ account, diceContract, onError }) => {
                 No games match your filter criteria
               </div>
             ) : (
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {displayedGames.map((game, index) => (
                   <GameHistoryItem
                     key={`${game.timestamp}-${index}`}

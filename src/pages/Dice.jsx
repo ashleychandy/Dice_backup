@@ -76,6 +76,8 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
     balanceLoading,
     hasNoTokens,
     needsApproval,
+    isApproving,
+    isBetting,
     setChosenNumber,
     setBetAmount,
     handleApproveToken,
@@ -322,16 +324,36 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={handleApproveToken}
-                    disabled={gameState.isProcessing}
+                    disabled={gameState.isProcessing || isApproving}
                     className="h-14 w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-medium rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    {gameState.isProcessing ? (
+                    {gameState.isProcessing || isApproving ? (
                       <span className="flex items-center justify-center">
                         <LoadingSpinner size="small" />
-                        <span className="ml-2">Approving...</span>
+                        <span className="ml-2">
+                          {isApproving
+                            ? 'Approval in Progress...'
+                            : 'Approving Tokens...'}
+                        </span>
                       </span>
                     ) : (
-                      'Approve Tokens'
+                      <span className="flex items-center justify-center">
+                        <svg
+                          className="w-5 h-5 mr-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                          ></path>
+                        </svg>
+                        Approve Tokens
+                      </span>
                     )}
                   </motion.button>
                 )}
@@ -339,29 +361,19 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    console.log('Roll Dice button clicked - state:', {
-                      chosenNumber,
-                      betAmount: betAmount.toString(),
-                      isProcessing: gameState.isProcessing,
-                      hasToken: Boolean(contracts?.token),
-                      hasDice: Boolean(contracts?.dice),
-                      allowance: balanceData?.allowance
-                        ? balanceData.allowance.toString()
-                        : 'N/A',
-                    });
-                    handlePlaceBet();
-                  }}
+                  onClick={handlePlaceBet}
                   disabled={
-                    !chosenNumber ||
-                    betAmount <= BigInt(0) ||
-                    (balanceData?.allowance || BigInt(0)) < betAmount ||
                     gameState.isProcessing ||
-                    !contracts?.dice
+                    gameState.isRolling ||
+                    isApproving ||
+                    isBetting ||
+                    !chosenNumber ||
+                    needsApproval ||
+                    hasNoTokens
                   }
-                  className="h-14 w-full font-medium rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
+                  className="h-14 w-full bg-gradient-to-r from-gaming-primary to-gaming-accent hover:from-gaming-primary/90 hover:to-gaming-accent/90 text-white font-medium rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {gameState.isProcessing ? (
+                  {gameState.isProcessing || gameState.isRolling ? (
                     <span className="flex items-center justify-center">
                       <LoadingSpinner size="small" />
                       <span className="ml-2">
@@ -370,19 +382,33 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                           : 'Processing...'}
                       </span>
                     </span>
+                  ) : hasNoTokens ? (
+                    'Insufficient Token Balance'
+                  ) : needsApproval ? (
+                    'Approve Tokens First'
+                  ) : !chosenNumber ? (
+                    'Choose a Number'
                   ) : (
                     <span className="flex items-center justify-center">
                       <svg
+                        className="w-5 h-5 mr-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                         xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5 mr-2"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
                       >
                         <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
-                          clipRule="evenodd"
-                        />
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                        ></path>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        ></path>
                       </svg>
                       Roll Dice
                     </span>

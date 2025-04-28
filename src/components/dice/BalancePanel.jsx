@@ -1,261 +1,117 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React from 'react';
+import { motion } from 'framer-motion';
 import { ethers } from 'ethers';
 
-const BalancePanel = ({
-  userBalance,
-  allowance,
-  potentialWinnings,
-  betAmount = BigInt(0),
-}) => {
-  const [showDetails, setShowDetails] = useState(false);
-
-  // Debug logs for incoming prop values
-  useEffect(() => {
-    console.log('BalancePanel - Props received:', {
-      userBalance: userBalance ? userBalance.toString() : 'undefined',
-      allowance: allowance ? allowance.toString() : 'undefined',
-      potentialWinnings: potentialWinnings
-        ? potentialWinnings.toString()
-        : 'undefined',
-      betAmount: betAmount ? betAmount.toString() : '0',
-    });
-  }, [userBalance, allowance, potentialWinnings, betAmount]);
-
+const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
   // Safe formatting function for ethers values
   const safeFormatEther = value => {
     if (!value || typeof value === 'undefined') return '0';
     try {
-      console.log('safeFormatEther - input:', value.toString());
-      const formatted = ethers.formatEther(value.toString());
-      console.log('safeFormatEther - output:', formatted);
-      return formatted;
+      return ethers.formatEther(value.toString());
     } catch (error) {
-      console.error(
-        'Error formatting ether value:',
-        error,
-        'Value was:',
-        value
-      );
+      console.error('Error formatting ether value:', error);
       return '0';
     }
   };
 
   // Check if approval is sufficient for the current bet amount
-  const isApprovalSufficient = () => {
-    if (!allowance) return false;
-    if (betAmount <= BigInt(0)) return allowance > BigInt(0);
-    const isSufficient = allowance >= betAmount;
-    console.log(
-      'isApprovalSufficient:',
-      isSufficient,
-      'allowance:',
-      allowance.toString(),
-      'betAmount:',
-      betAmount.toString()
-    );
-    return isSufficient;
+  const checkApprovalStatus = () => {
+    if (!allowance) return { sufficient: false, status: 'Not Approved' };
+
+    // Check if allowance is enough for current bet amount
+    const isSufficient = betAmount <= BigInt(0) || allowance >= betAmount;
+
+    // For large allowances, show as "Fully Approved"
+    const highThreshold = ethers.MaxUint256 / BigInt(2);
+    const status = !isSufficient
+      ? 'Not Approved'
+      : allowance > highThreshold
+        ? 'Fully Approved'
+        : 'Approved';
+
+    return { sufficient: isSufficient, status };
   };
 
-  const balanceItems = [
-    {
-      label: 'Token Balance',
-      value: safeFormatEther(userBalance || 0),
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-      ),
-    },
-    {
-      label: 'Token Allowance',
-      value: isApprovalSufficient() ? 'Approved' : 'Not Approved',
-      icon: (
-        <svg
-          className={`w-5 h-5 ${isApprovalSufficient() ? 'text-green-500' : 'text-red-500'}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d={
-              isApprovalSufficient()
-                ? 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
-                : 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
-            }
-          />
-        </svg>
-      ),
-    },
-    {
-      label: 'Potential Win',
-      value: safeFormatEther(potentialWinnings || 0),
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-          />
-        </svg>
-      ),
-    },
-  ];
+  const approvalStatus = checkApprovalStatus();
 
-  const formatValue = value => {
-    if (value === 'Approved' || value === 'Not Approved' || value === '0')
-      return value;
+  // Format token balance nicely
+  const formatBalance = value => {
+    const floatValue = parseFloat(value);
+    if (isNaN(floatValue)) return '0';
 
-    // For token amounts, preserve all digits but remove trailing zeros
-    const numValue = parseFloat(value);
-    if (isNaN(numValue) || numValue < 1) return '0';
+    // For large numbers, use K/M/B notation
+    if (floatValue >= 1_000_000_000) {
+      return `${(floatValue / 1_000_000_000).toFixed(2)}B`;
+    } else if (floatValue >= 1_000_000) {
+      return `${(floatValue / 1_000_000).toFixed(2)}M`;
+    } else if (floatValue >= 1_000) {
+      return `${(floatValue / 1_000).toFixed(2)}K`;
+    }
 
-    console.log('formatValue - input:', value, 'parsed:', numValue);
+    // For small numbers, show more precision
+    if (floatValue < 0.0001 && floatValue > 0) {
+      return '<0.0001';
+    }
 
-    // Format with commas for thousands and preserve significant digits
-    const formatted = new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0, // No decimals for GAMA tokens
-      useGrouping: true, // Use thousand separators
-    }).format(numValue);
-
-    console.log('formatValue - output:', formatted);
-    return formatted;
+    return floatValue.toLocaleString(undefined, {
+      maximumFractionDigits: 4,
+      minimumFractionDigits: floatValue < 1 ? 4 : 0,
+    });
   };
+
+  const formattedBalance = formatBalance(safeFormatEther(userBalance || 0));
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2
-          className="text-2xl font-bold bg-clip-text text-transparent 
-                       bg-gradient-to-r from-gaming-primary to-gaming-accent"
-        >
-          Balance Info
-        </h2>
-        <button
-          onClick={() => setShowDetails(!showDetails)}
-          className="text-secondary-400 hover:text-white transition-colors"
-        >
-          <svg
-            className={`w-6 h-6 transform transition-transform duration-300
-                          ${showDetails ? 'rotate-180' : ''}`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="bg-white rounded-xl border border-primary-200 shadow-lg overflow-hidden h-full"
+    >
+      <div className="bg-gradient-to-r from-gaming-primary to-gaming-accent py-3 px-4 text-white">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold">Your Balance</h2>
+          <div
+            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+              approvalStatus.sufficient
+                ? 'bg-white/20 text-white'
+                : 'bg-red-100 text-red-700'
+            }`}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
-        </button>
+            <div className="flex items-center">
+              <div
+                className={`w-1.5 h-1.5 rounded-full mr-1 ${
+                  approvalStatus.sufficient ? 'bg-white' : 'bg-red-500'
+                }`}
+              ></div>
+              {approvalStatus.sufficient ? 'Approved' : 'Not Approved'}
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
-        {balanceItems.map((item, index) => (
-          <motion.div
-            key={item.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className="balance-item"
-          >
-            <div
-              className="flex items-center justify-between p-4 rounded-xl
-                           bg-secondary-800/30 border border-secondary-700/30
-                           hover:border-gaming-primary/30 transition-all duration-300"
+      <div className="p-4 flex items-center">
+        <div className="mr-4 relative flex-shrink-0">
+          <div className="bg-primary-100 rounded-full p-2 w-12 h-12 flex items-center justify-center">
+            <svg
+              className="w-8 h-8 text-gaming-primary"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
             >
-              <div className="flex items-center space-x-3">
-                <div
-                  className="flex-shrink-0 w-10 h-10 rounded-lg
-                               bg-gaming-primary/10 text-gaming-primary
-                               flex items-center justify-center"
-                >
-                  {item.icon}
-                </div>
-                <div>
-                  <p className="text-sm text-secondary-400">{item.label}</p>
-                  <p className="font-medium text-white">
-                    {formatValue(item.value)}{' '}
-                    <span className="text-sm text-secondary-400">GAMA</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.31-8.86c-1.77-.45-2.34-.94-2.34-1.67 0-.84.79-1.43 2.1-1.43 1.38 0 1.9.66 1.94 1.64h1.71c-.05-1.34-.87-2.57-2.49-2.97V5H10.9v1.69c-1.51.32-2.72 1.3-2.72 2.81 0 1.79 1.49 2.69 3.66 3.21 1.95.46 2.34 1.15 2.34 1.87 0 .53-.39 1.39-2.1 1.39-1.6 0-2.23-.72-2.32-1.64H8.04c.1 1.7 1.36 2.66 2.86 2.97V19h2.34v-1.67c1.52-.29 2.72-1.16 2.73-2.77-.01-2.2-1.9-2.96-3.66-3.42z" />
+            </svg>
+          </div>
+        </div>
 
-      <AnimatePresence>
-        {showDetails && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="pt-4 space-y-4">
-              <div className="p-4 rounded-xl bg-secondary-800/30 border border-secondary-700/30">
-                <h3 className="text-lg font-medium mb-3">Balance Details</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-secondary-400">
-                      Available for Betting:
-                    </span>
-                    <span className="text-white">
-                      {formatValue(
-                        safeFormatEther(
-                          (userBalance || 0) > (allowance || 0)
-                            ? allowance || 0
-                            : userBalance || 0
-                        )
-                      )}{' '}
-                      GAMA
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-secondary-400">Win Multiplier:</span>
-                    <span className="text-gaming-success">6x</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-secondary-400">
-                      Max Potential Win:
-                    </span>
-                    <span className="text-gaming-primary">
-                      {formatValue(
-                        safeFormatEther((userBalance || BigInt(0)) * BigInt(6))
-                      )}{' '}
-                      GAMA
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+        <div>
+          <h3 className="text-2xl font-bold font-mono text-secondary-900">
+            {formattedBalance}
+          </h3>
+          <p className="text-secondary-500 text-xs">GAMA Token</p>
+        </div>
+      </div>
+    </motion.div>
   );
 };
 

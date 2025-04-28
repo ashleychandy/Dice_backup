@@ -235,6 +235,48 @@ export const switchNetwork = async (
       setContracts({ token: null, dice: null });
     }
 
+    // Check if already on the correct network
+    const currentChainId = await walletProvider.request({
+      method: 'eth_chainId',
+    });
+    if (parseInt(currentChainId, 16) === network.chainId) {
+      if (addToast) {
+        addToast(`Already connected to ${network.name}`, 'info');
+      }
+
+      // Reinitialize contracts if needed
+      if (account) {
+        const provider = new ethers.BrowserProvider(walletProvider);
+        if (setProvider) {
+          setProvider(provider);
+        }
+
+        try {
+          await validateNetwork(provider);
+          const contracts = await initializeContracts(
+            provider,
+            account,
+            null,
+            setLoadingStates,
+            handleError
+          );
+
+          if (contracts && setContracts) {
+            setContracts(contracts);
+          }
+        } catch (error) {
+          console.error('Error reinitializing contracts:', error);
+          // Continue since we're already on the right network
+        }
+      }
+
+      if (setLoadingStates) {
+        setLoadingStates({ wallet: false });
+      }
+
+      return;
+    }
+
     // Create a promise that resolves when the network change is complete
     const networkSwitchPromise = new Promise((resolve, reject) => {
       // Set a timeout for network switch
@@ -257,56 +299,93 @@ export const switchNetwork = async (
       };
 
       walletProvider.on('chainChanged', chainChangeHandler);
-    });
 
-    // Request the network switch
-    try {
-      await walletProvider.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: chainIdHex }],
-      });
-    } catch (switchError) {
-      // This error code indicates that the chain has not been added to MetaMask/wallet
-      if (switchError.code === 4902 || switchError.code === -32603) {
-        try {
-          await walletProvider.request({
-            method: 'wallet_addEthereumChain',
-            params: [
-              {
-                chainId: chainIdHex,
-                chainName: network.name,
-                rpcUrls: [network.rpcUrl],
-                nativeCurrency: {
-                  name: 'XDC',
-                  symbol: 'XDC',
-                  decimals: 18,
-                },
-                blockExplorerUrls: [network.explorer],
-              },
-            ],
-          });
+      // First try to switch to the network
+      walletProvider
+        .request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: chainIdHex }],
+        })
+        .then(() => {
+          // Some wallets don't trigger the chainChanged event
+          // Check if we're on the right network after a brief delay
+          setTimeout(async () => {
+            try {
+              const updatedChainId = await walletProvider.request({
+                method: 'eth_chainId',
+              });
 
-          // After adding the chain, try to switch again after a short delay
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          await walletProvider.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: chainIdHex }],
-          });
-        } catch (addError) {
-          if (addError.code === 4001) {
-            throw new Error('User rejected adding the network');
+              if (parseInt(updatedChainId, 16) === network.chainId) {
+                clearTimeout(timeoutId);
+                walletProvider.removeListener(
+                  'chainChanged',
+                  chainChangeHandler
+                );
+                resolve();
+              }
+            } catch (error) {
+              // Ignore error and continue waiting for chainChanged event
+              console.warn('Error checking chain ID after switch:', error);
+            }
+          }, 1000);
+        })
+        .catch(async error => {
+          // Handle errors
+          if (error.code === 4902) {
+            // Chain not added to wallet, try to add it
+            try {
+              await walletProvider.request({
+                method: 'wallet_addEthereumChain',
+                params: [
+                  {
+                    chainId: chainIdHex,
+                    chainName: network.name,
+                    nativeCurrency: {
+                      name: 'XDC',
+                      symbol: 'XDC',
+                      decimals: 18,
+                    },
+                    rpcUrls: [network.rpcUrl],
+                    blockExplorerUrls: [network.explorer],
+                  },
+                ],
+              });
+
+              // Check if we're on the right network after a delay
+              setTimeout(async () => {
+                try {
+                  const updatedChainId = await walletProvider.request({
+                    method: 'eth_chainId',
+                  });
+
+                  if (parseInt(updatedChainId, 16) === network.chainId) {
+                    clearTimeout(timeoutId);
+                    walletProvider.removeListener(
+                      'chainChanged',
+                      chainChangeHandler
+                    );
+                    resolve();
+                  }
+                } catch (error) {
+                  // Ignore error and continue waiting for chainChanged event
+                  console.warn('Error checking chain ID after add:', error);
+                }
+              }, 1000);
+            } catch (addError) {
+              reject(
+                new Error(
+                  `Failed to add ${network.name} to your wallet. Please add it manually.`
+                )
+              );
+            }
+          } else if (error.code === 4001) {
+            // User rejected the switch
+            reject(new Error('Network switch rejected by user'));
           } else {
-            throw new Error(
-              `Failed to add network: ${network.name}. ${addError.message || ''}`
-            );
+            reject(error);
           }
-        }
-      } else if (switchError.code === 4001) {
-        throw new Error('User rejected network switch');
-      } else {
-        throw switchError;
-      }
-    }
+        });
+    });
 
     // Wait for the network switch to complete
     await networkSwitchPromise;
@@ -338,7 +417,10 @@ export const switchNetwork = async (
   } catch (error) {
     if (handleError) {
       handleError(error, 'switchNetwork');
+    } else {
+      console.error('Network switch error:', error);
     }
+
     // Reset contracts and provider on error
     if (setContracts) {
       setContracts({ token: null, dice: null });

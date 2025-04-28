@@ -87,7 +87,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   const queryClient = useQueryClient();
   const operationInProgress = useRef(false);
   const lastFetchedBalance = useRef(null);
-  const [isApproving, withApproving] = useLoadingState(false);
+  const [isApproving, setIsApproving] = useState(false);
   const [isBetting, withBetting] = useLoadingState(false);
   const handleError = useErrorHandler(onError, addToast);
 
@@ -226,46 +226,147 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   const handleApproveToken = useCallback(async () => {
     if (!contracts?.token || !contracts?.dice || !account) {
       console.error('Cannot approve tokens: contracts or account missing');
+      addToast(
+        'Cannot approve tokens: wallet or contract connection issue',
+        'error'
+      );
+      return;
+    }
+
+    // Prevent multiple approval attempts
+    if (operationInProgress.current) {
+      console.log(
+        'Approval operation already in progress, preventing duplicate'
+      );
+      addToast('Approval already in progress', 'info');
       return;
     }
 
     operationInProgress.current = true;
+    setIsApproving(true);
 
-    // Optimistically update UI before actual approval completes
-    const currentBalance = balanceData?.balance || BigInt(0);
-    queryClient.setQueryData(['balance', account, true], {
-      balance: currentBalance,
-      allowance: ethers.MaxUint256, // Optimistically set to max approval
-    });
+    // Set local state immediately for better UI feedback
+    setProcessingState(true);
 
-    await withApproving(async () => {
-      try {
-        const tx = await checkAndApproveToken(
-          contracts.token,
-          contracts.dice.target || contracts.dice.address,
-          account
-        );
+    try {
+      // Get the dice contract address (target for v6 ethers, address for v5)
+      const diceContractAddress =
+        contracts.dice.target || contracts.dice.address;
 
-        if (tx) {
-          addToast('Successfully approved tokens for betting!', 'success');
-          await queryClient.invalidateQueries(['balance', account]);
+      console.log('Approving tokens for address:', {
+        token: contracts.token.target || contracts.token.address,
+        dice: diceContractAddress,
+        account,
+      });
+
+      // Show initial toast
+      addToast('Starting token approval process...', 'info');
+
+      // Only update UI optimistically after transaction is sent, not before
+      // We'll let checkAndApproveToken take care of the state
+
+      // Call the enhanced token approval function with correct parameters
+      // Use maxRetries=2 for up to 3 total attempts (initial + 2 retries)
+      const success = await checkAndApproveToken(
+        contracts.token,
+        diceContractAddress,
+        account,
+        isProcessing => setProcessingState(isProcessing),
+        addToast,
+        2 // max retries
+      );
+
+      if (success) {
+        console.log('Token approval successful');
+
+        // Force immediate refetch of all balance data
+        try {
+          // Create a small delay to let blockchain state settle
+          await new Promise(resolve => setTimeout(resolve, 2000));
+
+          // Get fresh data for both balance and allowance
+          const [newBalance, newAllowance] = await Promise.all([
+            contracts.token.balanceOf(account),
+            contracts.token.allowance(account, diceContractAddress),
+          ]);
+
+          console.log(
+            'Fetched new balance after approval:',
+            newBalance.toString()
+          );
+          console.log(
+            'Fetched new allowance after approval:',
+            newAllowance.toString()
+          );
+
+          // If allowance still doesn't show as increased, use a max value
+          // This ensures the UI lets the user proceed with betting
+          const effectiveAllowance =
+            newAllowance > BigInt(0) ? newAllowance : ethers.MaxUint256;
+
+          // Update cache with the new values immediately
+          queryClient.setQueryData(['balance', account, true], {
+            balance: newBalance,
+            allowance: effectiveAllowance,
+          });
+
+          // Also invalidate to ensure any other components get refreshed
+          queryClient.invalidateQueries(['balance', account]);
+
+          console.log('Balance data refreshed after approval:', {
+            balance: newBalance.toString(),
+            allowance: effectiveAllowance.toString(),
+          });
+        } catch (fetchError) {
+          console.error(
+            'Error fetching updated balance after approval:',
+            fetchError
+          );
+          // Fall back to optimistically setting allowance to max
+          const currentBalance = balanceData?.balance || BigInt(0);
+          queryClient.setQueryData(['balance', account, true], {
+            balance: currentBalance,
+            allowance: ethers.MaxUint256, // Optimistically set to max approval on error
+          });
+
+          // Also invalidate to ensure any other components get refreshed
+          queryClient.invalidateQueries(['balance', account]);
         }
-      } catch (error) {
-        // Revert optimistic update on error
+      } else {
+        console.error('Token approval failed');
+        // Revert any optimistic updates
         queryClient.invalidateQueries(['balance', account]);
-        handleError(error, 'approveToken');
-      } finally {
-        operationInProgress.current = false;
+
+        // Clear any lingering processing state
+        setProcessingState(false);
+
+        // Inform user of failure if not already done by checkAndApproveToken
+        addToast(
+          'Token approval process could not be completed. Please try again.',
+          'error'
+        );
       }
-    });
+    } catch (error) {
+      console.error('Error in approval process:', error);
+      // Revert optimistic update on error
+      queryClient.invalidateQueries(['balance', account]);
+      handleError(error, 'approveToken');
+
+      // Clear any lingering processing state
+      setProcessingState(false);
+    } finally {
+      // Ensure operation flag is reset even if there are errors
+      operationInProgress.current = false;
+      setIsApproving(false);
+    }
   }, [
     contracts,
     account,
-    withApproving,
     queryClient,
     handleError,
     addToast,
     balanceData,
+    setProcessingState,
   ]);
 
   // Handle placing a bet with optimistic updates
@@ -310,11 +411,52 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         );
 
         if (currentAllowance < betAmount) {
-          await handleApproveToken();
+          console.log('Insufficient allowance, requesting approval before bet');
+          addToast('Approval needed before placing bet', 'info');
+
+          // Reset optimistic UI update for the bet, since we need to approve first
+          queryClient.setQueryData(['balance', account, true], {
+            balance: currentBalance,
+            allowance: currentAllowance,
+          });
+
+          const approvalSuccess = await checkAndApproveToken(
+            contracts.token,
+            diceContractAddress,
+            account,
+            null, // Don't update processing state again
+            addToast,
+            1 // Only try once during bet flow
+          );
+
+          if (!approvalSuccess) {
+            console.error('Approval failed, cannot place bet');
+            addToast('Could not approve tokens, bet cancelled', 'error');
+            setRollingState(false);
+            queryClient.invalidateQueries(['balance', account]);
+            return; // Exit early if approval fails
+          }
+
+          // Refresh allowance after successful approval
+          const newAllowance = await contracts.token.allowance(
+            account,
+            diceContractAddress
+          );
+
+          console.log('New allowance after approval:', newAllowance.toString());
+
+          // Update the optimistic UI again
+          queryClient.setQueryData(['balance', account, true], {
+            balance: currentBalance - betAmount,
+            allowance: newAllowance - betAmount,
+          });
         }
 
         // Place the bet
+        console.log('Placing bet with amount:', betAmount.toString());
         const tx = await contracts.dice.playDice(chosenNumber, betAmount);
+        addToast('Bet placed, waiting for confirmation...', 'info');
+
         const receipt = await tx.wait();
 
         // Get the result from the transaction events
@@ -338,6 +480,10 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
               : 'Better luck next time!',
             isWin ? 'success' : 'warning'
           );
+        } else {
+          console.error('Could not parse game result event from receipt');
+          addToast('Bet confirmed, but could not determine result', 'warning');
+          setRollingState(false);
         }
 
         // Refresh balances and game state
@@ -363,7 +509,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     addToast,
     handleError,
     withBetting,
-    handleApproveToken,
     setProcessingState,
     setRollingState,
     setLastResult,

@@ -1,226 +1,82 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
-import Card from '../ui/Card';
-import {
-  formatTokenAmount,
-  formatTimestamp,
-  formatDiceResult,
-} from '../../utils/formatting';
-import gameService from '../../services/gameService';
+import { AnimatePresence, motion } from 'framer-motion';
 import FilterButton from '../ui/FilterButton';
-
-// GameHistoryLoader is now imported from separate file
-import GameHistoryLoader from './GameHistoryLoader';
-
-const EmptyState = () => (
-  <div className="flex flex-col items-center justify-center py-10 text-center">
-    <div className="w-20 h-20 rounded-full bg-secondary-800/50 flex items-center justify-center mb-4">
-      <svg
-        className="w-10 h-10 text-secondary-500"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-        />
-      </svg>
-    </div>
-    <h3 className="text-xl font-bold text-white/90 mb-2">
-      No games played yet
-    </h3>
-    <p className="text-secondary-400 mb-6">
-      Your game history will appear here after you play.
-    </p>
-  </div>
-);
-
-// Moved GameHistoryItem to its own file
 import GameHistoryItem from './GameHistoryItem';
+import EmptyState from './EmptyState';
+import GameHistoryLoader from './GameHistoryLoader';
+import gameService from '../../services/gameService';
 
-// New Component: Stats Panel
-const StatsSummary = ({ stats, totalWagered, totalPayout }) => (
-  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-    <div className="bg-secondary-800/30 rounded-xl p-3 text-center">
-      <p className="text-sm text-secondary-400">Games Won</p>
-      <p className="text-xl font-bold text-gaming-success">
-        {stats.totalGamesWon || 0}
-      </p>
-    </div>
-    <div className="bg-secondary-800/30 rounded-xl p-3 text-center">
-      <p className="text-sm text-secondary-400">Games Lost</p>
-      <p className="text-xl font-bold text-gaming-error">
-        {stats.totalGamesLost || 0}
-      </p>
-    </div>
-    <div className="bg-secondary-800/30 rounded-xl p-3 text-center">
-      <p className="text-sm text-secondary-400">Total Wagered</p>
-      <p className="text-xl font-bold text-white">
-        {formatTokenAmount(totalWagered || '0', 2)} GAMA
-      </p>
-    </div>
-    <div className="bg-secondary-800/30 rounded-xl p-3 text-center">
-      <p className="text-sm text-secondary-400">Total Payout</p>
-      <p className="text-xl font-bold text-white">
-        {formatTokenAmount(totalPayout || '0', 2)} GAMA
-      </p>
-    </div>
-  </div>
-);
-
-// New Component: Pagination
+// Minimalist pagination component
 const Pagination = ({ currentPage, totalPages, onPageChange }) => (
-  <div className="flex justify-center items-center mt-6 space-x-2">
+  <div className="flex justify-center items-center mt-3 space-x-1 text-xs">
     <button
       onClick={() => onPageChange(currentPage - 1)}
       disabled={currentPage === 1}
-      className={`px-3 py-1 rounded-lg text-sm ${
-        currentPage === 1
-          ? 'bg-secondary-800/30 text-secondary-500'
-          : 'bg-secondary-800 text-white hover:bg-secondary-700'
-      }`}
+      className="px-2 py-0.5 rounded bg-gray-100 disabled:opacity-50 hover:bg-green-50"
     >
-      Previous
+      ←
     </button>
-    <span className="text-secondary-400 text-sm">
-      Page {currentPage} of {totalPages || 1}
+    <span className="text-gray-600">
+      {currentPage} / {totalPages}
     </span>
     <button
       onClick={() => onPageChange(currentPage + 1)}
-      disabled={currentPage === totalPages || totalPages === 0}
-      className={`px-3 py-1 rounded-lg text-sm ${
-        currentPage === totalPages || totalPages === 0
-          ? 'bg-secondary-800/30 text-secondary-500'
-          : 'bg-secondary-800 text-white hover:bg-secondary-700'
-      }`}
+      disabled={currentPage === totalPages}
+      className="px-2 py-0.5 rounded bg-gray-100 disabled:opacity-50 hover:bg-green-50"
     >
-      Next
+      →
     </button>
   </div>
 );
 
-// Enhanced GameHistory Component
+// Game History component with a symmetric and minimalistic design
 const GameHistory = ({ account, diceContract, onError }) => {
   const [filter, setFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10); // Default 10 items per page
+  const [itemsPerPage] = useState(10); // Showing more items in compact view
   const queryClient = useQueryClient();
-  const localCacheRef = useRef(null);
-  const serviceInitializedRef = useRef(false);
 
   // Reset to page 1 when changing filters
-  useEffect(() => {
+  React.useEffect(() => {
     setCurrentPage(1);
   }, [filter]);
 
-  // Initialize the gameService with the dice contract when it changes
-  useEffect(() => {
-    if (diceContract && !serviceInitializedRef.current) {
+  // Initialize gameService with the dice contract when it changes
+  React.useEffect(() => {
+    if (diceContract) {
       try {
         gameService.init({ dice: diceContract });
-        serviceInitializedRef.current = true;
+        if (account) {
+          queryClient.invalidateQueries(['gameHistory', account]);
+        }
       } catch (error) {
         console.error('Error initializing gameService:', error);
         if (onError) onError(error);
       }
     }
-  }, [diceContract, onError]);
+  }, [diceContract, onError, queryClient, account]);
 
-  // Get previous query data immediately for instant UI
-  useEffect(() => {
-    if (account) {
-      const previousData = queryClient.getQueryData(['gameHistory', account]);
-      if (previousData) {
-        localCacheRef.current = previousData;
-      }
-    }
-  }, [account, queryClient]);
-
-  // Optimized query with instant loading
+  // Query game history data
   const { data: gameData, isLoading } = useQuery({
     queryKey: ['gameHistory', account],
     queryFn: async () => {
-      if (!account) {
+      if (!account || !diceContract) {
         return {
           games: [],
-          stats: {
-            totalGamesWon: 0,
-            totalGamesLost: 0,
-            totalGamesRecovered: 0,
-            totalGamesForceStopped: 0,
-          },
+          stats: { totalGamesWon: 0, totalGamesLost: 0 },
         };
       }
-
-      if (!diceContract || !gameService.diceContract) {
-        console.error('GameHistory: No dice contract available');
-        return {
-          games: [],
-          stats: {
-            totalGamesWon: 0,
-            totalGamesLost: 0,
-            totalGamesRecovered: 0,
-            totalGamesForceStopped: 0,
-          },
-        };
-      }
-
-      try {
-        // Return cached data immediately if available
-        if (localCacheRef.current) {
-          // Schedule a background refresh without blocking the UI
-          setTimeout(() => {
-            gameService.getGameHistory(account).then(freshData => {
-              if (freshData && freshData.games) {
-                localCacheRef.current = freshData;
-                queryClient.setQueryData(['gameHistory', account], freshData);
-              }
-            });
-          }, 0);
-
-          return localCacheRef.current;
-        }
-
-        return await gameService.getGameHistory(account);
-      } catch (error) {
-        console.error('Error in game history query:', error);
-        // Don't show UI error, just return empty data
-        return {
-          games: [],
-          stats: {
-            totalGamesWon: 0,
-            totalGamesLost: 0,
-            totalGamesRecovered: 0,
-            totalGamesForceStopped: 0,
-          },
-        };
-      }
+      return await gameService.getGameHistory(account);
     },
     refetchOnWindowFocus: false,
-    staleTime: 30000, // 30 seconds
+    staleTime: 30000,
+    enabled: !!account && !!diceContract,
   });
 
-  // Computed properties for UI from game data
-  const {
-    filteredGames,
-    totalGames,
-    totalPages,
-    displayedGames,
-    stats,
-    totalWagered,
-    totalPayout,
-  } = useMemo(() => {
+  // Process game data for display
+  const { filteredGames, totalPages, displayedGames } = useMemo(() => {
     const games = gameData?.games || [];
-    const stats = gameData?.stats || {
-      totalGamesWon: 0,
-      totalGamesLost: 0,
-      totalGamesRecovered: 0,
-      totalGamesForceStopped: 0,
-    };
 
     // Define constants for special result codes
     const RESULT_FORCE_STOPPED = 254;
@@ -259,17 +115,6 @@ const GameHistory = ({ account, diceContract, onError }) => {
       });
     }
 
-    // Calculate stats for all games
-    const totalWagered = games.reduce(
-      (sum, game) => sum + BigInt(game.amount || '0'),
-      BigInt(0)
-    );
-
-    const totalPayout = games.reduce(
-      (sum, game) => sum + BigInt(game.payout || '0'),
-      BigInt(0)
-    );
-
     // Pagination
     const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
     const validatedCurrentPage = Math.min(currentPage, Math.max(1, totalPages));
@@ -281,106 +126,98 @@ const GameHistory = ({ account, diceContract, onError }) => {
 
     return {
       filteredGames: filtered,
-      totalGames: games.length,
       totalPages,
       displayedGames,
-      stats,
-      totalWagered,
-      totalPayout,
     };
   }, [gameData, filter, currentPage, itemsPerPage]);
 
-  // Handle page change
-  const handlePageChange = page => {
-    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
-  };
-
   return (
-    <Card className="min-h-[300px] mt-6">
-      <div className="flex flex-col">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-          <h2 className="text-xl font-bold mb-4 md:mb-0">Game History</h2>
+    <div className="bg-white rounded-lg p-4 shadow-sm min-h-[250px] border border-gray-100">
+      {/* Header with filter buttons */}
+      <div className="flex flex-wrap justify-between items-center mb-3">
+        <h2 className="text-base font-medium text-gray-800 mb-1 md:mb-0">
+          Game History
+        </h2>
 
-          <div className="flex flex-wrap gap-2">
-            <FilterButton
-              onClick={() => setFilter('all')}
-              active={filter === 'all'}
-              count={totalGames}
-            >
-              All Games
-            </FilterButton>
-            <FilterButton
-              onClick={() => setFilter('wins')}
-              active={filter === 'wins'}
-              count={stats.totalGamesWon}
-            >
-              Wins
-            </FilterButton>
-            <FilterButton
-              onClick={() => setFilter('losses')}
-              active={filter === 'losses'}
-              count={stats.totalGamesLost}
-            >
-              Losses
-            </FilterButton>
-            <FilterButton
-              onClick={() => setFilter('special')}
-              active={filter === 'special'}
-              count={
-                (stats.totalGamesRecovered || 0) +
-                (stats.totalGamesForceStopped || 0)
-              }
-            >
-              Special
-            </FilterButton>
-          </div>
+        <div className="flex flex-wrap gap-1">
+          <FilterButton
+            onClick={() => setFilter('all')}
+            active={filter === 'all'}
+            className="text-xs py-0.5 px-2 bg-white"
+            activeClassName="bg-green-500 text-white"
+          >
+            All
+          </FilterButton>
+          <FilterButton
+            onClick={() => setFilter('wins')}
+            active={filter === 'wins'}
+            className="text-xs py-0.5 px-2 bg-white"
+            activeClassName="bg-green-500 text-white"
+          >
+            Wins
+          </FilterButton>
+          <FilterButton
+            onClick={() => setFilter('losses')}
+            active={filter === 'losses'}
+            className="text-xs py-0.5 px-2 bg-white"
+            activeClassName="bg-green-500 text-white"
+          >
+            Losses
+          </FilterButton>
+          <FilterButton
+            onClick={() => setFilter('special')}
+            active={filter === 'special'}
+            className="text-xs py-0.5 px-2 bg-white"
+            activeClassName="bg-green-500 text-white"
+          >
+            Special
+          </FilterButton>
         </div>
-
-        {/* Stats Summary Panel */}
-        {gameData && gameData.games.length > 0 && (
-          <StatsSummary
-            stats={stats}
-            totalWagered={totalWagered}
-            totalPayout={totalPayout}
-          />
-        )}
-
-        {isLoading && <GameHistoryLoader />}
-
-        {!isLoading &&
-          (!gameData || !gameData.games || gameData.games.length === 0) && (
-            <EmptyState />
-          )}
-
-        <AnimatePresence>
-          {!isLoading && gameData && gameData.games.length > 0 && (
-            <div className="space-y-3">
-              {displayedGames.length === 0 ? (
-                <div className="text-center py-8 text-secondary-400">
-                  No games match your selected filter.
-                </div>
-              ) : (
-                displayedGames.map((game, index) => (
-                  <GameHistoryItem
-                    key={`${game.timestamp}-${index}`}
-                    game={game}
-                    index={index}
-                  />
-                ))
-              )}
-
-              {filteredGames.length > itemsPerPage && (
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={handlePageChange}
-                />
-              )}
-            </div>
-          )}
-        </AnimatePresence>
       </div>
-    </Card>
+
+      {/* Loading state */}
+      {isLoading && <GameHistoryLoader />}
+
+      {/* Empty state */}
+      {!isLoading && (!gameData?.games || gameData.games.length === 0) && (
+        <EmptyState />
+      )}
+
+      {/* Game list */}
+      <AnimatePresence>
+        {!isLoading && gameData && gameData.games.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="space-y-1.5"
+          >
+            {displayedGames.length === 0 ? (
+              <div className="text-center py-4 text-gray-500 text-sm">
+                No games match your filter criteria
+              </div>
+            ) : (
+              displayedGames.map((game, index) => (
+                <GameHistoryItem
+                  key={`${game.timestamp}-${index}`}
+                  game={game}
+                  index={index}
+                />
+              ))
+            )}
+
+            {/* Pagination */}
+            {filteredGames.length > itemsPerPage && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 

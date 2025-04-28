@@ -1,7 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useWallet } from '../wallet/WalletProvider';
-import { SUPPORTED_CHAIN_IDS } from '../../constants/networks';
 
 const Navbar = ({ account, chainId, handleLogout, switchNetwork }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);

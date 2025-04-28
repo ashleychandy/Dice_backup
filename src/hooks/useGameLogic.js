@@ -85,39 +85,37 @@ const useGameState = () => {
  */
 export const useGameLogic = (contracts, account, onError, addToast) => {
   const queryClient = useQueryClient();
-  const handleError = useErrorHandler(addToast, onError);
-  const [isApproving, withApproving] = useLoadingState(false);
-  const [isBetting, withBetting] = useLoadingState(false);
   const operationInProgress = useRef(false);
   const lastFetchedBalance = useRef(null);
+  const [isApproving, withApproving] = useLoadingState(false);
+  const [isBetting, withBetting] = useLoadingState(false);
+  const handleError = useErrorHandler(onError, addToast);
 
-  // Debug logging
+  // Reset last fetched balance when account or token contract changes
+  // to ensure fresh data is always fetched
   useEffect(() => {
-    console.log('Contracts:', contracts);
-    console.log('Account:', account);
+    lastFetchedBalance.current = null;
 
-    // Check if contracts are proxy objects and log their structure
-    if (contracts?.token) {
-      console.log('Token Contract Type:', typeof contracts.token);
-      console.log('Token Contract Structure:', Object.keys(contracts.token));
-      console.log(
-        'Token Contract Address:',
-        contracts.token.target || contracts.token.address
-      );
+    // Invalidate balance data when account or contracts change
+    if (account && contracts?.token) {
+      console.log('Account or contracts changed, refreshing balance data');
+      queryClient.invalidateQueries(['balance', account]);
     }
 
-    if (contracts?.dice) {
-      console.log('Dice Contract Type:', typeof contracts.dice);
-      console.log('Dice Contract Structure:', Object.keys(contracts.dice));
-      console.log(
-        'Dice Contract Address:',
-        contracts.dice.target || contracts.dice.address
-      );
-    }
+    // Register global function to refresh balance data
+    window.refreshBalanceData = accountAddress => {
+      // If no account is provided, use the current one
+      const targetAccount = accountAddress || account;
+      if (targetAccount) {
+        console.log('Refreshing balance data for account:', targetAccount);
+        queryClient.invalidateQueries(['balance', targetAccount]);
+      }
+    };
 
-    console.log('Token Contract Target:', contracts?.token?.target);
-    console.log('Dice Contract Target:', contracts?.dice?.target);
-  }, [contracts, account]);
+    return () => {
+      delete window.refreshBalanceData;
+    };
+  }, [contracts, account, queryClient]);
 
   // Initialize state management hooks
   const {
@@ -183,6 +181,34 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       console.error('Balance query error:', error);
     },
   });
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Contracts:', contracts);
+    console.log('Account:', account);
+
+    // Check if contracts are proxy objects and log their structure
+    if (contracts?.token) {
+      console.log('Token Contract Type:', typeof contracts.token);
+      console.log('Token Contract Structure:', Object.keys(contracts.token));
+      console.log(
+        'Token Contract Address:',
+        contracts.token.target || contracts.token.address
+      );
+    }
+
+    if (contracts?.dice) {
+      console.log('Dice Contract Type:', typeof contracts.dice);
+      console.log('Dice Contract Structure:', Object.keys(contracts.dice));
+      console.log(
+        'Dice Contract Address:',
+        contracts.dice.target || contracts.dice.address
+      );
+    }
+
+    console.log('Token Contract Target:', contracts?.token?.target);
+    console.log('Dice Contract Target:', contracts?.dice?.target);
+  }, [contracts, account]);
 
   // Debug log when balance data changes
   useEffect(() => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Import components
 import GameStats from '../components/dice/GameStats';
@@ -19,6 +20,52 @@ import '../index.css';
 const DicePage = ({ contracts, account, onError, addToast }) => {
   const [showStats, setShowStats] = useState(false);
   const [lastBetAmount, setLastBetAmount] = useState(null);
+  const queryClient = useQueryClient();
+
+  // Create a global function to invalidate game history
+  useEffect(() => {
+    // Centralized function to refresh all data after wallet connection
+    window.refreshAllData = accountAddress => {
+      // If no account is provided, use the current one
+      const targetAccount = accountAddress || account;
+      if (targetAccount) {
+        console.log('Refreshing all data for account:', targetAccount);
+
+        // Refresh game history
+        queryClient.invalidateQueries(['gameHistory', targetAccount]);
+
+        // Refresh game stats
+        queryClient.invalidateQueries(['gameStats', targetAccount]);
+
+        // Refresh balance data
+        queryClient.invalidateQueries(['balance', targetAccount]);
+      }
+    };
+
+    // Individual refresh functions for specific data
+    window.invalidateGameHistory = accountAddress => {
+      // If no account is provided, use the current one
+      const targetAccount = accountAddress || account;
+      if (targetAccount) {
+        console.log('Invalidating game history for account:', targetAccount);
+        queryClient.invalidateQueries(['gameHistory', targetAccount]);
+      }
+    };
+
+    return () => {
+      // Clean up global functions
+      delete window.invalidateGameHistory;
+      delete window.refreshAllData;
+    };
+  }, [account, queryClient]);
+
+  // Refresh all data when account or contracts change
+  useEffect(() => {
+    if (account && contracts) {
+      console.log('Account or contracts changed, refreshing all data');
+      window.refreshAllData(account);
+    }
+  }, [account, contracts, queryClient]);
 
   // Use our custom game logic hook
   const {
@@ -66,6 +113,19 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
       setBetAmount(lastBetAmount);
     }
   }, [lastBetAmount, setBetAmount]);
+
+  // Debug logging for gameState.lastResult
+  useEffect(() => {
+    if (gameState.lastResult) {
+      console.log('Dice Page - gameState.lastResult:', gameState.lastResult);
+      console.log('Structure:', Object.keys(gameState.lastResult));
+      console.log(
+        'rolledNumber type:',
+        typeof gameState.lastResult.rolledNumber
+      );
+      console.log('rolledNumber value:', gameState.lastResult.rolledNumber);
+    }
+  }, [gameState.lastResult]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -379,61 +439,62 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                 isLoading={balanceLoading}
               />
             </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.5 }}
-              className="bg-white backdrop-blur-md rounded-xl border border-secondary-200 p-6 shadow-xl"
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-secondary-800">
-                  {showStats ? 'Game Stats' : 'Game History'}
-                </h2>
-                <FilterButton
-                  onClick={() => setShowStats(!showStats)}
-                  active={showStats}
-                >
-                  {showStats ? 'View History' : 'View Stats'}
-                </FilterButton>
-              </div>
-
-              <AnimatePresence mode="wait">
-                {showStats ? (
-                  <motion.div
-                    key="stats"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <GameStats
-                      account={account}
-                      diceContract={contracts?.dice}
-                      onError={onError}
-                      addToast={addToast}
-                      key={`gamestats-${!!contracts?.dice}`}
-                    />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="history"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <GameHistory
-                      account={account}
-                      diceContract={contracts?.dice}
-                      onError={onError}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
           </div>
         </div>
+
+        {/* Game History & Stats - Now moved outside the grid for full width */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.5 }}
+          className="bg-white backdrop-blur-md rounded-xl border border-secondary-200 p-6 shadow-xl"
+        >
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-secondary-800">
+              {showStats ? 'Game Stats' : 'Game History'}
+            </h2>
+            <FilterButton
+              onClick={() => setShowStats(!showStats)}
+              active={showStats}
+            >
+              {showStats ? 'View History' : 'View Stats'}
+            </FilterButton>
+          </div>
+
+          <AnimatePresence mode="wait">
+            {showStats ? (
+              <motion.div
+                key="stats"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2 }}
+              >
+                <GameStats
+                  account={account}
+                  diceContract={contracts?.dice}
+                  onError={onError}
+                  addToast={addToast}
+                  key={`gamestats-${!!contracts?.dice}`}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="history"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2 }}
+              >
+                <GameHistory
+                  account={account}
+                  diceContract={contracts?.dice}
+                  onError={onError}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
 
         {/* Game rules and odds */}
         <motion.div

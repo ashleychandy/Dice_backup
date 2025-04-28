@@ -161,8 +161,8 @@ class GameService {
   }
 
   // Get user's game stats with cache
-  async getUserStats(account) {
-    if (!this.diceContract || !account) {
+  async getUserStats(_account) {
+    if (!this.diceContract || !_account) {
       return {
         gamesPlayed: 0,
         totalWinnings: BigInt(0),
@@ -171,13 +171,13 @@ class GameService {
     }
 
     // Check cache first for instant response
-    if (this.isCacheValid('userStats', account)) {
-      return this.cacheStorage.userStats.get(account);
+    if (this.isCacheValid('userStats', _account)) {
+      return this.cacheStorage.userStats.get(_account);
     }
 
     try {
       // Call the updated getGameStatus function instead of getUserData
-      const gameStatus = await this.diceContract.getGameStatus(account);
+      const gameStatus = await this.diceContract.getGameStatus(_account);
 
       // Extract relevant data from gameStatus
       // The contract now returns multiple fields in a structured format
@@ -197,7 +197,7 @@ class GameService {
       const _totalGamesPlayed = await this.diceContract.totalGamesPlayed();
 
       // For the individual player stats, we need to use the bet history
-      const { games, stats: _stats } = await this.getGameHistory(account);
+      const { games, stats: _stats } = await this.getGameHistory(_account);
 
       // Safely convert each payout to BigInt
       const totalWinnings = games.reduce((acc, game) => {
@@ -225,8 +225,8 @@ class GameService {
       };
 
       // Update cache
-      this.cacheStorage.userStats.set(account, result);
-      this.lastUpdatedTimestamps.userStats.set(account, Date.now());
+      this.cacheStorage.userStats.set(_account, result);
+      this.lastUpdatedTimestamps.userStats.set(_account, Date.now());
 
       return result;
     } catch (error) {
@@ -239,42 +239,15 @@ class GameService {
     }
   }
 
-  // Add a test method to generate test data if real data is unavailable
-  _generateTestBetHistory(account) {
-    console.log('GameService: GENERATING TEST BET HISTORY for development');
-    // Generate test bet history for development purposes
-    const now = Math.floor(Date.now() / 1000);
-    const testBets = [];
-
-    // Generate 5 random bets
-    for (let i = 0; i < 5; i++) {
-      const chosenNumber = Math.floor(Math.random() * 6) + 1;
-      const rolledNumber = Math.floor(Math.random() * 6) + 1;
-      const isWin = chosenNumber === rolledNumber;
-      const amount = BigInt('1000000000000000000'); // 1 token
-      const payout = isWin ? amount * BigInt(6) : BigInt(0);
-
-      testBets.push({
-        timestamp: now - i * 3600, // hours ago
-        betNumber: chosenNumber,
-        betAmount: amount,
-        result: rolledNumber,
-        payout: payout,
-      });
-    }
-
-    return testBets;
-  }
-
   // Get user's game history with cache
-  async getGameHistory(account) {
-    console.log('GameService.getGameHistory: Starting with account:', account);
+  async getGameHistory(_account) {
+    console.log('GameService.getGameHistory: Starting with account:', _account);
     console.log(
       'GameService.getGameHistory: diceContract initialized:',
       !!this.diceContract
     );
 
-    if (!this.diceContract || !account) {
+    if (!this.diceContract || !_account) {
       console.log(
         'GameService.getGameHistory: Missing contract or account, returning empty data'
       );
@@ -282,9 +255,9 @@ class GameService {
     }
 
     // Check cache first for instant response
-    if (this.isCacheValid('gameHistory', account)) {
+    if (this.isCacheValid('gameHistory', _account)) {
       console.log('GameService.getGameHistory: Returning cached data');
-      return this.cacheStorage.gameHistory.get(account);
+      return this.cacheStorage.gameHistory.get(_account);
     }
 
     try {
@@ -320,14 +293,13 @@ class GameService {
 
       // Fetch bets using the getBetHistory function
       let bets = [];
-      let usedTestData = false;
 
       try {
         console.log(
           'GameService.getGameHistory: Calling getBetHistory with account:',
-          account
+          _account
         );
-        bets = await this.diceContract.getBetHistory(account);
+        bets = await this.diceContract.getBetHistory(_account);
         console.log('GameService.getGameHistory: Got bets:', bets?.length || 0);
 
         // Inspect the raw bet data structure
@@ -342,15 +314,6 @@ class GameService {
           'GameService.getGameHistory: Error fetching bet history:',
           error
         );
-
-        // In development mode, use test data if the contract call fails
-        if (process.env.NODE_ENV === 'development') {
-          console.log(
-            'GameService.getGameHistory: Using test data in development mode'
-          );
-          bets = this._generateTestBetHistory(account);
-          usedTestData = true;
-        }
       }
 
       // Process bet history data
@@ -456,8 +419,8 @@ class GameService {
       });
 
       // Update cache
-      this.cacheStorage.gameHistory.set(account, historyResult);
-      this.lastUpdatedTimestamps.gameHistory.set(account, Date.now());
+      this.cacheStorage.gameHistory.set(_account, historyResult);
+      this.lastUpdatedTimestamps.gameHistory.set(_account, Date.now());
 
       return historyResult;
     } catch (error) {
@@ -634,15 +597,20 @@ class GameService {
       // Get the game status
       const gameStatus = await this.diceContract.getGameStatus(account);
 
-      // Calculate recovery timeout values
-      const recoveryTimeoutPeriod =
-        await this.diceContract.RECOVERY_DELAY_SECONDS();
+      // Default recovery timeout to 1 hour (3600 seconds) if we can't get it from contract
+      // This is the value used in the contract (defined as GAME_TIMEOUT = 1 hours)
+      const DEFAULT_RECOVERY_TIMEOUT = 3600;
+      let recoveryTimeoutPeriod = DEFAULT_RECOVERY_TIMEOUT;
+
       const lastPlayTimestamp = Number(gameStatus.lastPlayTimestamp);
       const currentTimestamp = Math.floor(Date.now() / 1000);
       const elapsedTime = currentTimestamp - lastPlayTimestamp;
+
+      // If the game is already eligible for recovery according to the contract,
+      // set secondsUntilEligible to 0, otherwise estimate based on our default timeout
       const secondsUntilEligible = gameStatus.recoveryEligible
         ? 0
-        : Math.max(0, Number(recoveryTimeoutPeriod) - elapsedTime);
+        : Math.max(0, recoveryTimeoutPeriod - elapsedTime);
 
       // Create result object
       const result = {

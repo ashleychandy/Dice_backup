@@ -39,7 +39,7 @@ const Header = () => {
     isNetworkSupported,
     handleLogout,
     handleSwitchNetwork,
-    isConnecting,
+    _isConnecting,
   } = useWallet();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 

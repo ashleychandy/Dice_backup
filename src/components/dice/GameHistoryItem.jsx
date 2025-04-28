@@ -1,200 +1,175 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import {
-  formatTokenAmount,
-  formatTimestamp,
-  formatDiceResult,
-} from '../../utils/formatting';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { formatDistanceToNow } from 'date-fns';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { formatEther } from 'ethers';
+import { RESULT_FORCE_STOPPED, RESULT_RECOVERED } from '../../constants/game';
+
+// Helper to generate color classes based on game result
+const getAccentColor = game => {
+  const rolledNumber = Number(game.rolledNumber);
+  const chosenNumber = Number(game.chosenNumber);
+
+  // Win
+  if (rolledNumber === chosenNumber && rolledNumber >= 1 && rolledNumber <= 6) {
+    return 'border-green-500 text-green-500';
+  }
+  // Loss
+  else if (
+    rolledNumber !== chosenNumber &&
+    rolledNumber >= 1 &&
+    rolledNumber <= 6
+  ) {
+    return 'border-gray-400 text-gray-400';
+  }
+  // Special cases
+  else if (rolledNumber === RESULT_FORCE_STOPPED) {
+    return 'border-yellow-500 text-yellow-500';
+  } else if (rolledNumber === RESULT_RECOVERED) {
+    return 'border-blue-500 text-blue-500';
+  } else {
+    return 'border-gray-400 text-gray-400';
+  }
+};
+
+// Get formatted date
+const getFormattedDate = timestamp => {
+  if (!timestamp) return 'Unknown';
+  const date = new Date(timestamp * 1000);
+  return formatDistanceToNow(date, { addSuffix: true });
+};
+
+// Get result text
+const getResultText = game => {
+  const rolledNumber = Number(game.rolledNumber);
+  const chosenNumber = Number(game.chosenNumber);
+
+  if (rolledNumber === chosenNumber && rolledNumber >= 1 && rolledNumber <= 6) {
+    return 'Win';
+  } else if (
+    rolledNumber !== chosenNumber &&
+    rolledNumber >= 1 &&
+    rolledNumber <= 6
+  ) {
+    return 'Loss';
+  } else if (rolledNumber === RESULT_FORCE_STOPPED) {
+    return 'Stopped';
+  } else if (rolledNumber === RESULT_RECOVERED) {
+    return 'Recovered';
+  } else {
+    return 'Unknown';
+  }
+};
 
 const GameHistoryItem = ({ game, index }) => {
-  // Define constants for special result codes (matching contract)
-  const RESULT_FORCE_STOPPED = 254;
-  const RESULT_RECOVERED = 255;
+  const [expanded, setExpanded] = useState(false);
 
-  // Convert string values to appropriate types
-  const chosenNumber = Number(game.chosenNumber);
+  const toggleExpand = () => {
+    setExpanded(!expanded);
+  };
+
+  // Animate in with a staggered delay based on index
+  const animationDelay = index * 0.05;
+
+  const resultText = getResultText(game);
+  const accentColor = getAccentColor(game);
   const rolledNumber = Number(game.rolledNumber);
-
-  // Determine game result states
-  const isWin =
-    rolledNumber === chosenNumber && rolledNumber >= 1 && rolledNumber <= 6;
-  const isRecovered = rolledNumber === RESULT_RECOVERED;
-  const isForceStopped = rolledNumber === RESULT_FORCE_STOPPED;
-  const isSpecialResult = isRecovered || isForceStopped || rolledNumber > 250;
-
-  // Safe formatting of dice results with better handling of special cases
-  const getFormattedRolledNumber = () => {
-    if (rolledNumber === RESULT_RECOVERED) return '♻️';
-    if (rolledNumber === RESULT_FORCE_STOPPED) return '⚠️';
-    if (rolledNumber > 250) return '⚠️';
-    if (rolledNumber >= 1 && rolledNumber <= 6) return rolledNumber.toString();
-    return '?';
-  };
-
-  const getFormattedChosenNumber = () => {
-    if (chosenNumber >= 1 && chosenNumber <= 6) return chosenNumber.toString();
-    return '?';
-  };
-
-  // Background color based on game result
-  const getBgColor = () => {
-    if (isRecovered) return 'bg-blue-500/10 hover:bg-blue-500/20';
-    if (isForceStopped) return 'bg-yellow-500/10 hover:bg-yellow-500/20';
-    return isWin
-      ? 'bg-gaming-success/10 hover:bg-gaming-success/20'
-      : 'bg-gaming-error/10 hover:bg-gaming-error/20';
-  };
-
-  // Border color based on game result
-  const getBorderColor = () => {
-    if (isRecovered) return 'border-blue-500 bg-blue-500/20';
-    if (isForceStopped) return 'border-yellow-500 bg-yellow-500/20';
-    return isWin
-      ? 'border-gaming-success bg-gaming-success/20'
-      : 'border-gaming-error bg-gaming-error/20';
-  };
-
-  // Text color based on game result
-  const getTextColor = () => {
-    if (isRecovered) return 'text-blue-500';
-    if (isForceStopped) return 'text-yellow-500';
-    return isWin ? 'text-gaming-success' : 'text-gaming-error';
-  };
-
-  // Game result message with improved handling of special cases
-  const getResultMessage = () => {
-    if (isRecovered) return 'Game was recovered successfully';
-    if (isForceStopped) return 'Game was force stopped by admin';
-    if (rolledNumber > 250) return 'Game encountered an issue and was resolved';
-
-    // Normal game case
-    return (
-      <>
-        You bet on{' '}
-        <span className="font-bold text-gaming-primary">
-          {getFormattedChosenNumber()}
-        </span>{' '}
-        and rolled a{' '}
-        <span className={`font-bold ${getTextColor()}`}>
-          {getFormattedRolledNumber()}
-        </span>
-      </>
-    );
-  };
-
-  // Financial result message with better handling of amounts
-  const getFinancialResult = () => {
-    if (isSpecialResult) {
-      if (game.payout && game.payout !== '0') {
-        return `Refunded ${formatTokenAmount(game.payout, 2)} GAMA`;
-      }
-      return 'No refund processed';
-    }
-
-    return isWin
-      ? `+${formatTokenAmount(game.payout, 2)} GAMA`
-      : `-${formatTokenAmount(game.amount, 2)} GAMA`;
-  };
-
-  // Get win multiplier for wins (payout / amount)
-  const getMultiplier = () => {
-    if (!isWin || isSpecialResult) return null;
-
-    try {
-      // Only calculate if both values are valid and non-zero
-      if (
-        !game.amount ||
-        !game.payout ||
-        game.amount === '0' ||
-        game.payout === '0'
-      ) {
-        return null;
-      }
-
-      const amount = BigInt(game.amount);
-      const payout = BigInt(game.payout);
-
-      if (amount <= 0) return null;
-
-      // Calculate multiplier as a floating point
-      const multiplier = Number(payout) / Number(amount);
-      return multiplier.toFixed(1) + 'x';
-    } catch (e) {
-      return null;
-    }
-  };
-
-  // Format timestamp with reliable fallback formatting
-  const getFormattedTime = () => {
-    if (!game.timestamp) return 'Unknown time';
-
-    try {
-      return formatTimestamp(game.timestamp);
-    } catch (e) {
-      return 'Recent game';
-    }
-  };
-
-  // Get amount wagered with safe formatting
-  const getWageredAmount = () => {
-    if (!game.amount || game.amount === '0') {
-      // For special cases, we might not have the exact amount
-      if (isSpecialResult) {
-        return 'Variable amount';
-      }
-      return '0 GAMA';
-    }
-
-    try {
-      return formatTokenAmount(game.amount, 2) + ' GAMA';
-    } catch (e) {
-      return 'Unknown amount';
-    }
-  };
-
-  const multiplier = getMultiplier();
+  const chosenNumber = Number(game.chosenNumber);
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 5 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3, delay: index * 0.05 }}
-      className={`history-item ${getBgColor()} p-4 rounded-xl border border-transparent hover:border-white/10 shadow-sm hover:shadow-md transition-all duration-300`}
-      style={{ minHeight: '80px' }}
+      transition={{ delay: animationDelay, duration: 0.2 }}
+      className={`bg-white border rounded-md shadow-sm overflow-hidden transition-colors duration-150 ${accentColor}`}
     >
-      <div className="flex justify-between items-center">
-        <div className="flex items-center space-x-3">
-          <div
-            className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white border-2 
-              ${getBorderColor()}`}
-          >
-            {getFormattedRolledNumber()}
-          </div>
-          <div>
-            <p className="font-semibold text-white">{getResultMessage()}</p>
-            <p className="text-sm text-secondary-400">{getFormattedTime()}</p>
-          </div>
-        </div>
+      {/* Main content row */}
+      <div className="p-2 cursor-pointer" onClick={toggleExpand}>
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-2">
+            {/* Dice Number */}
+            <div className="flex flex-col items-center justify-center">
+              <div
+                className={`flex items-center justify-center w-7 h-7 text-sm font-bold rounded-full border-2 ${accentColor} bg-white`}
+              >
+                {rolledNumber >= 1 && rolledNumber <= 6 ? rolledNumber : '?'}
+              </div>
+              <div className="text-2xs text-gray-500 mt-0.5">Rolled</div>
+            </div>
 
-        <div className="text-right">
-          <div className="flex items-center justify-end">
-            <p className={`font-bold text-lg ${getTextColor()}`}>
-              {getFinancialResult()}
-            </p>
-
-            {multiplier && (
-              <span className="ml-2 bg-white/10 text-xs px-2 py-1 rounded-full text-white">
-                {multiplier}
-              </span>
-            )}
+            {/* Text details */}
+            <div>
+              <div className="text-xs font-medium text-gray-800">
+                {chosenNumber >= 1 && chosenNumber <= 6
+                  ? `Bet on ${chosenNumber}`
+                  : 'Bet'}
+                <span className="text-2xs text-gray-500 ml-1.5">
+                  {getFormattedDate(game.timestamp)}
+                </span>
+              </div>
+              <div className="text-xs text-gray-600">
+                {formatEther(game.betAmount || '0').substring(0, 8)} XDC
+              </div>
+            </div>
           </div>
 
-          <p className="text-xs text-secondary-400">
-            Bet: {getWageredAmount()}
-          </p>
+          {/* Result indicator */}
+          <div className="flex items-center space-x-2">
+            <div className={`text-xs font-medium ${accentColor}`}>
+              {resultText}
+            </div>
+            <FontAwesomeIcon
+              icon={expanded ? faChevronUp : faChevronDown}
+              className="text-gray-400 text-xs"
+            />
+          </div>
         </div>
       </div>
+
+      {/* Expanded details */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="bg-gray-50 border-t border-gray-100"
+          >
+            <div className="p-2">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                <div>
+                  <span className="text-gray-500">Game ID:</span>{' '}
+                  <span className="text-gray-700">{game.gameId || '-'}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Payout:</span>{' '}
+                  <span className="text-gray-700">
+                    {game.payout
+                      ? `${formatEther(game.payout).substring(0, 8)} XDC`
+                      : '-'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Player:</span>{' '}
+                  <span className="text-gray-700 text-2xs break-all">
+                    {game.player
+                      ? `${game.player.substring(0, 6)}...${game.player.substring(38)}`
+                      : '-'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Block:</span>{' '}
+                  <span className="text-gray-700">
+                    {game.blockNumber || '-'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { formatTokenAmount, formatTimestamp } from '../../utils/formatting';
@@ -36,6 +36,8 @@ const GameStats = ({ account, diceContract, onError, addToast }) => {
   const [debugInfo, setDebugInfo] = useState(null);
   const [isDebugging, setIsDebugging] = useState(false);
 
+  const queryClient = useQueryClient();
+
   // Use React Query for fetching stats
   const {
     data: stats,
@@ -62,8 +64,27 @@ const GameStats = ({ account, diceContract, onError, addToast }) => {
       }
     },
     refetchInterval: 10000,
-    enabled: !!account,
+    enabled: !!account && !!diceContract,
+    staleTime: 5000, // Consider data stale after 5 seconds to ensure fresh data
   });
+
+  // Register global function to refresh stats
+  useEffect(() => {
+    // Add a global function to refresh game stats
+    window.refreshGameStats = accountAddress => {
+      // If no account is provided, use the current one
+      const targetAccount = accountAddress || account;
+      if (targetAccount) {
+        console.log('Refreshing game stats for account:', targetAccount);
+        queryClient.invalidateQueries(['gameStats', targetAccount]);
+      }
+    };
+
+    return () => {
+      // Clean up global function
+      delete window.refreshGameStats;
+    };
+  }, [account, queryClient]);
 
   // Initialize gameService with contract when available
   useEffect(() => {
@@ -71,6 +92,12 @@ const GameStats = ({ account, diceContract, onError, addToast }) => {
       try {
         gameService.init({ dice: diceContract });
         console.log('GameStats DEBUG: gameService initialized with contract');
+
+        // Force refetch when service is initialized with a new contract
+        if (account) {
+          console.log('Contract changed, refreshing game stats');
+          queryClient.invalidateQueries(['gameStats', account]);
+        }
       } catch (error) {
         console.error(
           'GameStats DEBUG: Error initializing gameService:',
@@ -79,7 +106,15 @@ const GameStats = ({ account, diceContract, onError, addToast }) => {
         onError?.(error);
       }
     }
-  }, [diceContract, onError]);
+  }, [diceContract, onError, account, queryClient]);
+
+  // Force refetch when account or contract changes to ensure fresh data
+  useEffect(() => {
+    if (account && diceContract) {
+      console.log('Account or contract changed, refreshing game stats');
+      queryClient.invalidateQueries(['gameStats', account]);
+    }
+  }, [account, diceContract, queryClient]);
 
   // Update the timer for active games
   useEffect(() => {
@@ -132,7 +167,7 @@ const GameStats = ({ account, diceContract, onError, addToast }) => {
     }
 
     return () => clearInterval(interval);
-  }, [recoveryState.secondsUntilEligible, refetch]);
+  }, [recoveryState.secondsUntilEligible, refetch, recoveryState]);
 
   // Check if user has a game eligible for recovery
   useEffect(() => {
@@ -184,7 +219,7 @@ const GameStats = ({ account, diceContract, onError, addToast }) => {
     const interval = setInterval(checkRecovery, 30000); // Check every 30 seconds
 
     return () => clearInterval(interval);
-  }, [account]);
+  }, [account, recoveryState]);
 
   const handleRecoverGame = async () => {
     if (!account || !recoveryState.eligible) return;

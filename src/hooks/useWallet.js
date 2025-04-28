@@ -32,6 +32,36 @@ export const useWalletState = () => {
   const stateRef = useRef(state);
   stateRef.current = state;
 
+  // Add ref to queryClient for data refetching
+  const queryClientRef = useRef(null);
+
+  // Try to get queryClient from React Query
+  useEffect(() => {
+    try {
+      // Dynamically import to avoid circular dependencies
+      import('@tanstack/react-query')
+        .then(module => {
+          // Don't use hooks inside a regular function
+          // Instead, assign the module to a ref and use it directly
+          queryClientRef.current = module;
+
+          // Check if we can get the existing React Query client
+          if (
+            typeof window !== 'undefined' &&
+            window.__REACT_QUERY_GLOBAL_CLIENT__
+          ) {
+            console.log('Found React Query client from global context');
+            return window.__REACT_QUERY_GLOBAL_CLIENT__;
+          }
+
+          console.log('No queryClient available from context');
+        })
+        .catch(e => console.error('Could not import react-query:', e));
+    } catch (e) {
+      console.error('Error accessing query client:', e);
+    }
+  }, []);
+
   const handleChainChanged = useCallback(
     async newChainId => {
       const chainIdNumber = parseInt(newChainId);
@@ -80,6 +110,12 @@ export const useWalletState = () => {
             });
           }
           addToast('Network changed successfully', 'success');
+
+          // Refresh all data after network change
+          if (window.refreshAllData) {
+            window.refreshAllData(stateRef.current.account);
+            console.log('Refreshing all data after network change');
+          }
         }
       } catch (error) {
         handleError(error, 'handleChainChanged');
@@ -184,6 +220,33 @@ export const useWalletState = () => {
             type: walletActionTypes.SET_ACCOUNT,
             payload: accounts[0],
           });
+
+          // Invalidate any existing game history queries
+          if (queryClientRef.current) {
+            // Use the queryClient from the application context
+            if (window.__REACT_QUERY_GLOBAL_CLIENT__) {
+              window.__REACT_QUERY_GLOBAL_CLIENT__.invalidateQueries([
+                'gameHistory',
+                accounts[0],
+              ]);
+              console.log('Invalidated game history for account:', accounts[0]);
+            } else {
+              console.log('No queryClient available from context');
+            }
+          } else {
+            // If we don't have a queryClient reference, use the window method to invalidate queries
+            if (window.invalidateGameHistory) {
+              window.invalidateGameHistory(accounts[0]);
+              console.log('Using window method to invalidate game history');
+            }
+
+            // Use the centralized refresh function if available
+            if (window.refreshAllData) {
+              window.refreshAllData(accounts[0]);
+              console.log('Using window method to refresh all data');
+            }
+          }
+
           addToast('Wallet connected successfully!', 'success');
         } catch (connectionError) {
           if (connectionError.code === 4001) {
@@ -323,6 +386,12 @@ export const useWalletState = () => {
       } else if (accounts[0] !== stateRef.current.account) {
         dispatch({ type: walletActionTypes.SET_ACCOUNT, payload: accounts[0] });
         addToast('Account changed', 'info');
+
+        // Refresh all data after account change
+        if (window.refreshAllData) {
+          window.refreshAllData(accounts[0]);
+          console.log('Refreshing all data after account change');
+        }
       }
     };
 

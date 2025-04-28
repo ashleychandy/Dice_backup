@@ -24,8 +24,10 @@ function App() {
     defaultOptions: {
       queries: {
         retry: 2,
-        refetchOnWindowFocus: false,
-        staleTime: 30000,
+        refetchOnWindowFocus: true,
+        refetchOnMount: true,
+        refetchOnReconnect: true,
+        staleTime: 10000,
       },
     },
   });

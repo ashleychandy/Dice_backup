@@ -1,6 +1,6 @@
-import React, { useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { ethers } from 'ethers';
+import { AnimatePresence, motion } from 'framer-motion';
+import React, { useRef } from 'react';
 import { useDiceNumber } from '../../hooks/useDiceNumber';
 
 /**
@@ -32,8 +32,8 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
   }, []);
 
   // Function to render a dot in the dice
-  const renderDot = (size = 'w-2 h-2') => (
-    <div className={`${size} rounded-full bg-white shadow-sm`}></div>
+  const renderDot = (size = 'w-4 h-4') => (
+    <div className={`${size} dice-dot`} />
   );
 
   // Function to render the dice face based on number
@@ -42,114 +42,63 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     const dotConfigurations = {
       1: (
         <div className="absolute inset-0 flex items-center justify-center">
-          {renderDot('w-6 h-6')}
+          {renderDot('w-8 h-8')}
         </div>
       ),
       2: (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="grid grid-cols-3 grid-rows-3 gap-1 w-full h-full p-3">
-            <div className="flex items-start justify-start">
-              {renderDot('w-4 h-4')}
-            </div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div className="flex items-end justify-end">
-              {renderDot('w-4 h-4')}
-            </div>
-          </div>
+        <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 p-4">
+          <div className="flex items-start justify-start">{renderDot()}</div>
+          <div></div>
+          <div></div>
+          <div className="flex items-end justify-end">{renderDot()}</div>
         </div>
       ),
       3: (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="grid grid-cols-3 grid-rows-3 gap-1 w-full h-full p-3">
-            <div className="flex items-start justify-start">
-              {renderDot('w-4 h-4')}
-            </div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div className="flex items-center justify-center">
-              {renderDot('w-4 h-4')}
-            </div>
-            <div></div>
-            <div></div>
-            <div></div>
-            <div className="flex items-end justify-end">
-              {renderDot('w-4 h-4')}
-            </div>
+        <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 p-4">
+          <div className="flex items-start justify-start">{renderDot()}</div>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div className="flex items-center justify-center">
+            {renderDot('w-6 h-6')}
           </div>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div className="flex items-end justify-end">{renderDot()}</div>
         </div>
       ),
       4: (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="grid grid-cols-2 grid-rows-2 gap-2 w-full h-full p-4">
-            <div className="flex items-start justify-start">
-              {renderDot('w-5 h-5')}
-            </div>
-            <div className="flex items-start justify-end">
-              {renderDot('w-5 h-5')}
-            </div>
-            <div className="flex items-end justify-start">
-              {renderDot('w-5 h-5')}
-            </div>
-            <div className="flex items-end justify-end">
-              {renderDot('w-5 h-5')}
-            </div>
-          </div>
+        <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 p-4">
+          <div className="flex items-start justify-start">{renderDot()}</div>
+          <div className="flex items-start justify-end">{renderDot()}</div>
+          <div className="flex items-end justify-start">{renderDot()}</div>
+          <div className="flex items-end justify-end">{renderDot()}</div>
         </div>
       ),
       5: (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="grid grid-cols-3 grid-rows-3 gap-1 w-full h-full p-3">
-            <div className="flex items-start justify-start">
-              {renderDot('w-4 h-4')}
-            </div>
-            <div></div>
-            <div className="flex items-start justify-end">
-              {renderDot('w-4 h-4')}
-            </div>
-            <div></div>
-            <div className="flex items-center justify-center">
-              {renderDot('w-4 h-4')}
-            </div>
-            <div></div>
-            <div className="flex items-end justify-start">
-              {renderDot('w-4 h-4')}
-            </div>
-            <div></div>
-            <div className="flex items-end justify-end">
-              {renderDot('w-4 h-4')}
-            </div>
+        <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 p-4">
+          <div className="flex items-start justify-start">{renderDot()}</div>
+          <div></div>
+          <div className="flex items-start justify-end">{renderDot()}</div>
+          <div></div>
+          <div className="flex items-center justify-center">
+            {renderDot('w-6 h-6')}
           </div>
+          <div></div>
+          <div className="flex items-end justify-start">{renderDot()}</div>
+          <div></div>
+          <div className="flex items-end justify-end">{renderDot()}</div>
         </div>
       ),
       6: (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="grid grid-cols-2 grid-rows-3 gap-2 w-full h-full p-4">
-            <div className="flex items-start justify-start">
-              {renderDot('w-4 h-4')}
-            </div>
-            <div className="flex items-start justify-end">
-              {renderDot('w-4 h-4')}
-            </div>
-            <div className="flex items-center justify-start">
-              {renderDot('w-4 h-4')}
-            </div>
-            <div className="flex items-center justify-end">
-              {renderDot('w-4 h-4')}
-            </div>
-            <div className="flex items-end justify-start">
-              {renderDot('w-4 h-4')}
-            </div>
-            <div className="flex items-end justify-end">
-              {renderDot('w-4 h-4')}
-            </div>
-          </div>
+        <div className="absolute inset-0 grid grid-cols-2 grid-rows-3 p-4">
+          <div className="flex items-start justify-start">{renderDot()}</div>
+          <div className="flex items-start justify-end">{renderDot()}</div>
+          <div className="flex items-center justify-start">{renderDot()}</div>
+          <div className="flex items-center justify-end">{renderDot()}</div>
+          <div className="flex items-end justify-start">{renderDot()}</div>
+          <div className="flex items-end justify-end">{renderDot()}</div>
         </div>
       ),
     };
@@ -160,7 +109,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
 
   return (
     <div className="dice-container">
-      {/* Main Dice - No animation */}
+      {/* Main Dice */}
       <div className="dice-face">{renderDiceFace(displayNumber)}</div>
 
       {/* Confetti Animation */}

@@ -34,10 +34,17 @@ module.exports = {
     'react/react-in-jsx-scope': 'off',
     // Prevent prop drilling by limiting component props
     'react/prop-types': 'off',
+    // Line endings
+    'prettier/prettier': ['error', { endOfLine: 'auto' }],
   },
   settings: {
     react: {
       version: 'detect',
+    },
+    'import/resolver': {
+      node: {
+        extensions: ['.js', '.jsx'],
+      },
     },
   },
 }; 

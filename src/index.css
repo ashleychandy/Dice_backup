@@ -28,19 +28,39 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    perspective: 1200px;
   }
 
   .dice-face {
-    @apply rounded-xl bg-green-600 border-2 border-green-800
-    shadow-xl transition-all duration-300;
-    width: 10rem;
-    height: 10rem;
+    @apply bg-gradient-to-br rounded-3xl from-green-500 to-green-600 transition-all duration-300;
+    width: 8rem;
+    height: 8rem;
     position: relative;
+    transform-style: preserve-3d;
+    box-shadow: 
+      -10px -10px 20px rgba(0, 0, 0, 0.5),
+      11px 11px 20px rgba(0, 0, 0, 0.2),
+      inset 0 0 30px rgba(0, 0, 0, 0.1);
+    border-radius: 1rem;
+  }
+
+  .dice-face::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 50%);
+    border-radius: 1rem;
+    pointer-events: none;
   }
 
   .dice-dot {
     @apply bg-white rounded-full;
-    box-shadow: 0 0 5px 1px rgba(255, 255, 255, 0.8);
+    box-shadow: 
+      0 0 4px 1px rgba(255, 255, 255, 0.4),
+      inset 0 0 4px rgba(0, 0, 0, 0.2);
   }
 
   /* Number Buttons */

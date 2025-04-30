@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import GameHistoryItem from './GameHistoryItem';
-import EmptyState from './EmptyState';
-import GameHistoryLoader from './GameHistoryLoader';
+import React, { useMemo, useState } from 'react';
 import gameService from '../../services/gameService';
+import EmptyState from './EmptyState';
+import GameHistoryItem from './GameHistoryItem';
+import GameHistoryLoader from './GameHistoryLoader';
 
 // Minimalist pagination component
 const Pagination = ({ currentPage, totalPages, onPageChange }) => (

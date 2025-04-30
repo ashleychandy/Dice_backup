@@ -303,7 +303,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                   betAmount={betAmount}
                   isLoading={balanceLoading}
                 />
-              </motion.button>
+              </motion.div>
               <div className="mb-8 ">
                 <BetInput
                   value={betAmount}

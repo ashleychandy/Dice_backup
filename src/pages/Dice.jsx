@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
+import { AnimatePresence, motion } from 'framer-motion';
+import React, { useCallback, useEffect, useState } from 'react';
 
 // Import components
-import GameStats from '../components/dice/GameStats';
-import GameHistory from '../components/dice/GameHistory';
-import BetInput from '../components/dice/BetInput';
 import BalancePanel from '../components/dice/BalancePanel';
+import BetInput from '../components/dice/BetInput';
 import DiceVisualizer from '../components/dice/DiceVisualizer';
+import GameHistory from '../components/dice/GameHistory';
+import GameStats from '../components/dice/GameStats';
 import NumberSelector from '../components/dice/NumberSelector';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
 import FilterButton from '../components/ui/FilterButton';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
 
 // Import custom hooks
 import useGameLogic from '../hooks/useGameLogic';
@@ -277,7 +277,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                 </div>
               </div>
 
-              <div className="mb-8">
+              <div className="mb-4">
                 <NumberSelector
                   value={chosenNumber}
                   onChange={setChosenNumber}
@@ -285,11 +285,29 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                 />
               </div>
 
-              <div className="mb-8">
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="mb-5 bg-white pt-5 "
+              >
+                <BalancePanel
+                  userBalance={balanceData?.balance || BigInt(0)}
+                  allowance={balanceData?.allowance || BigInt(0)}
+                  potentialWinnings={
+                    balanceData?.balance
+                      ? balanceData.balance * BigInt(6)
+                      : BigInt(0)
+                  }
+                  betAmount={betAmount}
+                  isLoading={balanceLoading}
+                />
+              </motion.button>
+              <div className="mb-8 ">
                 <BetInput
                   value={betAmount}
                   onChange={setBetAmount}
-                  userBalance={balanceData?.balance.toString() || '0'}
                   disabled={gameState.isProcessing || hasNoTokens}
                   lastBetAmount={lastBetAmount}
                   onRepeatLastBet={handleRepeatLastBet}
@@ -371,7 +389,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                     needsApproval ||
                     hasNoTokens
                   }
-                  className="h-14 w-full bg-gradient-to-r from-gaming-primary to-gaming-accent hover:from-gaming-primary/90 hover:to-gaming-accent/90 text-white font-medium rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="h-14 w-full bg-gradient-to-r from-gaming-primary to-gaming-accent hover:from-gaming-primary/90 hover:to-gaming-accent/90 font-medium rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {gameState.isProcessing || gameState.isRolling ? (
                     <span className="flex items-center justify-center">
@@ -423,18 +441,11 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-white backdrop-blur-md rounded-xl border border-secondary-200 p-6 shadow-xl flex flex-col items-center justify-center"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="bg-white backdrop-blur-3xl rounded-xl border border-secondary-200 p-6 shadow-xl flex flex-col items-center justify-center"
               style={{ minHeight: '20rem' }}
             >
-              <h2 className="text-2xl font-bold mb-2 text-secondary-800 text-center">
-                Game Visualization
-              </h2>
-              <p className="text-secondary-600 text-sm mb-4 text-center">
-                {chosenNumber
-                  ? `You selected number ${chosenNumber}`
-                  : 'Select a number to start'}
-              </p>
               <div className="flex-grow w-full flex items-center justify-center p-4">
                 <DiceVisualizer
                   isRolling={gameState.isRolling}
@@ -443,32 +454,10 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                 />
               </div>
             </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className="bg-white backdrop-blur-md rounded-xl border border-secondary-200 p-6 shadow-xl"
-            >
-              <h2 className="text-2xl font-bold mb-6 text-secondary-800">
-                Your Balance
-              </h2>
-              <BalancePanel
-                userBalance={balanceData?.balance || BigInt(0)}
-                allowance={balanceData?.allowance || BigInt(0)}
-                potentialWinnings={
-                  balanceData?.balance
-                    ? balanceData.balance * BigInt(6)
-                    : BigInt(0)
-                }
-                betAmount={betAmount}
-                isLoading={balanceLoading}
-              />
-            </motion.div>
           </div>
         </div>
 
-        {/* Game History & Stats - Now moved outside the grid for full width */}
+        {/* Game History & Stats */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

@@ -10,7 +10,7 @@ const variants = {
   info: 'bg-gaming-info hover:bg-gaming-info/90 text-white',
   ghost: 'bg-transparent hover:bg-secondary-800 text-white',
   outline:
-    'bg-transparent border border-secondary-700 hover:border-green-600 text-white',
+    'bg-transparent border border-secondary-700 hover:border-green-600 text-black',
 };
 
 const sizes = {

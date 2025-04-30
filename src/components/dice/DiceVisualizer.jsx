@@ -59,9 +59,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
           <div></div>
           <div></div>
           <div></div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-6 h-6')}
-          </div>
+          <div className="flex items-center justify-center">{renderDot()}</div>
           <div></div>
           <div></div>
           <div></div>
@@ -82,9 +80,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
           <div></div>
           <div className="flex items-start justify-end">{renderDot()}</div>
           <div></div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-6 h-6')}
-          </div>
+          <div className="flex items-center justify-center">{renderDot()}</div>
           <div></div>
           <div className="flex items-end justify-start">{renderDot()}</div>
           <div></div>

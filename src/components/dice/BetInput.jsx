@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import Button from '../ui/Button';
-import Input from '../ui/Input';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  calculatePercentage,
   formatTokenAmount,
   parseTokenAmount,
-  calculatePercentage,
 } from '../../utils/formatting';
+import Button from '../ui/Button';
+import Input from '../ui/Input';
 
 const QuickButton = ({ onClick, disabled, children, active = false }) => (
   <motion.button
@@ -38,6 +38,8 @@ const BetInput = ({
   disabled = false,
   lastBetAmount = null,
   onRepeatLastBet = null,
+  balanceData = { balance: BigInt(0), allowance: BigInt(0) },
+  isLoading = false,
 }) => {
   const [displayValue, setDisplayValue] = useState('');
   const [error, setError] = useState('');
@@ -376,11 +378,11 @@ const BetInput = ({
   };
 
   // Format balance for display (can show decimals, but bet is whole number)
-  const formattedBalance = formatTokenAmount(userBalance, 4);
+  // const formattedBalance = formatTokenAmount(userBalance, 4);
 
   return (
     <div className="space-y-4">
-      <div className="relative bg-white p-4 rounded-lg border border-green-200">
+      <div className="relative mb-8 bg-white p-4 rounded-lg border border-green-200">
         <div className="flex items-center gap-2">
           <div className="flex-1">
             <Input
@@ -388,8 +390,8 @@ const BetInput = ({
                 <div className="flex justify-between">
                   <span>Bet Amount (GAMA)</span>
                   <span className="text-xs text-secondary-600">
-                    Balance:{' '}
-                    <span className="text-green-600">{formattedBalance}</span>
+                    {/* Balance:{' '} */}
+                    {/* <span className="text-green-600">{formattedBalance}</span> */}
                   </span>
                 </div>
               }
@@ -409,7 +411,7 @@ const BetInput = ({
               onClick={() => handleAdjustAmount(true)}
               disabled={disabled}
               aria-label="Increase bet amount"
-              className="text-green-600 hover:bg-green-500/10 hover:border-green-600"
+              className="hover:bg-green-200 text-black hover:border-green-600"
             >
               +
             </Button>
@@ -419,7 +421,7 @@ const BetInput = ({
               onClick={() => handleAdjustAmount(false)}
               disabled={disabled || !displayValue}
               aria-label="Decrease bet amount"
-              className="text-green-600 hover:bg-green-500/10 hover:border-green-600"
+              className="hover:bg-green-200 hover:border-green-600"
             >
               -
             </Button>

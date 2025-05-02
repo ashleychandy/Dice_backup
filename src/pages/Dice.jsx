@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import BalancePanel from '../components/dice/BalancePanel';
 import BetInput from '../components/dice/BetInput';
 import DiceVisualizer from '../components/dice/DiceVisualizer';
+import LatestBet from '../components/dice/LatestBet';
 import GameHistory from '../components/dice/GameHistory';
 import GameStats from '../components/dice/GameStats';
 import NumberSelector from '../components/dice/NumberSelector';
@@ -428,21 +429,36 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
 
           {/* Right column */}
           <div className="lg:col-span-5 space-y-6">
+            {/* Dice Visualizer */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="bg-white backdrop-blur-3xl rounded-xl border border-secondary-200 p-6 shadow-xl flex flex-col items-center justify-center"
-              style={{ minHeight: '20rem' }}
+              className="bg-white backdrop-blur-3xl rounded-xl border border-secondary-200 p-6 shadow-xl"
             >
-              <div className="flex-grow w-full flex items-center justify-center p-4">
-                <DiceVisualizer
-                  isRolling={gameState.isRolling}
-                  result={gameState.lastResult}
-                  chosenNumber={chosenNumber}
-                />
+              <div className="flex flex-col items-center justify-center">
+                <div className="w-full flex items-center justify-center">
+                  <DiceVisualizer
+                    isRolling={gameState.isRolling}
+                    result={gameState.lastResult}
+                    chosenNumber={chosenNumber}
+                  />
+                </div>
               </div>
+            </motion.div>
+
+            {/* Latest Bet - Separate Component */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white backdrop-blur-3xl rounded-xl border border-secondary-200 shadow-xl"
+            >
+              <LatestBet
+                result={gameState.lastResult}
+                chosenNumber={chosenNumber}
+                betAmount={betAmount}
+              />
             </motion.div>
           </div>
         </div>

@@ -379,10 +379,23 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       gameState.isProcessing ||
       operationInProgress.current
     ) {
+      console.log('Debug - Bet preconditions not met:', {
+        hasContracts: !!contracts?.dice,
+        hasAccount: !!account,
+        hasChosenNumber: !!chosenNumber,
+        betAmountValid: betAmount > BigInt(0),
+        isProcessing: gameState.isProcessing,
+        operationInProgress: operationInProgress.current,
+      });
       return;
     }
 
     operationInProgress.current = true;
+    console.log('Debug - Starting bet placement:', {
+      chosenNumber,
+      betAmount: betAmount.toString(),
+      currentGameState: gameState,
+    });
 
     // Optimistically update the UI before the bet is confirmed
     const currentBalance = balanceData?.balance || BigInt(0);
@@ -398,73 +411,37 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       try {
         setProcessingState(true);
         setRollingState(true);
+        console.log('Debug - Clearing previous result');
         setLastResult(null);
 
         // Get dice contract address
         const diceContractAddress =
           contracts.dice.address || contracts.dice.target;
 
-        // Check and handle token approval if needed
-        const currentAllowance = await contracts.token.allowance(
-          account,
-          diceContractAddress
-        );
-
-        if (currentAllowance < betAmount) {
-          console.log('Insufficient allowance, requesting approval before bet');
-          addToast('Approval needed before placing bet', 'info');
-
-          // Reset optimistic UI update for the bet, since we need to approve first
-          queryClient.setQueryData(['balance', account, true], {
-            balance: currentBalance,
-            allowance: currentAllowance,
-          });
-
-          const approvalSuccess = await checkAndApproveToken(
-            contracts.token,
-            diceContractAddress,
-            account,
-            null, // Don't update processing state again
-            addToast,
-            1 // Only try once during bet flow
-          );
-
-          if (!approvalSuccess) {
-            console.error('Approval failed, cannot place bet');
-            addToast('Could not approve tokens, bet cancelled', 'error');
-            setRollingState(false);
-            queryClient.invalidateQueries(['balance', account]);
-            return; // Exit early if approval fails
-          }
-
-          // Refresh allowance after successful approval
-          const newAllowance = await contracts.token.allowance(
-            account,
-            diceContractAddress
-          );
-
-          console.log('New allowance after approval:', newAllowance.toString());
-
-          // Update the optimistic UI again
-          queryClient.setQueryData(['balance', account, true], {
-            balance: currentBalance - betAmount,
-            allowance: newAllowance - betAmount,
-          });
-        }
-
         // Place the bet
-        console.log('Placing bet with amount:', betAmount.toString());
+        console.log('Debug - Placing bet:', {
+          chosenNumber,
+          betAmount: betAmount.toString(),
+        });
         const tx = await contracts.dice.playDice(chosenNumber, betAmount);
         addToast('Bet placed, waiting for confirmation...', 'info');
 
         const receipt = await tx.wait();
+        console.log('Debug - Transaction receipt:', receipt);
 
         // Get the result from the transaction events
         const event = parseGameResultEvent(receipt, contracts.dice.interface);
+        console.log('Debug - Parsed game event:', event);
 
         if (event) {
           const [_player, _chosenNum, rolledNum, _betAmt, payout] = event.args;
           const isWin = payout > 0;
+
+          console.log('Debug - Setting game result:', {
+            rolledNumber: Number(rolledNum),
+            isWin,
+            payout: payout.toString(),
+          });
 
           setRollingState(false);
           setLastResult({
@@ -490,6 +467,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         await queryClient.invalidateQueries(['balance', account]);
       } catch (error) {
         // Revert optimistic update on error
+        console.error('Debug - Error during bet:', error);
         queryClient.invalidateQueries(['balance', account]);
         handleError(error, 'placeBet');
         setRollingState(false);

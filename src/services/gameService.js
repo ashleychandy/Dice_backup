@@ -796,6 +796,48 @@ class GameService {
       return { error: error.message || 'Unknown error during debugging' };
     }
   }
+
+  // Force stop a game for a specific player
+  async forceStopGame(playerAddress) {
+    // DEBUG LOGS - REMOVE AFTER DEBUGGING
+    console.log(
+      'GameService DEBUG: Attempting to force stop game for:',
+      playerAddress
+    );
+
+    if (!this.diceContract) {
+      console.error(
+        'GameService DEBUG: Dice contract not initialized for force stop'
+      );
+      throw new Error('Dice contract not initialized');
+    }
+
+    try {
+      console.log('GameService DEBUG: Calling forceStopGame on contract');
+      const tx = await this.diceContract.forceStopGame(playerAddress);
+      console.log('GameService DEBUG: Force stop transaction sent:', tx.hash);
+
+      const receipt = await tx.wait();
+      console.log('GameService DEBUG: Force stop transaction confirmed:', {
+        status: receipt.status,
+        blockNumber: receipt.blockNumber,
+        events: receipt.logs.length,
+      });
+
+      // Clear relevant caches after force stop
+      this.clearCache('gameHistory', playerAddress);
+      this.clearCache('userStats', playerAddress);
+      this.clearCache('gameStatus', playerAddress);
+
+      return {
+        success: true,
+        transaction: receipt,
+      };
+    } catch (error) {
+      console.error('GameService DEBUG: Error force stopping game:', error);
+      throw this.parseContractError(error);
+    }
+  }
 }
 
 export default new GameService();

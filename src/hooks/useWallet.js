@@ -22,7 +22,7 @@ import {
  * Custom hook for wallet functionality
  * @returns {Object} Wallet state and functions
  */
-export const useWalletState = () => {
+export const useWallet = () => {
   const { addToast } = useNotification();
   const [state, dispatch] = useReducer(walletReducer, initialWalletState);
   const handleError = useErrorHandler(addToast);
@@ -489,4 +489,4 @@ export const useWalletState = () => {
   };
 };
 
-export default useWalletState;
+export default useWallet;

@@ -285,33 +285,23 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                 />
               </div>
 
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="mb-5 bg-white pt-5 "
-              >
-                <BalancePanel
-                  userBalance={balanceData?.balance || BigInt(0)}
-                  allowance={balanceData?.allowance || BigInt(0)}
-                  potentialWinnings={
-                    balanceData?.balance
-                      ? balanceData.balance * BigInt(6)
-                      : BigInt(0)
-                  }
-                  betAmount={betAmount}
-                  isLoading={balanceLoading}
-                />
-              </motion.div>
-              <div className="mb-8 ">
-                <BetInput
-                  value={betAmount}
-                  onChange={setBetAmount}
-                  disabled={gameState.isProcessing || hasNoTokens}
-                  lastBetAmount={lastBetAmount}
-                  onRepeatLastBet={handleRepeatLastBet}
-                />
+              <div className="mb-8">
+                <div className="space-y-4">
+                  <BetInput
+                    value={betAmount}
+                    onChange={setBetAmount}
+                    disabled={gameState.isProcessing || hasNoTokens}
+                    lastBetAmount={lastBetAmount}
+                    onRepeatLastBet={handleRepeatLastBet}
+                  >
+                    <BalancePanel
+                      userBalance={balanceData?.balance || BigInt(0)}
+                      allowance={balanceData?.allowance || BigInt(0)}
+                      betAmount={betAmount}
+                      isLoading={balanceLoading}
+                    />
+                  </BetInput>
+                </div>
                 {hasNoTokens && (
                   <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
                     <div className="flex items-center">

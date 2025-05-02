@@ -65,36 +65,39 @@ const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="bg-white rounded-md border border-primary-200 shadow-lg overflow-hidden h-full"
+      transition={{ duration: 0.3 }}
+      className="flex items-center justify-end gap-3"
     >
-      <div className=" bg-green-300 p-2 text-sm  text-green-700">
-        <div className="flex items-center justify-between ">
-          <h2 className=" flex  font-bold">
-            Balance :
-            <div className="flex text-black items-center">
-              <h3 className="text-sm font-mono ">{formattedBalance}</h3>
-              <p>GAMA</p>
-            </div>
-            <div
-              className={`px-2 py-0.5 ml-4 rounded-full text-sm font-medium ${
-                approvalStatus.sufficient
-                  ? 'bg-black/30 text-black'
-                  : 'bg-red-100 text-red-700'
-              }`}
-            >
-              <div className="flex text-sm items-center">
-                <div
-                  className={`w-1.5 h-1.5 rounded-full mr-1 ${
-                    approvalStatus.sufficient ? 'bg-white' : 'bg-red-500'
-                  }`}
-                ></div>
-                {approvalStatus.sufficient ? 'Approved' : 'Not Approved'}
-              </div>
-            </div>
-          </h2>
-        </div>
+      <div className="flex items-center gap-1.5 text-sm">
+        <span className="text-secondary-500">Balance:</span>
+        <span className="font-mono font-medium text-secondary-700">
+          {formattedBalance}
+        </span>
+        <span className="text-secondary-500 text-xs">GAMA</span>
       </div>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className={`
+          px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1.5
+          ${
+            approvalStatus.sufficient
+              ? 'bg-green-100 text-green-700 border border-green-200'
+              : 'bg-red-100 text-red-700 border border-red-200'
+          }
+        `}
+      >
+        <div
+          className={`w-1.5 h-1.5 rounded-full ${
+            approvalStatus.sufficient
+              ? 'bg-green-500 animate-pulse'
+              : 'bg-red-500'
+          }`}
+        />
+        <span className="leading-none">
+          {approvalStatus.sufficient ? 'Approved' : 'Not Approved'}
+        </span>
+      </motion.div>
     </motion.div>
   );
 };

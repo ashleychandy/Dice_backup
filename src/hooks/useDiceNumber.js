@@ -34,8 +34,6 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
 
   // Handle the result when it arrives
   useEffect(() => {
-    console.log('Result received in useDiceNumber:', result);
-
     if (result) {
       // Extract the correct number from the result object
       // The gameState.lastResult object uses rolledNumber property from the smart contract event
@@ -48,14 +46,11 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
               ? result
               : null;
 
-      console.log('Extracted resultNumber:', resultNumber);
-
       // Immediately update the rolled number to update the dice face
       setRolledNumber(resultNumber);
 
       // Store the last valid rolled number (1-6)
       if (resultNumber > 0 && resultNumber <= 6) {
-        console.log('Setting lastRolledNumber to:', resultNumber);
         setLastRolledNumber(resultNumber);
       }
 
@@ -78,7 +73,6 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
         }
         // Any other unknown result
         else if (resultNumber !== null) {
-          console.log('Unknown result number:', resultNumber);
           setBetOutcome('unknown');
         }
 
@@ -97,16 +91,11 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
   const getDisplayNumber = () => {
     // If we have a result, show the actual rolled number
     if (rolledNumber !== null) {
-      console.log('getDisplayNumber: using rolledNumber:', rolledNumber);
       // If special result (254 or 255), show a default face or last rolled
       if (
         rolledNumber === RESULT_RECOVERED ||
         rolledNumber === RESULT_FORCE_STOPPED
       ) {
-        console.log(
-          'getDisplayNumber: special result, using lastRolledNumber:',
-          lastRolledNumber || 1
-        );
         return lastRolledNumber || 1; // Use last rolled number for special results if available
       }
       // Make sure we only return valid dice numbers (1-6)
@@ -119,19 +108,11 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
 
     // If rolling but no result yet, show random number
     if (isRolling) {
-      console.log(
-        'getDisplayNumber: isRolling, using randomDiceNumber:',
-        randomDiceNumber
-      );
       return randomDiceNumber;
     }
 
     // If we have a previous roll, show that number
     if (lastRolledNumber) {
-      console.log(
-        'getDisplayNumber: using lastRolledNumber:',
-        lastRolledNumber
-      );
       return lastRolledNumber;
     }
 

@@ -2,84 +2,112 @@ import { useEffect, useState } from 'react';
 import { useWallet } from './useWallet';
 import { ethers } from 'ethers';
 import DiceABI from '../contracts/abi/Dice.json';
-import { DICE_CONTRACT_ADDRESS } from '../constants/contracts';
+import TokenABI from '../contracts/abi/Token.json';
+import {
+  DICE_CONTRACT_ADDRESS,
+  TOKEN_CONTRACT_ADDRESS,
+} from '../constants/contracts';
 
 export const useDiceContract = () => {
-  const { provider, account } = useWallet();
+  const { provider, account, chainId } = useWallet();
   const [contract, setContract] = useState(null);
+  const [tokenContract, setTokenContract] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const initContract = async () => {
+    const initContracts = async () => {
       try {
-        // Debug logging
-        console.log('Initializing dice contract with:', {
-          provider: !!provider,
-          account,
-          contractAddress: DICE_CONTRACT_ADDRESS,
-        });
-
         if (!provider || !account) {
-          console.log('Provider or account not available:', {
-            provider: !!provider,
-            account,
-          });
           setContract(null);
+          setTokenContract(null);
           setError(null);
           setIsLoading(false);
           return;
         }
 
         if (!DICE_CONTRACT_ADDRESS) {
-          console.error('Dice contract address not configured');
-          setError(new Error('Dice contract address not configured'));
+          console.warn('Dice contract address not configured for this network');
+          setError(
+            new Error(
+              `Dice contract address not configured for chainId: ${chainId}`
+            )
+          );
           setContract(null);
           setIsLoading(false);
           return;
         }
 
-        const signer = await provider.getSigner();
-        console.log('Got signer for account:', account);
+        if (!TokenABI?.abi) {
+          console.warn('Token ABI not found');
+          setError(new Error('Token ABI not available'));
+          setIsLoading(false);
+          return;
+        }
 
-        const diceContract = new ethers.Contract(
-          DICE_CONTRACT_ADDRESS,
-          DiceABI.abi,
-          signer
-        );
+        const signer = provider.getSigner
+          ? await provider.getSigner()
+          : provider;
 
-        console.log('Dice contract initialized:', {
-          address: diceContract.target,
-          hasGetBetHistory: DiceABI.abi.some(
-            item => item.name === 'getBetHistory'
-          ),
-        });
+        // Initialize dice contract
+        try {
+          const diceContract = new ethers.Contract(
+            DICE_CONTRACT_ADDRESS,
+            DiceABI.abi,
+            signer
+          );
+          setContract(diceContract);
+        } catch (diceError) {
+          console.error('Error initializing dice contract:', diceError);
+          setError(
+            new Error(
+              `Dice contract initialization failed: ${diceError.message}`
+            )
+          );
+          setContract(null);
+        }
 
-        setContract(diceContract);
-        setError(null);
+        // Initialize token contract if address is available
+        if (TOKEN_CONTRACT_ADDRESS) {
+          try {
+            const token = new ethers.Contract(
+              TOKEN_CONTRACT_ADDRESS,
+              TokenABI.abi,
+              signer
+            );
+            setTokenContract(token);
+          } catch (tokenError) {
+            console.error('Error initializing token contract:', tokenError);
+            setTokenContract(null);
+          }
+        }
       } catch (err) {
-        console.error('Error initializing dice contract:', err);
+        console.error('Contract initialization error:', err);
         setError(err);
         setContract(null);
+        setTokenContract(null);
       } finally {
         setIsLoading(false);
       }
     };
 
-    initContract();
-  }, [provider, account]);
+    initContracts();
+  }, [provider, account, chainId]);
 
   // Debug logging on state changes
   useEffect(() => {
-    console.log('Dice contract state updated:', {
-      hasContract: !!contract,
+    console.log('Contract state updated:', {
+      hasDiceContract: !!contract,
+      hasTokenContract: !!tokenContract,
       isLoading,
       hasError: !!error,
+      errorMessage: error?.message,
     });
-  }, [contract, isLoading, error]);
+  }, [contract, tokenContract, isLoading, error]);
 
   return {
     contract,
+    tokenContract,
     isLoading,
     error,
   };

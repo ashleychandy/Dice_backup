@@ -50,28 +50,19 @@ export const checkAndApproveToken = async (
 ) => {
   // Verify required parameters
   if (!tokenContract) {
-    console.error('Token approval error: Missing token contract');
     if (addToast) addToast('Token contract not found', 'error');
     return false;
   }
 
   if (!spenderAddress) {
-    console.error('Token approval error: Missing spender address');
     if (addToast) addToast('Spender address not found', 'error');
     return false;
   }
 
   if (!userAddress) {
-    console.error('Token approval error: Missing user address');
     if (addToast) addToast('User address not found', 'error');
     return false;
   }
-
-  console.log('Checking token approval for:', {
-    tokenContract: tokenContract.target || tokenContract.address,
-    spender: spenderAddress,
-    userAddress,
-  });
 
   // Set processing state if available
   if (setProcessingState) {
@@ -85,14 +76,6 @@ export const checkAndApproveToken = async (
     while (retryCount <= maxRetries) {
       try {
         if (retryCount > 0) {
-          console.log(
-            `Retry attempt ${retryCount}/${maxRetries} for token approval`
-          );
-          if (addToast)
-            addToast(
-              `Retrying approval (${retryCount}/${maxRetries})...`,
-              'info'
-            );
           // Small delay before retry to allow network conditions to change
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
@@ -100,47 +83,104 @@ export const checkAndApproveToken = async (
         // First check if we have enough gas (native currency) for the transaction
         try {
           const provider = tokenContract.runner || tokenContract.provider;
-          const balance = await provider.getBalance(userAddress);
-          const gasPrice = await provider.getGasPrice();
-          const estimatedGas = await tokenContract.approve
-            .estimateGas(spenderAddress, ethers.MaxUint256)
-            .catch(() => ethers.parseUnits('100000', 'wei')); // fallback gas estimate
 
-          const requiredGas =
-            (gasPrice * estimatedGas * BigInt(12)) / BigInt(10); // 1.2x for safety margin
-
-          if (balance < requiredGas) {
-            console.error('Insufficient XDC for gas fees', {
-              balance: ethers.formatEther(balance),
-              required: ethers.formatEther(requiredGas),
-            });
+          if (!provider) {
             if (addToast)
               addToast(
-                `Insufficient XDC for transaction fees. You need approximately ${ethers.formatEther(requiredGas)} XDC.`,
+                'Provider not available, check wallet connection',
                 'error'
               );
             return false;
           }
+
+          // Check if provider is connected
+          if (
+            provider.getBalance &&
+            typeof provider.getBalance === 'function'
+          ) {
+            const balance = await provider.getBalance(userAddress);
+            let gasPrice;
+
+            try {
+              // Try to get gas price, fall back to estimated value if it fails
+              gasPrice = await provider.getGasPrice();
+            } catch (gasPriceError) {
+              console.warn(
+                'Failed to get gas price, using default:',
+                gasPriceError
+              );
+              gasPrice = ethers.parseUnits('50', 'gwei'); // Default fallback
+            }
+
+            let estimatedGas;
+            try {
+              estimatedGas = await tokenContract.approve.estimateGas(
+                spenderAddress,
+                ethers.MaxUint256
+              );
+            } catch (gasEstimateError) {
+              console.warn(
+                'Failed to estimate gas, using default:',
+                gasEstimateError
+              );
+              estimatedGas = ethers.parseUnits('100000', 'wei'); // fallback gas estimate
+            }
+
+            const requiredGas =
+              (gasPrice * estimatedGas * BigInt(12)) / BigInt(10); // 1.2x for safety margin
+
+            if (balance < requiredGas) {
+              if (addToast)
+                addToast(
+                  `Insufficient XDC for transaction fees. You need approximately ${ethers.formatEther(requiredGas)} XDC.`,
+                  'error'
+                );
+              return false;
+            }
+          } else {
+            console.warn(
+              'Provider does not support getBalance method, skipping gas check'
+            );
+          }
         } catch (gasCheckError) {
-          console.warn(
-            'Could not verify gas balance, proceeding anyway:',
-            gasCheckError
-          );
+          console.error('Error during gas check:', gasCheckError);
+          // Continue with approval anyway since this is just a pre-check
         }
 
-        // Check current allowance
-        const currentAllowance = await tokenContract.allowance(
-          userAddress,
-          spenderAddress
-        );
+        // Check if allowance method exists and is callable
+        if (
+          !tokenContract.allowance ||
+          typeof tokenContract.allowance !== 'function'
+        ) {
+          if (addToast)
+            addToast(
+              'Token contract does not support allowance checks',
+              'error'
+            );
+          return false;
+        }
 
-        console.log('Current allowance:', currentAllowance.toString());
+        // Check current allowance with retry logic
+        let currentAllowance;
+        try {
+          currentAllowance = await tokenContract.allowance(
+            userAddress,
+            spenderAddress
+          );
+        } catch (allowanceError) {
+          console.error('Error checking allowance:', allowanceError);
+          if (retryCount === maxRetries) {
+            if (addToast) addToast('Failed to check token allowance', 'error');
+            return false;
+          }
+          retryCount++;
+          continue;
+        }
 
         // If allowance is already high, we don't need to approve again
         // Using a threshold of 10^18 (1 token with 18 decimals) as a minimum acceptable allowance
         const minimumAllowance = BigInt(10) ** BigInt(18);
         if (currentAllowance > minimumAllowance) {
-          console.log('Token already approved with sufficient allowance');
           if (addToast) addToast('Tokens already approved', 'success');
           return true;
         }
@@ -151,16 +191,13 @@ export const checkAndApproveToken = async (
         const maxApproval = ethers.MaxUint256;
 
         // Request approval with max amount
-        console.log('Requesting token approval with max amount');
         const tx = await tokenContract.approve(spenderAddress, maxApproval, {
           gasLimit: ethers.parseUnits('300000', 'wei'), // Set a reasonable gas limit
         });
 
         if (addToast) addToast('Token approval transaction sent', 'info');
-        console.log('Approval transaction sent:', tx.hash);
 
         // Wait for transaction confirmation with a longer timeout
-        console.log('Waiting for approval transaction confirmation...');
         const receipt = await Promise.race([
           tx.wait(2), // Wait for 2 confirmations
           new Promise((_, reject) =>
@@ -172,19 +209,13 @@ export const checkAndApproveToken = async (
         ]);
 
         if (!receipt || !receipt.status) {
-          console.error('Token approval transaction failed or timed out');
           if (addToast) addToast('Token approval failed', 'error');
           // Continue to retry
           retryCount++;
           continue;
         }
 
-        // Transaction is confirmed, give higher chance of success
-        console.log('Transaction confirmed! Transaction hash:', tx.hash);
-        if (addToast) addToast('Approval transaction confirmed', 'info');
-
         // Add a longer delay to allow blockchain state to update
-        console.log('Waiting for allowance to update...');
         await new Promise(resolve => setTimeout(resolve, 7000));
 
         // Verify the new allowance with multiple retries
@@ -197,22 +228,13 @@ export const checkAndApproveToken = async (
           verifyAttempt++
         ) {
           try {
-            console.log(
-              `Verification attempt ${verifyAttempt + 1}/${maxVerifyRetries}`
-            );
             const newAllowance = await tokenContract.allowance(
               userAddress,
               spenderAddress
             );
 
-            console.log(
-              `New allowance (attempt ${verifyAttempt + 1}):`,
-              newAllowance.toString()
-            );
-
             // If we have a higher allowance, we're good!
             if (newAllowance > currentAllowance) {
-              console.log('Allowance successfully increased!');
               if (addToast) addToast('Token approval successful!', 'success');
               verificationSuccess = true;
               break;
@@ -220,14 +242,9 @@ export const checkAndApproveToken = async (
 
             // If we're not on the last attempt, wait before trying again
             if (verifyAttempt < maxVerifyRetries - 1) {
-              console.log('Allowance not yet updated, waiting...');
               await new Promise(resolve => setTimeout(resolve, 3000));
             }
           } catch (verifyError) {
-            console.error(
-              `Error during verification attempt ${verifyAttempt + 1}:`,
-              verifyError
-            );
             // If not the last attempt, wait and continue
             if (verifyAttempt < maxVerifyRetries - 1) {
               await new Promise(resolve => setTimeout(resolve, 2000));
@@ -242,9 +259,6 @@ export const checkAndApproveToken = async (
 
         // Even if verification failed, the transaction was confirmed by the network
         // Some networks are slow to update the RPC state, so we'll consider it a success
-        console.log(
-          'Transaction confirmed but allowance not yet visible. Treating as success.'
-        );
         if (addToast) {
           addToast(
             "Approval likely successful, but couldn't verify new allowance. Proceed with your action.",
@@ -257,11 +271,6 @@ export const checkAndApproveToken = async (
       } catch (error) {
         lastError = error;
         // Handle specific error types
-        console.error(
-          `Token approval error (attempt ${retryCount + 1}/${maxRetries + 1}):`,
-          error
-        );
-
         if (error.code === 4001) {
           // User rejected transaction - no need to retry
           if (addToast)
@@ -316,7 +325,6 @@ export const checkAndApproveToken = async (
         'error'
       );
 
-    console.error('Token approval failed after all retry attempts', lastError);
     return false;
   } finally {
     // Clean up processing state
@@ -327,24 +335,143 @@ export const checkAndApproveToken = async (
 };
 
 /**
- * Parse game result event from transaction receipt
- * @param {Object} receipt - The transaction receipt
- * @param {Object} contractInterface - The contract interface to parse logs
- * @returns {Object|null} - The parsed event or null if not found
+ * Parse the GameResult event from a transaction receipt
+ * @param {Object} receipt - Transaction receipt
+ * @param {Object} contractInterface - Optional contract interface for parsing events
+ * @returns {Object|null} - Parsed game result or null if not found
  */
-export const parseGameResultEvent = (receipt, contractInterface) => {
-  if (!receipt || !receipt.logs || !contractInterface) return null;
+export const parseGameResultEvent = (receipt, contractInterface = null) => {
+  try {
+    if (!receipt || !receipt.logs) {
+      console.error('Invalid receipt or missing logs:', receipt);
+      return null;
+    }
 
-  return receipt.logs
-    .map(log => {
+    // Look for GameResult event in logs
+    // First try to find it using event topics (more reliable)
+    const gameResultEventTopic =
+      '0x79c91f4abb197e52a27e63ec317408e5ea1e736ce859fd1cf8e49a4fe3c92c33';
+    const gameResultLogs = receipt.logs.filter(log => {
+      // Check for GameResult event using topic hash
+      return log.topics && log.topics[0] === gameResultEventTopic;
+    });
+
+    // If we found matching logs, try to parse them
+    if (gameResultLogs.length > 0) {
+      const log = gameResultLogs[0];
+
       try {
-        return contractInterface.parseLog({
-          topics: log.topics,
-          data: log.data,
-        });
-      } catch (e) {
-        return null;
+        // If we have a contract interface, use it to parse
+        if (contractInterface && contractInterface.parseLog) {
+          const parsedLog = contractInterface.parseLog(log);
+
+          if (parsedLog && parsedLog.args) {
+            const {
+              player,
+              chosenNumber,
+              rolledNumber,
+              betAmount,
+              payout,
+              win,
+            } = parsedLog.args;
+
+            return {
+              player,
+              chosenNumber:
+                typeof chosenNumber === 'object'
+                  ? Number(chosenNumber)
+                  : chosenNumber,
+              rolledNumber:
+                typeof rolledNumber === 'object'
+                  ? Number(rolledNumber)
+                  : rolledNumber,
+              betAmount: BigInt(betAmount.toString()),
+              payout: BigInt(payout.toString()),
+              isWin: win === true,
+              isSpecialResult: false,
+            };
+          }
+        }
+
+        // Alternative parsing method if contract interface is not available
+        // This makes a best effort to parse the data in the log
+        const data = log.data.slice(2); // Remove '0x' prefix
+
+        if (data.length >= 192) {
+          // 6 32-byte values (192 hex chars)
+          // Parse event data assuming it's packed as follows:
+          // [0-31]: address player
+          // [32-63]: uint256 chosenNumber
+          // [64-95]: uint256 rolledNumber
+          // [96-127]: uint256 betAmount
+          // [128-159]: uint256 payout
+          // [160-191]: bool win (stored as uint256, so 0 = false, 1 = true)
+
+          // Extract rolledNumber (3rd parameter)
+          const rolledNumberHex = '0x' + data.substring(64, 96);
+          const rolledNumber = parseInt(rolledNumberHex, 16);
+
+          // Extract payout (5th parameter)
+          const payoutHex = '0x' + data.substring(128, 160);
+          const payout = payoutHex ? BigInt(payoutHex) : BigInt(0);
+
+          // Extract win status (6th parameter)
+          const winHex = '0x' + data.substring(160, 192);
+          const isWin = parseInt(winHex, 16) === 1;
+
+          return {
+            rolledNumber,
+            payout,
+            isWin,
+            isSpecialResult: false,
+          };
+        }
+      } catch (parseError) {
+        console.error('Error parsing GameResult event:', parseError);
       }
-    })
-    .find(event => event && event.name === 'GameResult');
+    }
+
+    // Fallback: Try to extract data from any event that might contain result info
+    // This is a last resort when we can't find or parse the expected GameResult event
+    for (const log of receipt.logs) {
+      // Skip logs without data
+      if (!log.data || log.data === '0x') continue;
+
+      try {
+        // Check if this log has enough data to potentially contain result info
+        const data = log.data.slice(2);
+
+        if (data.length >= 64) {
+          // At least 2 32-byte values
+          // Try to extract what might be rolledNumber and win status
+          const possibleRolledNumberHex = '0x' + data.substring(0, 64);
+          const possibleRolledNumber = parseInt(possibleRolledNumberHex, 16);
+
+          // Only consider valid dice numbers
+          if (possibleRolledNumber >= 1 && possibleRolledNumber <= 6) {
+            console.warn('Using fallback log parsing to extract game result');
+
+            // If we found a valid dice number, make a best guess about the game result
+            // We can't reliably extract payout from unknown event format, so use 0
+            return {
+              rolledNumber: possibleRolledNumber,
+              payout: BigInt(0),
+              isWin: false, // Conservative default
+              isSpecialResult: false,
+              isFallbackParsed: true,
+            };
+          }
+        }
+      } catch (fallbackError) {
+        // Ignore errors in fallback parsing
+      }
+    }
+
+    // If we get here, we couldn't find or parse a GameResult event
+    console.error('Could not find GameResult event in transaction receipt');
+    return null;
+  } catch (error) {
+    console.error('Error parsing game result:', error);
+    return null;
+  }
 };

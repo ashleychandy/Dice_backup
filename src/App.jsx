@@ -1,18 +1,24 @@
-import React, { lazy, Suspense } from 'react';
+import React from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Components
 import Layout from './components/layout/Layout.jsx';
 import WalletProvider from './components/wallet/WalletProvider.jsx';
-import LoadingSpinner from './components/ui/LoadingSpinner.jsx';
 import ErrorBoundary from './components/error/ErrorBoundary.jsx';
 
-// Lazy-loaded components
-const AppRoutes = lazy(() => import('./components/routes/AppRoutes.jsx'));
+// Import directly instead of using lazy loading to avoid potential issues
+import AppRoutes from './components/routes/AppRoutes.jsx';
 
 // Utils
 import { NotificationProvider } from './contexts/NotificationContext.jsx';
+
+/**
+ * Environment variable to enable wagmi
+ * This can be controlled via .env file
+ * .env: VITE_USE_WAGMI=true|false
+ */
+const USE_WAGMI = import.meta.env.VITE_USE_WAGMI === 'true';
 
 /**
  * Main App component
@@ -38,16 +44,8 @@ function App() {
         <NotificationProvider>
           <Router>
             <WalletProvider>
-              <Layout>
-                <Suspense
-                  fallback={
-                    <div className="flex justify-center items-center min-h-[60vh]">
-                      <LoadingSpinner size="large" />
-                    </div>
-                  }
-                >
-                  <AppRoutes />
-                </Suspense>
+              <Layout useWagmi={USE_WAGMI}>
+                <AppRoutes />
               </Layout>
             </WalletProvider>
           </Router>

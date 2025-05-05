@@ -9,6 +9,11 @@ import {
 } from '../utils/contractUtils';
 import { useLoadingState } from './useLoadingState';
 import { useErrorHandler } from './useErrorHandler';
+import { useDiceContract } from './useDiceContract';
+import { useWallet } from './useWallet';
+import { useContractState } from './useContractState';
+import { useContractStats } from './useContractStats';
+import { useRequestTracking } from './useRequestTracking';
 
 // Custom hook for bet state management
 const useBetState = (initialBetAmount = '1000000000000000000') => {
@@ -75,6 +80,32 @@ const useGameState = () => {
   };
 };
 
+// Enhanced safety timeout handler
+const setupSafetyTimeout = (timeoutRef, callback, timeoutMs = 60000) => {
+  // Clear any existing timeout to prevent memory leaks
+  if (timeoutRef.current) {
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
+  }
+
+  // Set new timeout
+  timeoutRef.current = setTimeout(() => {
+    console.warn(`Safety timeout triggered after ${timeoutMs}ms`);
+    timeoutRef.current = null;
+    if (typeof callback === 'function') {
+      callback();
+    }
+  }, timeoutMs);
+
+  // Return a function to clear the timeout
+  return () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+};
+
 /**
  * Custom hook for dice game logic
  * @param {Object} contracts - Contract instances
@@ -87,9 +118,20 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   const queryClient = useQueryClient();
   const operationInProgress = useRef(false);
   const lastFetchedBalance = useRef(null);
+  const safetyTimeoutRef = useRef(null);
   const [isApproving, setIsApproving] = useState(false);
   const [isBetting, withBetting] = useLoadingState(false);
   const handleError = useErrorHandler(onError, addToast);
+  const { contract } = useDiceContract();
+  const { account: walletAccount } = useWallet();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState(null);
+  const pendingTxRef = useRef(null);
+
+  // Add new hooks
+  const { contractState } = useContractState();
+  const { stats } = useContractStats();
+  const { userPendingRequest } = useRequestTracking();
 
   // Reset last fetched balance when account or token contract changes
   // to ensure fresh data is always fetched
@@ -97,25 +139,29 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     lastFetchedBalance.current = null;
 
     // Invalidate balance data when account or contracts change
-    if (account && contracts?.token) {
-      console.log('Account or contracts changed, refreshing balance data');
-      queryClient.invalidateQueries(['balance', account]);
+    if (walletAccount && contracts?.token) {
+      queryClient.invalidateQueries(['balance', walletAccount]);
     }
 
     // Register global function to refresh balance data
     window.refreshBalanceData = accountAddress => {
       // If no account is provided, use the current one
-      const targetAccount = accountAddress || account;
+      const targetAccount = accountAddress || walletAccount;
       if (targetAccount) {
-        console.log('Refreshing balance data for account:', targetAccount);
         queryClient.invalidateQueries(['balance', targetAccount]);
       }
     };
 
     return () => {
       delete window.refreshBalanceData;
+
+      // Clean up safety timeout when component unmounts
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+        safetyTimeoutRef.current = null;
+      }
     };
-  }, [contracts, account, queryClient]);
+  }, [contracts, walletAccount, queryClient]);
 
   // Initialize state management hooks
   const {
@@ -131,9 +177,9 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
   // Optimized Balance Query with instant loading
   const { data: balanceData, isLoading: balanceLoading } = useQuery({
-    queryKey: ['balance', account, contracts?.token ? true : false],
+    queryKey: ['balance', walletAccount, contracts?.token ? true : false],
     queryFn: async () => {
-      if (!contracts?.token || !account) {
+      if (!contracts?.token || !walletAccount) {
         return null;
       }
 
@@ -143,7 +189,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         if (lastFetchedBalance.current) {
           // Schedule a background refresh without blocking the UI
           setTimeout(() => {
-            queryClient.invalidateQueries(['balance', account], {
+            queryClient.invalidateQueries(['balance', walletAccount], {
               exact: false,
             });
           }, 0);
@@ -151,9 +197,9 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         }
 
         const [balance, tokenAllowance] = await Promise.all([
-          contracts.token.balanceOf(account),
+          contracts.token.balanceOf(walletAccount),
           contracts.token.allowance(
-            account,
+            walletAccount,
             contracts.dice.address || contracts.dice.target
           ),
         ]);
@@ -166,66 +212,22 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         lastFetchedBalance.current = result;
         return result;
       } catch (error) {
-        console.error('Error fetching balance:', error);
         return {
           balance: BigInt(0),
           allowance: BigInt(0),
         };
       }
     },
-    enabled: !!contracts?.token && !!account,
+    enabled: !!contracts?.token && !!walletAccount,
     staleTime: 0, // Always consider data stale to get fresh data
     cacheTime: 5 * 60 * 1000, // Keep cached data for 5 minutes
     retry: 1, // Reduce retries to make fail-fast when there's an issue
-    onError: error => {
-      console.error('Balance query error:', error);
-    },
+    onError: error => {},
   });
-
-  // Debug logging
-  useEffect(() => {
-    console.log('Contracts:', contracts);
-    console.log('Account:', account);
-
-    // Check if contracts are proxy objects and log their structure
-    if (contracts?.token) {
-      console.log('Token Contract Type:', typeof contracts.token);
-      console.log('Token Contract Structure:', Object.keys(contracts.token));
-      console.log(
-        'Token Contract Address:',
-        contracts.token.target || contracts.token.address
-      );
-    }
-
-    if (contracts?.dice) {
-      console.log('Dice Contract Type:', typeof contracts.dice);
-      console.log('Dice Contract Structure:', Object.keys(contracts.dice));
-      console.log(
-        'Dice Contract Address:',
-        contracts.dice.target || contracts.dice.address
-      );
-    }
-
-    console.log('Token Contract Target:', contracts?.token?.target);
-    console.log('Dice Contract Target:', contracts?.dice?.target);
-  }, [contracts, account]);
-
-  // Debug log when balance data changes
-  useEffect(() => {
-    console.log('Balance data updated:', balanceData);
-  }, [balanceData]);
-
-  // Cleanup queries on unmount
-  useEffect(() => {
-    return () => {
-      queryClient.cancelQueries(['balance', account]);
-    };
-  }, [queryClient, account]);
 
   // Handle approving tokens with optimistic updates
   const handleApproveToken = useCallback(async () => {
-    if (!contracts?.token || !contracts?.dice || !account) {
-      console.error('Cannot approve tokens: contracts or account missing');
+    if (!contracts?.token || !contracts?.dice || !walletAccount) {
       addToast(
         'Cannot approve tokens: wallet or contract connection issue',
         'error'
@@ -234,11 +236,8 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     }
 
     // Prevent multiple approval attempts
-    if (operationInProgress.current) {
-      console.log(
-        'Approval operation already in progress, preventing duplicate'
-      );
-      addToast('Approval already in progress', 'info');
+    if (operationInProgress.current || isApproving) {
+      addToast('An operation is already in progress', 'warning');
       return;
     }
 
@@ -248,37 +247,34 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     // Set local state immediately for better UI feedback
     setProcessingState(true);
 
+    // Setup safety timeout to reset state if the operation takes too long
+    const clearTimeout = setupSafetyTimeout(safetyTimeoutRef, () => {
+      operationInProgress.current = false;
+      setIsApproving(false);
+      setProcessingState(false);
+      addToast('The approval operation timed out. Please try again.', 'error');
+    });
+
     try {
       // Get the dice contract address (target for v6 ethers, address for v5)
       const diceContractAddress =
         contracts.dice.target || contracts.dice.address;
 
-      console.log('Approving tokens for address:', {
-        token: contracts.token.target || contracts.token.address,
-        dice: diceContractAddress,
-        account,
-      });
-
       // Show initial toast
       addToast('Starting token approval process...', 'info');
-
-      // Only update UI optimistically after transaction is sent, not before
-      // We'll let checkAndApproveToken take care of the state
 
       // Call the enhanced token approval function with correct parameters
       // Use maxRetries=2 for up to 3 total attempts (initial + 2 retries)
       const success = await checkAndApproveToken(
         contracts.token,
         diceContractAddress,
-        account,
+        walletAccount,
         isProcessing => setProcessingState(isProcessing),
         addToast,
         2 // max retries
       );
 
       if (success) {
-        console.log('Token approval successful');
-
         // Force immediate refetch of all balance data
         try {
           // Create a small delay to let blockchain state settle
@@ -286,241 +282,250 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
           // Get fresh data for both balance and allowance
           const [newBalance, newAllowance] = await Promise.all([
-            contracts.token.balanceOf(account),
-            contracts.token.allowance(account, diceContractAddress),
+            contracts.token.balanceOf(walletAccount),
+            contracts.token.allowance(walletAccount, diceContractAddress),
           ]);
 
-          console.log(
-            'Fetched new balance after approval:',
-            newBalance.toString()
-          );
-          console.log(
-            'Fetched new allowance after approval:',
-            newAllowance.toString()
-          );
-
-          // If allowance still doesn't show as increased, use a max value
-          // This ensures the UI lets the user proceed with betting
-          const effectiveAllowance =
-            newAllowance > BigInt(0) ? newAllowance : ethers.MaxUint256;
-
-          // Update cache with the new values immediately
-          queryClient.setQueryData(['balance', account, true], {
+          // Update the cache directly with new data
+          queryClient.setQueryData(['balance', walletAccount], {
             balance: newBalance,
-            allowance: effectiveAllowance,
+            allowance: newAllowance,
           });
 
-          // Also invalidate to ensure any other components get refreshed
-          queryClient.invalidateQueries(['balance', account]);
-
-          console.log('Balance data refreshed after approval:', {
-            balance: newBalance.toString(),
-            allowance: effectiveAllowance.toString(),
+          // Also invalidate the query to ensure subsequent fetches get fresh data
+          queryClient.invalidateQueries(['balance', walletAccount], {
+            exact: true,
           });
-        } catch (fetchError) {
-          console.error(
-            'Error fetching updated balance after approval:',
-            fetchError
-          );
-          // Fall back to optimistically setting allowance to max
-          const currentBalance = balanceData?.balance || BigInt(0);
-          queryClient.setQueryData(['balance', account, true], {
-            balance: currentBalance,
-            allowance: ethers.MaxUint256, // Optimistically set to max approval on error
-          });
-
-          // Also invalidate to ensure any other components get refreshed
-          queryClient.invalidateQueries(['balance', account]);
+        } catch (refetchError) {
+          console.error('Error refetching data after approval:', refetchError);
+          // Continue despite refetch error, since approval was successful
         }
       } else {
-        console.error('Token approval failed');
-        // Revert any optimistic updates
-        queryClient.invalidateQueries(['balance', account]);
-
-        // Clear any lingering processing state
-        setProcessingState(false);
-
-        // Inform user of failure if not already done by checkAndApproveToken
+        // If approval failed, show a detailed error message
         addToast(
-          'Token approval process could not be completed. Please try again.',
+          'Token approval failed. Please check your wallet and try again.',
           'error'
         );
       }
     } catch (error) {
-      console.error('Error in approval process:', error);
-      // Revert optimistic update on error
-      queryClient.invalidateQueries(['balance', account]);
-      handleError(error, 'approveToken');
-
-      // Clear any lingering processing state
-      setProcessingState(false);
+      console.error('Token approval error:', error);
+      handleError(error, 'handleApproveToken');
     } finally {
-      // Ensure operation flag is reset even if there are errors
+      // Clean up resources and reset state
+      clearTimeout();
       operationInProgress.current = false;
       setIsApproving(false);
+      setProcessingState(false);
     }
   }, [
     contracts,
-    account,
-    queryClient,
+    walletAccount,
     handleError,
     addToast,
-    balanceData,
+    queryClient,
+    isApproving,
     setProcessingState,
+    checkAndApproveToken,
   ]);
 
-  // Handle placing a bet with optimistic updates
+  // Validate bet amount against contract limits
+  const validateBetAmount = useCallback(
+    amount => {
+      if (!stats?.maxBetAmount) return false;
+
+      try {
+        const maxBet = BigInt(stats.maxBetAmount);
+        return amount <= maxBet;
+      } catch (error) {
+        return false;
+      }
+    },
+    [stats]
+  );
+
+  // Handle placing a bet with improved error handling and race condition prevention
   const handlePlaceBet = useCallback(async () => {
-    if (
-      !contracts?.dice ||
-      !account ||
-      !chosenNumber ||
-      betAmount <= BigInt(0) ||
-      gameState.isProcessing ||
-      operationInProgress.current
-    ) {
-      console.log('Debug - Bet preconditions not met:', {
-        hasContracts: !!contracts?.dice,
-        hasAccount: !!account,
-        hasChosenNumber: !!chosenNumber,
-        betAmountValid: betAmount > BigInt(0),
-        isProcessing: gameState.isProcessing,
-        operationInProgress: operationInProgress.current,
-      });
+    if (!contracts?.dice || !walletAccount) {
+      addToast(
+        'Cannot place bet: wallet or contract connection issue',
+        'error'
+      );
+      return;
+    }
+
+    if (!chosenNumber) {
+      addToast('Please select a number first', 'warning');
+      return;
+    }
+
+    if (betAmount <= BigInt(0)) {
+      addToast('Please enter a valid bet amount', 'warning');
+      return;
+    }
+
+    // Prevent multiple betting attempts
+    if (operationInProgress.current || isBetting) {
+      addToast('A game is already in progress', 'warning');
       return;
     }
 
     operationInProgress.current = true;
-    console.log('Debug - Starting bet placement:', {
-      chosenNumber,
-      betAmount: betAmount.toString(),
-      currentGameState: gameState,
-    });
 
-    // Optimistically update the UI before the bet is confirmed
-    const currentBalance = balanceData?.balance || BigInt(0);
-    const currentAllowance = balanceData?.allowance || BigInt(0);
-
-    // Update balance immediately for instant UI feedback
-    queryClient.setQueryData(['balance', account, true], {
-      balance: currentBalance - betAmount,
-      allowance: currentAllowance - betAmount,
-    });
-
-    await withBetting(async () => {
-      try {
+    try {
+      await withBetting(async () => {
+        // Update UI state immediately
         setProcessingState(true);
-        setRollingState(true);
-        console.log('Debug - Clearing previous result');
-        setLastResult(null);
 
-        // Get dice contract address
-        const diceContractAddress =
-          contracts.dice.address || contracts.dice.target;
-
-        // Place the bet
-        console.log('Debug - Placing bet:', {
-          chosenNumber,
-          betAmount: betAmount.toString(),
-        });
-        const tx = await contracts.dice.playDice(chosenNumber, betAmount);
-        addToast('Bet placed, waiting for confirmation...', 'info');
-
-        const receipt = await tx.wait();
-        console.log('Debug - Transaction receipt:', receipt);
-
-        // Get the result from the transaction events
-        const event = parseGameResultEvent(receipt, contracts.dice.interface);
-        console.log('Debug - Parsed game event:', event);
-
-        if (event) {
-          const [_player, _chosenNum, rolledNum, _betAmt, payout] = event.args;
-          const isWin = payout > 0;
-
-          console.log('Debug - Setting game result:', {
-            rolledNumber: Number(rolledNum),
-            isWin,
-            payout: payout.toString(),
-          });
-
+        // Setup safety timeout to reset state if the bet takes too long
+        const clearTimeout = setupSafetyTimeout(safetyTimeoutRef, () => {
+          operationInProgress.current = false;
+          setProcessingState(false);
           setRollingState(false);
-          setLastResult({
-            rolledNumber: Number(rolledNum),
-            isWin,
-            payout,
-          });
+          addToast('The bet operation timed out. Please try again.', 'error');
+        });
 
-          // Show appropriate message
-          addToast(
-            isWin
-              ? `Congratulations! You won ${ethers.formatEther(payout)} GAMA!`
-              : 'Better luck next time!',
-            isWin ? 'success' : 'warning'
+        try {
+          // Show notification
+          addToast('Placing your bet...', 'info');
+
+          // Convert chosen number to BigInt format for the contract call
+          const chosenNumberBigInt = BigInt(chosenNumber);
+
+          // Store transaction reference for tracking
+          const tx = await contracts.dice.placeBet(
+            chosenNumberBigInt,
+            betAmount
           );
-        } else {
-          console.error('Could not parse game result event from receipt');
-          addToast('Bet confirmed, but could not determine result', 'warning');
+          pendingTxRef.current = tx;
+
+          // Show pending notification
+          addToast('Bet placed! Waiting for confirmation...', 'info');
+
+          // Wait for transaction confirmation
+          setRollingState(true);
+          const receipt = await tx.wait();
+
+          if (receipt && receipt.status === 1) {
+            // Clear pending transaction reference
+            pendingTxRef.current = null;
+
+            // Process transaction result
+            const gameResult = parseGameResultEvent(receipt);
+
+            if (gameResult) {
+              // Show result notification
+              if (gameResult.isWin) {
+                addToast(
+                  `🎉 You won ${ethers.formatEther(gameResult.payout)} tokens!`,
+                  'success'
+                );
+              } else {
+                addToast(`Better luck next time!`, 'info');
+              }
+
+              // Update game state with result
+              setLastResult(gameResult);
+
+              // Invalidate queries to refresh data
+              queryClient.invalidateQueries(['balance', walletAccount]);
+              queryClient.invalidateQueries(['gameHistory', walletAccount]);
+              queryClient.invalidateQueries(['gameStats', walletAccount]);
+            } else {
+              addToast(
+                'Could not parse game result. Check your transaction history.',
+                'warning'
+              );
+            }
+          } else {
+            addToast('Transaction failed or was reverted', 'error');
+          }
+        } catch (error) {
+          console.error('Place bet error:', error);
+          handleError(error, 'handlePlaceBet');
+        } finally {
+          // Clean up resources and reset state regardless of outcome
+          clearTimeout();
+          pendingTxRef.current = null;
+          operationInProgress.current = false;
+          setProcessingState(false);
           setRollingState(false);
         }
-
-        // Refresh balances and game state
-        await queryClient.invalidateQueries(['balance', account]);
-      } catch (error) {
-        // Revert optimistic update on error
-        console.error('Debug - Error during bet:', error);
-        queryClient.invalidateQueries(['balance', account]);
-        handleError(error, 'placeBet');
-        setRollingState(false);
-        setLastResult(null);
-      } finally {
-        setProcessingState(false);
-        operationInProgress.current = false;
-      }
-    });
+      });
+    } catch (error) {
+      console.error('Error in withBetting wrapper:', error);
+      operationInProgress.current = false;
+      setProcessingState(false);
+      setRollingState(false);
+      handleError(error, 'handlePlaceBet wrapper');
+    }
   }, [
     contracts,
-    account,
+    walletAccount,
     chosenNumber,
     betAmount,
-    gameState.isProcessing,
-    queryClient,
-    addToast,
     handleError,
+    addToast,
+    queryClient,
+    isBetting,
     withBetting,
     setProcessingState,
     setRollingState,
     setLastResult,
-    balanceData,
   ]);
 
-  // Memoized derived state
-  const gameStatus = useMemo(
-    () => ({
-      hasNoTokens: balanceData?.balance === BigInt(0),
-      needsApproval:
-        betAmount > BigInt(0) && balanceData?.allowance < betAmount,
-      canPlaceBet:
-        !gameState.isProcessing &&
-        !operationInProgress.current &&
-        chosenNumber != null &&
-        betAmount > BigInt(0),
-    }),
-    [balanceData, betAmount, chosenNumber, gameState.isProcessing]
-  );
+  // Derived state from balance data
+  const hasNoTokens = useMemo(() => {
+    // User has no tokens if balance exists and is zero
+    return (
+      balanceData?.balance !== undefined && balanceData.balance <= BigInt(0)
+    );
+  }, [balanceData]);
 
+  const needsApproval = useMemo(() => {
+    // User needs to approve if they have tokens but insufficient allowance
+    return (
+      balanceData?.balance !== undefined &&
+      balanceData.balance > BigInt(0) &&
+      balanceData.allowance !== undefined &&
+      balanceData.allowance < betAmount
+    );
+  }, [balanceData, betAmount]);
+
+  // Cancel any pending operation when component unmounts or user navigates away
+  useEffect(() => {
+    return () => {
+      if (pendingTxRef.current) {
+        console.log('Cleaning up pending transaction references');
+        pendingTxRef.current = null;
+      }
+
+      if (operationInProgress.current) {
+        console.log('Resetting operation in progress flag');
+        operationInProgress.current = false;
+      }
+
+      // Clean up safety timeout
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+        safetyTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  // Return all the necessary state and functions
   return {
-    // State
     chosenNumber,
     betAmount,
     betAmountString,
     gameState,
     balanceData,
     balanceLoading,
+    hasNoTokens,
+    needsApproval,
     isApproving,
     isBetting,
-    ...gameStatus,
-
-    // Actions
+    isProcessing,
+    error,
     setChosenNumber,
     setBetAmount,
     handleApproveToken,

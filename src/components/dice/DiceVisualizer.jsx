@@ -1,15 +1,17 @@
 import { ethers } from 'ethers';
 import { AnimatePresence, motion } from 'framer-motion';
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useDiceNumber } from '../../hooks/useDiceNumber';
 
 /**
- * Enhanced Dice Visualizer Component with improved animations and visual feedback
+ * Enhanced Dice Visualizer Component with improved animations, visual feedback, and error handling
  */
 const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
   const timeoutRefs = useRef([]);
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  // Use the custom hook to handle dice number state
+  // Use the custom hook to handle dice number state with error handling
   const {
     displayNumber,
     betOutcome,
@@ -24,8 +26,31 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     timeoutRefs.current = [];
   };
 
+  // Error handling for any potential rendering issues
+  useEffect(() => {
+    try {
+      // Validate displayNumber is a number between 1-6
+      if (
+        displayNumber &&
+        (displayNumber < 1 || displayNumber > 6 || isNaN(displayNumber))
+      ) {
+        console.error(`Invalid dice number: ${displayNumber}`);
+        setHasError(true);
+        setErrorMessage(`Invalid dice number: ${displayNumber}`);
+      } else {
+        // Reset error state if everything is valid
+        setHasError(false);
+        setErrorMessage('');
+      }
+    } catch (error) {
+      console.error('Error in DiceVisualizer:', error);
+      setHasError(true);
+      setErrorMessage(error.message || 'Error rendering dice');
+    }
+  }, [displayNumber]);
+
   // Cleanup on unmount
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       clearAllTimeouts();
     };
@@ -43,6 +68,9 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
 
   // Function to render the dice face based on number
   const renderDiceFace = number => {
+    // Default to 1 for invalid numbers to prevent UI errors
+    const safeNumber = number >= 1 && number <= 6 ? number : 1;
+
     // Configuration for dot positions based on dice number
     const dotConfigurations = {
       1: (
@@ -144,7 +172,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       ),
     };
 
-    return dotConfigurations[number] || dotConfigurations[1];
+    return dotConfigurations[safeNumber] || dotConfigurations[1];
   };
 
   // Rolling animation variants
@@ -190,11 +218,23 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     },
   };
 
+  // Fallback UI for error state
+  if (hasError) {
+    return (
+      <div className="dice-container flex items-center justify-center bg-red-100 border border-red-300 rounded-lg p-4">
+        <div className="text-red-700 text-center">
+          <p className="font-medium">Error displaying dice</p>
+          <p className="text-sm">{errorMessage || 'Please try again'}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="dice-container"
       role="img"
-      aria-label={`Dice showing number ${displayNumber}`}
+      aria-label={`Dice showing number ${displayNumber || 1}`}
     >
       {/* Main Dice */}
       <motion.div

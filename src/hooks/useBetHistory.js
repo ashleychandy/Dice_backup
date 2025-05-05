@@ -1,180 +1,179 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import gameService from '../services/gameService';
-import { useWallet } from './useWallet';
+import { useState, useEffect } from 'react';
 import { useDiceContract } from './useDiceContract';
+import { useWallet } from './useWallet';
+import { useContractStats } from './useContractStats';
 
-// Match contract constants
-const MAX_HISTORY_SIZE = 10;
-const DEFAULT_PAGE_SIZE = 10;
+// Constants for special game results
 const RESULT_FORCE_STOPPED = 254;
 const RESULT_RECOVERED = 255;
 
-/**
- * Hook for managing bet history with pagination and instant updates
- * Aligned with contract's BetHistory struct and circular buffer implementation
- */
 export const useBetHistory = ({
   playerAddress,
-  pageSize = DEFAULT_PAGE_SIZE,
+  pageSize = 10,
   autoRefresh = true,
+  diceContract: externalContract,
 } = {}) => {
-  const { account } = useWallet();
-  const { contract: diceContract } = useDiceContract();
-  const queryClient = useQueryClient();
+  const { contract: internalContract } = useDiceContract();
+  const { account: walletAccount } = useWallet();
+  const { stats } = useContractStats();
+
+  // Use provided contract or fallback to the one from the hook
+  const contract = externalContract || internalContract;
+  // Use provided player address or fallback to connected wallet
+  const account = playerAddress || walletAccount;
+
+  const [betHistory, setBetHistory] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const address = playerAddress || account;
+  const [totalPages, setTotalPages] = useState(1);
 
-  // Query key for this specific bet history - wrapped in useMemo to fix deps warning
-  const queryKey = useMemo(() => ['betHistory', address], [address]);
+  const itemsPerPage = pageSize; // Number of items to show per page
 
-  // Determine result type based on contract constants
-  const getResultType = useCallback(rolledNumber => {
+  const getResultType = rolledNumber => {
     if (rolledNumber === RESULT_FORCE_STOPPED) return 'force_stopped';
     if (rolledNumber === RESULT_RECOVERED) return 'recovered';
     if (rolledNumber >= 1 && rolledNumber <= 6) return 'normal';
     return 'unknown';
-  }, []);
+  };
 
-  // Validate bet data to match contract types
-  const validateBetData = useCallback(
-    bet => {
-      return {
-        chosenNumber: Number(bet.chosenNumber) & 0xff, // uint8
-        rolledNumber: Number(bet.rolledNumber) & 0xff, // uint8
-        timestamp: Number(bet.timestamp) >>> 0, // uint32
-        amount: bet.amount.toString(), // uint256
-        payout: bet.payout.toString(), // uint256
-        resultType: getResultType(Number(bet.rolledNumber)),
+  const fetchBetHistory = async () => {
+    if (!contract || !account) {
+      setBetHistory([]);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const bets = await contract.getBetHistory(account);
+
+      const processedBets = bets.map(bet => {
+        const rolledNumber = Number(bet.rolledNumber);
+        const resultType = getResultType(rolledNumber);
+
+        return {
+          timestamp: Number(bet.timestamp),
+          chosenNumber: Number(bet.chosenNumber),
+          rolledNumber,
+          amount: bet.amount.toString(),
+          payout: bet.payout.toString(),
+          isWin:
+            resultType === 'normal' &&
+            rolledNumber === Number(bet.chosenNumber),
+          resultType,
+          // Add status for UI display
+          status:
+            resultType === 'force_stopped'
+              ? 'Force Stopped'
+              : resultType === 'recovered'
+                ? 'Recovered'
+                : resultType === 'normal'
+                  ? rolledNumber === Number(bet.chosenNumber)
+                    ? 'Won'
+                    : 'Lost'
+                  : 'Unknown',
+        };
+      });
+
+      // Sort by timestamp (newest first)
+      processedBets.sort((a, b) => b.timestamp - a.timestamp);
+
+      // Calculate total pages based on max history size or actual history length
+      const maxHistorySize = stats?.maxHistorySize || processedBets.length;
+      const totalItems = Math.min(processedBets.length, maxHistorySize);
+      setTotalPages(Math.ceil(totalItems / itemsPerPage));
+
+      // Slice the history based on current page and max history size
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = Math.min(startIndex + itemsPerPage, maxHistorySize);
+      const paginatedBets = processedBets.slice(startIndex, endIndex);
+
+      setBetHistory(paginatedBets);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching bet history:', err);
+      setError(err.message);
+      setBetHistory([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBetHistory();
+
+    // Set up polling interval for real-time updates
+    let interval;
+    if (autoRefresh) {
+      interval = setInterval(fetchBetHistory, 10000);
+    }
+
+    // Listen to contract events
+    if (contract && account) {
+      const handleGameEvent = (_player, _result) => {
+        if (_player.toLowerCase() === account.toLowerCase()) {
+          fetchBetHistory();
+        }
       };
-    },
-    [getResultType]
-  );
-
-  // Main query for bet history
-  const {
-    data: historyData,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey,
-    queryFn: async () => {
-      if (!address) return null;
 
       try {
-        const history = await gameService.getGameHistory(address);
-        return {
-          games: history.games.slice(0, MAX_HISTORY_SIZE).map(validateBetData),
-          timestamp: Date.now(),
-        };
+        // In ethers.js v6, we need to store references to the listeners
+        const _gameCompletedListener = contract.on(
+          'GameCompleted',
+          handleGameEvent
+        );
+        const _gameRecoveredListener = contract.on(
+          'GameRecovered',
+          handleGameEvent
+        );
+        const _gameForceStoppedListener = contract.on(
+          'GameForceStopped',
+          handleGameEvent
+        );
       } catch (err) {
-        console.error('Error fetching bet history:', err);
-        throw err;
+        console.error('Error setting up event listeners:', err);
       }
-    },
-    enabled: !!address,
-    staleTime: 30000,
-    cacheTime: 300000,
-    refetchInterval: autoRefresh ? 30000 : false,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-    refetchOnReconnect: true,
-  });
 
-  // Force refresh function
-  const forceRefresh = useCallback(async () => {
-    queryClient.removeQueries(queryKey);
-    return refetch();
-  }, [queryClient, refetch, queryKey]);
-
-  // Subscribe to contract events for real-time updates
-  useEffect(() => {
-    if (!diceContract || !address) return;
-
-    const handleGameComplete = async (player, _result) => {
-      if (player.toLowerCase() === address.toLowerCase()) {
-        await forceRefresh();
-      }
-    };
-
-    diceContract.on('GameCompleted', handleGameComplete);
-    diceContract.on('GameRecovered', handleGameComplete);
-    diceContract.on('GameForceStopped', handleGameComplete);
+      return () => {
+        if (interval) clearInterval(interval);
+        try {
+          // Remove listeners by removing all listeners for these events
+          // This is the recommended approach in ethers.js v6
+          contract.removeAllListeners('GameCompleted');
+          contract.removeAllListeners('GameRecovered');
+          contract.removeAllListeners('GameForceStopped');
+        } catch (err) {
+          console.error('Error cleaning up event listeners:', err);
+        }
+      };
+    }
 
     return () => {
-      diceContract.off('GameCompleted', handleGameComplete);
-      diceContract.off('GameRecovered', handleGameComplete);
-      diceContract.off('GameForceStopped', handleGameComplete);
+      if (interval) clearInterval(interval);
     };
-  }, [diceContract, address, forceRefresh]);
+  }, [contract, account, currentPage, stats?.maxHistorySize, autoRefresh]);
 
-  // Calculate pagination with respect to MAX_HISTORY_SIZE
-  const { totalPages, currentPageData, hasNextPage, hasPreviousPage } =
-    useMemo(() => {
-      if (!historyData?.games) {
-        return {
-          totalPages: 0,
-          currentPageData: [],
-          hasNextPage: false,
-          hasPreviousPage: false,
-        };
-      }
+  const goToPage = page => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
 
-      const totalItems = Math.min(historyData.games.length, MAX_HISTORY_SIZE);
-      const totalPages = Math.ceil(totalItems / pageSize);
-      const startIndex = (currentPage - 1) * pageSize;
-      const endIndex = Math.min(startIndex + pageSize, totalItems);
-      const currentPageData = historyData.games.slice(startIndex, endIndex);
-
-      return {
-        totalPages,
-        currentPageData,
-        hasNextPage: currentPage < totalPages,
-        hasPreviousPage: currentPage > 1,
-      };
-    }, [historyData?.games, currentPage, pageSize]);
-
-  // Pagination controls
-  const goToNextPage = useCallback(() => {
-    if (hasNextPage) setCurrentPage(prev => prev + 1);
-  }, [hasNextPage]);
-
-  const goToPreviousPage = useCallback(() => {
-    if (hasPreviousPage) setCurrentPage(prev => prev - 1);
-  }, [hasPreviousPage]);
-
-  const goToPage = useCallback(
-    page => {
-      if (page >= 1 && page <= totalPages) setCurrentPage(page);
-    },
-    [totalPages]
-  );
+  const goToNextPage = () => goToPage(currentPage + 1);
+  const goToPreviousPage = () => goToPage(currentPage - 1);
 
   return {
-    // Data
-    allGames: historyData?.games || [],
-    currentPageGames: currentPageData,
-
-    // Pagination
+    betHistory,
+    isLoading,
+    error,
     currentPage,
     totalPages,
-    hasNextPage,
-    hasPreviousPage,
+    hasNextPage: currentPage < totalPages,
+    hasPreviousPage: currentPage > 1,
     goToNextPage,
     goToPreviousPage,
     goToPage,
-
-    // Status
-    isLoading,
-    error,
-
-    // Actions
-    forceRefresh,
-
-    // Constants
-    MAX_HISTORY_SIZE,
-    RESULT_FORCE_STOPPED,
-    RESULT_RECOVERED,
+    refetch: fetchBetHistory,
   };
 };

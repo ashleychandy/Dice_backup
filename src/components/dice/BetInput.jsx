@@ -48,11 +48,6 @@ const BetInput = ({
         // This prevents overriding user input
         const formatted = formatTokenAmount(value, 0);
         if (displayValue !== formatted) {
-          console.log('Updating display value from props:', {
-            value: value.toString(),
-            formatted,
-            currentDisplay: displayValue,
-          });
           setDisplayValue(formatted);
         }
       }
@@ -68,7 +63,6 @@ const BetInput = ({
 
       // Verify input is a valid whole number
       if (!/^\d+$/.test(input)) {
-        console.log('Invalid input format (non-whole number):', input);
         return {
           isValid: false,
           error: 'Only whole numbers are allowed',
@@ -76,8 +70,6 @@ const BetInput = ({
       }
 
       try {
-        console.log('Validating input:', input);
-
         // For direct validation from the input field, convert to BigInt
         let amount;
         if (input.includes('e')) {
@@ -87,15 +79,10 @@ const BetInput = ({
           // Parse the whole number directly
           amount = BigInt(input) * BigInt(10) ** BigInt(18);
         }
-        console.log('Parsed amount for validation:', amount.toString());
 
         // Check if amount is below minimum
         const minAmount = BigInt(min);
         if (amount < minAmount) {
-          console.log('Amount below minimum:', {
-            amount: amount.toString(),
-            min: minAmount.toString(),
-          });
           return {
             isValid: false,
             error: `Minimum bet is ${formatTokenAmount(min)} GAMA`,
@@ -105,10 +92,6 @@ const BetInput = ({
         // Check if amount exceeds balance
         const balanceAmount = BigInt(userBalance);
         if (amount > balanceAmount) {
-          console.log('Insufficient balance:', {
-            amount: amount.toString(),
-            balance: balanceAmount.toString(),
-          });
           return {
             isValid: false,
             error: 'Insufficient balance',

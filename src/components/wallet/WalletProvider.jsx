@@ -35,8 +35,8 @@ export const WalletProvider = ({ children }) => {
   // Check if contract addresses are properly configured
   useEffect(() => {
     // Check mainnet configuration
-    const mainnetConfig = NETWORK_CONFIG.mainnet;
-    if (!mainnetConfig.contracts.dice) {
+    const mainnetConfig = NETWORK_CONFIG?.mainnet;
+    if (!mainnetConfig?.contracts?.dice) {
       console.warn('Mainnet Dice contract address is not configured');
       if (DEFAULT_NETWORK === 'mainnet') {
         addToast(
@@ -47,8 +47,8 @@ export const WalletProvider = ({ children }) => {
     }
 
     // Check testnet configuration
-    const testnetConfig = NETWORK_CONFIG.apothem;
-    if (!testnetConfig.contracts.dice) {
+    const testnetConfig = NETWORK_CONFIG?.apothem;
+    if (!testnetConfig?.contracts?.dice) {
       console.warn('Testnet Dice contract address is not configured');
       if (DEFAULT_NETWORK === 'apothem') {
         addToast(
@@ -59,8 +59,72 @@ export const WalletProvider = ({ children }) => {
     }
   }, [addToast]);
 
+  // Create an enhanced state object with better error handling
+  const enhancedWalletState = {
+    ...walletState,
+    // Add safe contract access methods
+    getTokenContract: () => {
+      if (!walletState.contracts?.token) {
+        console.warn('Token contract not available');
+        return null;
+      }
+      return walletState.contracts.token;
+    },
+    getDiceContract: () => {
+      if (!walletState.contracts?.dice) {
+        console.warn('Dice contract not available');
+        return null;
+      }
+      return walletState.contracts.dice;
+    },
+    // Enhanced error handler that shows meaningful messages
+    handleErrorWithToast: (error, context = '') => {
+      console.error(`Wallet error in ${context}:`, error);
+
+      // User-denied transaction
+      if (
+        error?.code === 4001 ||
+        (error?.message && error.message.includes('rejected'))
+      ) {
+        addToast('Transaction rejected by user', 'warning');
+        return;
+      }
+
+      // Gas-related errors
+      if (error?.message && error.message.includes('insufficient funds')) {
+        addToast('Insufficient XDC for gas fees', 'error');
+        return;
+      }
+
+      // Network errors
+      if (
+        error?.message &&
+        (error.message.includes('network') ||
+          error.message.includes('disconnect'))
+      ) {
+        addToast(
+          'Network connection issue. Please check your connection and try again.',
+          'error'
+        );
+        return;
+      }
+
+      // Contract-related errors
+      if (error?.message && error.message.includes('execution reverted')) {
+        addToast(
+          'Transaction reverted by the contract. This may be due to game rules or contract restrictions.',
+          'error'
+        );
+        return;
+      }
+
+      // Unknown errors
+      addToast(error?.message || 'An unknown error occurred', 'error');
+    },
+  };
+
   return (
-    <WalletContext.Provider value={walletState}>
+    <WalletContext.Provider value={enhancedWalletState}>
       {children}
     </WalletContext.Provider>
   );

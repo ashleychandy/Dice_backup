@@ -82,8 +82,7 @@ const GameHistory = ({ account, onError }) => {
 
   // Use the bet history hook
   const {
-    currentPageGames: displayedGames,
-    allGames,
+    betHistory,
     currentPage,
     totalPages,
     hasNextPage,
@@ -93,7 +92,7 @@ const GameHistory = ({ account, onError }) => {
     goToPage,
     isLoading,
     error,
-    forceRefresh,
+    refetch: forceRefresh,
   } = useBetHistory({
     playerAddress: account,
     pageSize: 10,
@@ -115,11 +114,18 @@ const GameHistory = ({ account, onError }) => {
 
   // Filter games based on selected filter
   const filteredGames = React.useMemo(() => {
+    if (!betHistory) return [];
+
     if (filter === 'pending') {
-      return displayedGames.filter(game => game.resultType === 'unknown');
+      return betHistory.filter(game => game.resultType === 'unknown');
     }
-    return displayedGames;
-  }, [displayedGames, filter]);
+    return betHistory;
+  }, [betHistory, filter]);
+
+  // Check if there are any pending games
+  const hasPendingGames = React.useMemo(() => {
+    return betHistory && betHistory.some(game => game.resultType === 'unknown');
+  }, [betHistory]);
 
   if (isContractLoading) {
     return <GameHistoryLoader />;
@@ -142,7 +148,7 @@ const GameHistory = ({ account, onError }) => {
     return <GameHistoryLoader />;
   }
 
-  if (!filteredGames.length) {
+  if (!filteredGames || !filteredGames.length) {
     return <EmptyState message="No games found" />;
   }
 
@@ -157,7 +163,7 @@ const GameHistory = ({ account, onError }) => {
               onClick={() => setFilter('all')}
               icon={faHistory}
             />
-            {allGames.some(game => game.resultType === 'unknown') && (
+            {hasPendingGames && (
               <Tab
                 label="Pending"
                 active={filter === 'pending'}

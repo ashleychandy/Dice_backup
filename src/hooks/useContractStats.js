@@ -1,12 +1,10 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useDiceContract } from './useDiceContract';
 import { useWallet } from './useWallet';
-import { useEffect } from 'react';
 
 export const useContractStats = () => {
   const { contract } = useDiceContract();
   const { account } = useWallet();
-  const queryClient = useQueryClient();
 
   const {
     data: stats,
@@ -111,21 +109,9 @@ export const useContractStats = () => {
     staleTime: 0, // Always consider data stale immediately
     cacheTime: 0, // Don't cache data at all
     retry: 2, // Retry failed requests up to 2 times
+    refetchInterval: 5000, // Refetch data every 5 seconds
+    refetchIntervalInBackground: false, // Only refetch when tab is in focus
   });
-
-  // Set up polling for stats updates with more frequent updates since we don't cache
-  useEffect(() => {
-    if (!contract) return;
-
-    // Set up polling interval to refresh stats every 5 seconds
-    const pollingInterval = setInterval(() => {
-      queryClient.invalidateQueries(['contractStats']);
-    }, 5000);
-
-    return () => {
-      clearInterval(pollingInterval);
-    };
-  }, [contract, queryClient]);
 
   return {
     stats,

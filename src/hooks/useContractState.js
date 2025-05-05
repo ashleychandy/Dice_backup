@@ -40,21 +40,9 @@ export const useContractState = () => {
     enabled: !!contract && !!account,
     staleTime: 0, // Always consider data stale immediately
     cacheTime: 0, // Don't cache data at all
+    refetchInterval: 5000, // Refetch data every 5 seconds
+    refetchIntervalInBackground: false, // Only refetch when tab is in focus
   });
-
-  // Set up more frequent polling since we're not caching
-  useEffect(() => {
-    if (!contract || !account) return;
-
-    // Poll every 5 seconds for fresh contract state
-    const pollingInterval = setInterval(() => {
-      queryClient.invalidateQueries(['contractState']);
-    }, 5000);
-
-    return () => {
-      clearInterval(pollingInterval);
-    };
-  }, [contract, account, queryClient]);
 
   // Mutation for pausing contract
   const pauseMutation = useMutation({

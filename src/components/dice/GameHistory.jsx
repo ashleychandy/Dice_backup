@@ -103,7 +103,9 @@ const GameHistory = ({ account, onError }) => {
   // Handle any errors
   React.useEffect(() => {
     if (error && onError) {
-      onError(error);
+      onError(
+        typeof error === 'string' ? error : error.message || 'Unknown error'
+      );
     }
   }, [error, onError]);
 

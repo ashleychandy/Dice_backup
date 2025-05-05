@@ -1,10 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDiceContract } from './useDiceContract';
 import { useWallet } from './useWallet';
+import { useEffect } from 'react';
 
 export const useRequestTracking = requestId => {
   const { contract } = useDiceContract();
   const { account } = useWallet();
+  const queryClient = useQueryClient();
 
   const {
     data: requestInfo,
@@ -54,8 +56,9 @@ export const useRequestTracking = requestId => {
       }
     },
     enabled: !!contract && !!requestId,
-    staleTime: 5000, // Consider data stale after 5 seconds
-    cacheTime: 30000, // Cache for 30 seconds
+    staleTime: 0, // Always consider data stale immediately
+    cacheTime: 0, // Don't cache data at all
+    retry: 1, // Minimal retry since we're not caching
   });
 
   // Query for checking if current user has pending request
@@ -73,8 +76,34 @@ export const useRequestTracking = requestId => {
         }
       },
       enabled: !!contract && !!account,
-      staleTime: 5000,
+      staleTime: 0, // Always consider data stale immediately
+      cacheTime: 0, // Don't cache data at all
+      retry: 1, // Minimal retry since we're not caching
     });
+
+  // Set up polling for fresher data
+  useEffect(() => {
+    if (!contract) return;
+
+    // Poll every 3 seconds for user pending request
+    const userRequestInterval = setInterval(() => {
+      if (account) {
+        queryClient.invalidateQueries(['userPendingRequest', account]);
+      }
+    }, 3000);
+
+    // Poll every 3 seconds for specific request info if we have a requestId
+    const requestInfoInterval = setInterval(() => {
+      if (requestId) {
+        queryClient.invalidateQueries(['requestInfo', requestId]);
+      }
+    }, 3000);
+
+    return () => {
+      clearInterval(userRequestInterval);
+      clearInterval(requestInfoInterval);
+    };
+  }, [contract, account, requestId, queryClient]);
 
   return {
     requestInfo,

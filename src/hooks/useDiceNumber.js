@@ -27,9 +27,20 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
 
   // Update random dice number when rolling
   useEffect(() => {
+    let intervalId;
     if (isRolling && !rolledNumber) {
-      setRandomDiceNumber(getRandomDiceNumber());
+      // Create a rolling effect by changing the number rapidly
+      intervalId = setInterval(() => {
+        setRandomDiceNumber(getRandomDiceNumber());
+      }, 150); // Change number every 150ms for a realistic rolling effect
     }
+
+    // Clean up interval
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
   }, [isRolling, rolledNumber]);
 
   // Handle the result when it arrives
@@ -37,20 +48,33 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
     if (result) {
       // Extract the correct number from the result object
       // The gameState.lastResult object uses rolledNumber property from the smart contract event
-      const resultNumber =
-        result.rolledNumber !== undefined
-          ? parseInt(result.rolledNumber, 10)
-          : result.number !== undefined
+      let resultNumber = null;
+
+      if (result.rolledNumber !== undefined) {
+        // Convert to number and ensure it's an integer
+        resultNumber =
+          typeof result.rolledNumber === 'string'
+            ? parseInt(result.rolledNumber, 10)
+            : Number(result.rolledNumber);
+      } else if (result.number !== undefined) {
+        resultNumber =
+          typeof result.number === 'string'
             ? parseInt(result.number, 10)
-            : typeof result === 'number'
-              ? result
-              : null;
+            : Number(result.number);
+      } else if (typeof result === 'number') {
+        resultNumber = result;
+      }
+
+      // Validate the result number is not NaN
+      if (isNaN(resultNumber)) {
+        resultNumber = null;
+      }
 
       // Immediately update the rolled number to update the dice face
       setRolledNumber(resultNumber);
 
       // Store the last valid rolled number (1-6)
-      if (resultNumber > 0 && resultNumber <= 6) {
+      if (resultNumber >= 1 && resultNumber <= 6) {
         setLastRolledNumber(resultNumber);
       }
 
@@ -96,14 +120,28 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
         rolledNumber === RESULT_RECOVERED ||
         rolledNumber === RESULT_FORCE_STOPPED
       ) {
-        return lastRolledNumber || 1; // Use last rolled number for special results if available
+        // For special results, use the last valid dice number or default to 1
+        return lastRolledNumber || 1;
       }
+
       // Make sure we only return valid dice numbers (1-6)
       if (rolledNumber >= 1 && rolledNumber <= 6) {
         return rolledNumber;
       }
+
       // For any other invalid number, show last valid roll or chosen number
-      return lastRolledNumber || chosenNumber || 1;
+      // First check if lastRolledNumber is valid (1-6)
+      if (lastRolledNumber >= 1 && lastRolledNumber <= 6) {
+        return lastRolledNumber;
+      }
+
+      // Then check if chosenNumber is valid (1-6)
+      if (chosenNumber >= 1 && chosenNumber <= 6) {
+        return chosenNumber;
+      }
+
+      // Last resort - just show 1
+      return 1;
     }
 
     // If rolling but no result yet, show random number
@@ -111,14 +149,18 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
       return randomDiceNumber;
     }
 
-    // If we have a previous roll, show that number
-    if (lastRolledNumber) {
+    // If we have a previous roll, show that number if it's valid
+    if (lastRolledNumber >= 1 && lastRolledNumber <= 6) {
       return lastRolledNumber;
     }
 
-    // Default: show chosen number or 1
-    console.log('getDisplayNumber: using chosenNumber:', chosenNumber || 1);
-    return chosenNumber || 1;
+    // If we have a chosen number, show that if it's valid
+    if (chosenNumber >= 1 && chosenNumber <= 6) {
+      return chosenNumber;
+    }
+
+    // Default to 1 as the safest option
+    return 1;
   };
 
   // Get text to display for special results

@@ -23,10 +23,20 @@ export const useToasts = () => {
     (message, type = 'info', duration = 5000) => {
       const id = Date.now().toString();
 
+      // Ensure message is a string
+      const safeMessage =
+        typeof message === 'string'
+          ? message
+          : message instanceof Error
+            ? message.message || 'An error occurred'
+            : typeof message === 'object'
+              ? JSON.stringify(message)
+              : String(message || 'An error occurred');
+
       setToasts(prevToasts => {
         // Check for duplicate message
         const existingToast = prevToasts.find(
-          toast => toast.message === message
+          toast => toast.message === safeMessage
         );
         if (existingToast) {
           // Return the same array if message already exists
@@ -38,7 +48,7 @@ export const useToasts = () => {
           ...prevToasts,
           {
             id,
-            message,
+            message: safeMessage,
             type,
             duration,
           },

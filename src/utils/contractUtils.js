@@ -107,7 +107,19 @@ export const handleContractError = (error, onError, addToast) => {
         if (error.message?.includes('max bet')) {
           addToast('Bet amount exceeds the maximum allowed.', 'warning');
         } else if (error.message?.includes('insufficient balance')) {
-          addToast('Insufficient token balance', 'error');
+          // Provide more specific information about the balance issue
+          addToast(
+            'Insufficient token balance. Please make sure your wallet has enough tokens for this bet.',
+            'error'
+          );
+
+          // Log detailed info for debugging
+          console.info('Balance error details:', {
+            message: error.message,
+            reason: error.reason,
+            code: error.code,
+            data: error.data,
+          });
         } else if (error.message?.includes('paused')) {
           addToast('The game is currently paused', 'info');
         } else {
@@ -458,7 +470,10 @@ export const parseGameResultEvent = (receipt, contractInterface = null) => {
 
       try {
         // If we have a contract interface, use it to parse
-        if (contractInterface && contractInterface.parseLog) {
+        if (
+          contractInterface &&
+          typeof contractInterface.parseLog === 'function'
+        ) {
           const parsedLog = contractInterface.parseLog(log);
 
           if (parsedLog && parsedLog.args) {
@@ -471,18 +486,29 @@ export const parseGameResultEvent = (receipt, contractInterface = null) => {
               win,
             } = parsedLog.args;
 
+            // Create result object ensuring all values are properly converted
             return {
-              player,
+              player: player || ethers.ZeroAddress,
               chosenNumber:
-                typeof chosenNumber === 'object'
-                  ? Number(chosenNumber)
-                  : chosenNumber,
+                typeof chosenNumber !== 'undefined'
+                  ? typeof chosenNumber === 'object'
+                    ? Number(chosenNumber)
+                    : Number(chosenNumber)
+                  : 0,
               rolledNumber:
-                typeof rolledNumber === 'object'
-                  ? Number(rolledNumber)
-                  : rolledNumber,
-              betAmount: BigInt(betAmount.toString()),
-              payout: BigInt(payout.toString()),
+                typeof rolledNumber !== 'undefined'
+                  ? typeof rolledNumber === 'object'
+                    ? Number(rolledNumber)
+                    : Number(rolledNumber)
+                  : 0,
+              betAmount:
+                typeof betAmount !== 'undefined'
+                  ? BigInt(betAmount.toString())
+                  : BigInt(0),
+              payout:
+                typeof payout !== 'undefined'
+                  ? BigInt(payout.toString())
+                  : BigInt(0),
               isWin: win === true,
               isSpecialResult: false,
             };
@@ -494,33 +520,38 @@ export const parseGameResultEvent = (receipt, contractInterface = null) => {
         const data = log.data.slice(2); // Remove '0x' prefix
 
         if (data.length >= 192) {
-          // 6 32-byte values (192 hex chars)
-          // Parse event data assuming it's packed as follows:
-          // [0-31]: address player
-          // [32-63]: uint256 chosenNumber
-          // [64-95]: uint256 rolledNumber
-          // [96-127]: uint256 betAmount
-          // [128-159]: uint256 payout
-          // [160-191]: bool win (stored as uint256, so 0 = false, 1 = true)
+          try {
+            // 6 32-byte values (192 hex chars)
+            // Parse event data assuming it's packed as follows:
+            // [0-31]: address player
+            // [32-63]: uint256 chosenNumber
+            // [64-95]: uint256 rolledNumber
+            // [96-127]: uint256 betAmount
+            // [128-159]: uint256 payout
+            // [160-191]: bool win (stored as uint256, so 0 = false, 1 = true)
 
-          // Extract rolledNumber (3rd parameter)
-          const rolledNumberHex = '0x' + data.substring(64, 96);
-          const rolledNumber = parseInt(rolledNumberHex, 16);
+            // Extract rolledNumber (3rd parameter)
+            const rolledNumberHex = '0x' + data.substring(64, 96);
+            const rolledNumber = parseInt(rolledNumberHex, 16);
 
-          // Extract payout (5th parameter)
-          const payoutHex = '0x' + data.substring(128, 160);
-          const payout = payoutHex ? BigInt(payoutHex) : BigInt(0);
+            // Extract payout (5th parameter)
+            const payoutHex = '0x' + data.substring(128, 160);
+            const payout = payoutHex ? BigInt(payoutHex) : BigInt(0);
 
-          // Extract win status (6th parameter)
-          const winHex = '0x' + data.substring(160, 192);
-          const isWin = parseInt(winHex, 16) === 1;
+            // Extract win status (6th parameter)
+            const winHex = '0x' + data.substring(160, 192);
+            const isWin = parseInt(winHex, 16) === 1;
 
-          return {
-            rolledNumber,
-            payout,
-            isWin,
-            isSpecialResult: false,
-          };
+            // Return a properly formed result object
+            return {
+              rolledNumber: isNaN(rolledNumber) ? 0 : rolledNumber,
+              payout,
+              isWin,
+              isSpecialResult: false,
+            };
+          } catch (dataParseError) {
+            console.error('Error parsing log data:', dataParseError);
+          }
         }
       } catch (parseError) {
         console.error('Error parsing GameResult event:', parseError);
@@ -539,27 +570,32 @@ export const parseGameResultEvent = (receipt, contractInterface = null) => {
 
         if (data.length >= 64) {
           // At least 2 32-byte values
-          // Try to extract what might be rolledNumber and win status
-          const possibleRolledNumberHex = '0x' + data.substring(0, 64);
-          const possibleRolledNumber = parseInt(possibleRolledNumberHex, 16);
+          try {
+            // Try to extract what might be rolledNumber and win status
+            const possibleRolledNumberHex = '0x' + data.substring(0, 64);
+            const possibleRolledNumber = parseInt(possibleRolledNumberHex, 16);
 
-          // Only consider valid dice numbers
-          if (possibleRolledNumber >= 1 && possibleRolledNumber <= 6) {
-            console.warn('Using fallback log parsing to extract game result');
+            // Only consider valid dice numbers
+            if (possibleRolledNumber >= 1 && possibleRolledNumber <= 6) {
+              console.warn('Using fallback log parsing to extract game result');
 
-            // If we found a valid dice number, make a best guess about the game result
-            // We can't reliably extract payout from unknown event format, so use 0
-            return {
-              rolledNumber: possibleRolledNumber,
-              payout: BigInt(0),
-              isWin: false, // Conservative default
-              isSpecialResult: false,
-              isFallbackParsed: true,
-            };
+              // If we found a valid dice number, make a best guess about the game result
+              return {
+                rolledNumber: possibleRolledNumber,
+                payout: BigInt(0),
+                isWin: false, // Conservative default
+                isSpecialResult: false,
+                isFallbackParsed: true,
+              };
+            }
+          } catch (numberParseError) {
+            // Continue to next log if this one fails
+            continue;
           }
         }
       } catch (fallbackError) {
-        // Ignore errors in fallback parsing
+        // Ignore errors in fallback parsing and continue to next log
+        continue;
       }
     }
 

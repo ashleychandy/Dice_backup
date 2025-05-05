@@ -264,31 +264,6 @@ export const switchNetwork = async (
         addToast(`Already connected to ${network.name}`, 'info');
       }
 
-      // Reinitialize contracts if needed
-      if (account) {
-        const provider = new ethers.BrowserProvider(walletProvider);
-        if (setProvider) {
-          setProvider(provider);
-        }
-
-        try {
-          await validateNetwork(provider);
-          const contracts = await initializeContracts(
-            provider,
-            account,
-            null,
-            setLoadingStates,
-            handleError
-          );
-
-          if (contracts && setContracts) {
-            setContracts(contracts);
-          }
-        } catch (error) {
-          // Continue since we're already on the right network
-        }
-      }
-
       if (setLoadingStates) {
         setLoadingStates({ wallet: false });
       }
@@ -343,8 +318,11 @@ export const switchNetwork = async (
                 resolve();
               }
             } catch (error) {
-              // Ignore error and continue waiting for chainChanged event
-              // console.warn('Error checking chain ID after switch:', error);
+              // Ignore error and continue waiting for chainChanged event - IMPROVE LOGGING
+              console.error(
+                'Error checking chain ID after switch attempt:',
+                error
+              );
             }
           }, 1000);
         })
@@ -386,8 +364,11 @@ export const switchNetwork = async (
                     resolve();
                   }
                 } catch (error) {
-                  // Ignore error and continue waiting for chainChanged event
-                  // console.warn('Error checking chain ID after add:', error);
+                  // Ignore error and continue waiting for chainChanged event - IMPROVE LOGGING
+                  console.error(
+                    'Error checking chain ID after add attempt:',
+                    error
+                  );
                 }
               }, 1000);
             } catch (addError) {

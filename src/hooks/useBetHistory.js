@@ -144,10 +144,8 @@ export const useBetHistory = ({
         setError(err.message || 'Failed to load bet history');
       }
 
-      // Keep any existing bet history to avoid UI flashing empty
-      if (betHistory.length === 0) {
-        setBetHistory([]);
-      }
+      // Always clear bet history on error to avoid showing stale data
+      setBetHistory([]);
     } finally {
       setIsLoading(false);
     }
@@ -169,45 +167,8 @@ export const useBetHistory = ({
       interval = setInterval(fetchBetHistory, 10000);
     }
 
-    // Listen to contract events
-    if (contract && account) {
-      const handleGameEvent = (_player, _result) => {
-        if (_player.toLowerCase() === account.toLowerCase()) {
-          fetchBetHistory();
-        }
-      };
-
-      try {
-        // In ethers.js v6, we need to store references to the listeners
-        const _gameCompletedListener = contract.on(
-          'DiceGameCompleted',
-          handleGameEvent
-        );
-        const _gameRecoveredListener = contract.on(
-          'DiceGameRecovered',
-          handleGameEvent
-        );
-        const _gameForceStoppedListener = contract.on(
-          'DiceGameForceStopped',
-          handleGameEvent
-        );
-      } catch (err) {
-        console.error('Error setting up event listeners:', err);
-      }
-
-      return () => {
-        if (interval) clearInterval(interval);
-        try {
-          // Remove listeners by removing all listeners for these events
-          // This is the recommended approach in ethers.js v6
-          contract.removeAllListeners('DiceGameCompleted');
-          contract.removeAllListeners('DiceGameRecovered');
-          contract.removeAllListeners('DiceGameForceStopped');
-        } catch (err) {
-          console.error('Error cleaning up event listeners:', err);
-        }
-      };
-    }
+    // No event listeners as the contract doesn't have the required events
+    // We'll rely on polling instead
 
     return () => {
       if (interval) clearInterval(interval);

@@ -25,7 +25,7 @@ const USE_WAGMI = import.meta.env.VITE_USE_WAGMI === 'true';
  * Sets up the global providers and layout structure
  */
 function App() {
-  // Configure React Query client with defaults
+  // Configure React Query client with defaults - no caching
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -33,7 +33,8 @@ function App() {
         refetchOnWindowFocus: true,
         refetchOnMount: true,
         refetchOnReconnect: true,
-        staleTime: 10000,
+        staleTime: 0, // Always consider data stale immediately
+        cacheTime: 0, // Don't cache data at all
       },
     },
   });

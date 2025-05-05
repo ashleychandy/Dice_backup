@@ -70,27 +70,35 @@ const BetInput = ({
       }
 
       try {
-        // For direct validation from the input field, convert to BigInt
-        let amount;
-        if (input.includes('e')) {
-          // Handle scientific notation
-          amount = BigInt(Math.floor(Number(input)));
-        } else {
-          // Parse the whole number directly
-          amount = BigInt(input) * BigInt(10) ** BigInt(18);
-        }
+        // Convert to normalized value (with 18 decimals)
+        const amount = BigInt(input) * BigInt(10) ** BigInt(18);
+
+        // Parse min value properly ensuring it's always BigInt
+        const minAmount =
+          typeof min === 'string'
+            ? BigInt(min)
+            : typeof min === 'number'
+              ? BigInt(Math.floor(min))
+              : BigInt(min);
 
         // Check if amount is below minimum
-        const minAmount = BigInt(min);
         if (amount < minAmount) {
           return {
             isValid: false,
-            error: `Minimum bet is ${formatTokenAmount(min)} GAMA`,
+            error: `Minimum bet is ${formatTokenAmount(minAmount)} GAMA`,
           };
         }
 
         // Check if amount exceeds balance
-        const balanceAmount = BigInt(userBalance);
+        // Parse balance properly ensuring it's always BigInt
+        const balanceAmount =
+          typeof userBalance === 'string'
+            ? BigInt(userBalance)
+            : typeof userBalance === 'object' && userBalance.toString
+              ? BigInt(userBalance.toString())
+              : BigInt(0);
+
+        // Only show insufficient balance error if bet is clearly more than available
         if (amount > balanceAmount) {
           return {
             isValid: false,

@@ -31,8 +31,12 @@ export const handleError = (error, addToast) => {
     errorMessage = 'Insufficient token allowance. Please approve tokens first.';
     errorType = 'error';
   } else if (error.message?.includes('insufficient balance')) {
-    errorMessage = 'Insufficient token balance for this transaction.';
+    errorMessage =
+      "You don't have enough tokens for this transaction. Please check your balance and try again.";
     errorType = 'error';
+
+    // Log for debugging
+    console.info('Balance error details:', error);
   }
 
   if (addToast) {

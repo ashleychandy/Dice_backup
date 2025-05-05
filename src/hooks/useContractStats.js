@@ -20,14 +20,24 @@ export const useContractStats = () => {
         throw new Error('Contract not initialized');
       }
 
+      // Default values as fallback in case of errors
+      let defaultStats = {
+        totalGames: '0',
+        totalPayout: '0',
+        totalWagered: '0',
+        maxBetAmount: '1000000000000000000000', // Default 1000 tokens
+        maxHistorySize: 20,
+      };
+
       try {
+        // Use Promise.allSettled to handle partial failures
         const [
-          totalGames,
-          totalPayout,
-          totalWagered,
-          maxBetAmount,
-          maxHistorySize,
-        ] = await Promise.all([
+          totalGamesResult,
+          totalPayoutResult,
+          totalWageredResult,
+          maxBetAmountResult,
+          maxHistorySizeResult,
+        ] = await Promise.allSettled([
           contract.totalGamesPlayed(),
           contract.totalPayoutAmount(),
           contract.totalWageredAmount(),
@@ -35,41 +45,85 @@ export const useContractStats = () => {
           contract.MAX_HISTORY_SIZE(),
         ]);
 
+        // Extract values or use defaults for any failed promises
+        const totalGames =
+          totalGamesResult.status === 'fulfilled'
+            ? totalGamesResult.value.toString()
+            : defaultStats.totalGames;
+
+        const totalPayout =
+          totalPayoutResult.status === 'fulfilled'
+            ? totalPayoutResult.value.toString()
+            : defaultStats.totalPayout;
+
+        const totalWagered =
+          totalWageredResult.status === 'fulfilled'
+            ? totalWageredResult.value.toString()
+            : defaultStats.totalWagered;
+
+        const maxBetAmount =
+          maxBetAmountResult.status === 'fulfilled'
+            ? maxBetAmountResult.value.toString()
+            : defaultStats.maxBetAmount;
+
+        const maxHistorySize =
+          maxHistorySizeResult.status === 'fulfilled'
+            ? Number(maxHistorySizeResult.value)
+            : defaultStats.maxHistorySize;
+
+        // Log any errors for debugging
+        [
+          totalGamesResult,
+          totalPayoutResult,
+          totalWageredResult,
+          maxBetAmountResult,
+          maxHistorySizeResult,
+        ]
+          .filter(result => result.status === 'rejected')
+          .forEach((result, index) => {
+            const propertyNames = [
+              'totalGames',
+              'totalPayout',
+              'totalWagered',
+              'maxBetAmount',
+              'maxHistorySize',
+            ];
+            console.error(
+              `Error fetching ${propertyNames[index]}:`,
+              result.reason
+            );
+          });
+
         return {
-          totalGames: totalGames.toString(),
-          totalPayout: totalPayout.toString(),
-          totalWagered: totalWagered.toString(),
-          maxBetAmount: maxBetAmount.toString(),
-          maxHistorySize: Number(maxHistorySize),
+          totalGames,
+          totalPayout,
+          totalWagered,
+          maxBetAmount,
+          maxHistorySize,
         };
       } catch (error) {
         console.error('Error fetching contract stats:', error);
-        throw error;
+        // Return default values instead of throwing to prevent UI errors
+        return defaultStats;
       }
     },
     enabled: !!contract,
-    staleTime: 30000, // Consider data stale after 30 seconds
-    cacheTime: 5 * 60 * 1000, // Cache for 5 minutes
+    staleTime: 0, // Always consider data stale immediately
+    cacheTime: 0, // Don't cache data at all
+    retry: 2, // Retry failed requests up to 2 times
   });
 
-  // Set up event listeners for stats updates
+  // Set up polling for stats updates with more frequent updates since we don't cache
   useEffect(() => {
     if (!contract) return;
 
-    const handleGameComplete = () => {
+    // Set up polling interval to refresh stats every 5 seconds
+    const pollingInterval = setInterval(() => {
       queryClient.invalidateQueries(['contractStats']);
-    };
-
-    // Set up listeners
-    contract.on('GameCompleted', handleGameComplete);
-    contract.on('GameRecovered', handleGameComplete);
-    contract.on('GameForceStopped', handleGameComplete);
+    }, 5000);
 
     return () => {
-      // Use removeAllListeners instead of off for ethers.js v6
-      contract.removeAllListeners('GameCompleted');
-      contract.removeAllListeners('GameRecovered');
-      contract.removeAllListeners('GameForceStopped');
+      clearInterval(pollingInterval);
     };
   }, [contract, queryClient]);
 

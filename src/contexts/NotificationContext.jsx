@@ -20,7 +20,17 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     debouncedAddToastRef.current = debounce(
       (message, type = 'info', duration = 5000) => {
-        addToastBase(message, type, duration);
+        // Ensure message is a string
+        const messageString =
+          typeof message === 'string'
+            ? message
+            : message instanceof Error
+              ? message.message || 'An error occurred'
+              : typeof message === 'object'
+                ? JSON.stringify(message)
+                : String(message || 'An error occurred');
+
+        addToastBase(messageString, type, duration);
       },
       300
     );
@@ -35,11 +45,21 @@ export const NotificationProvider = ({ children }) => {
   // Wrapper function to handle immediate notifications
   const addToast = useCallback(
     (message, type = 'info', duration = 5000) => {
+      // Ensure message is a string
+      const messageString =
+        typeof message === 'string'
+          ? message
+          : message instanceof Error
+            ? message.message || 'An error occurred'
+            : typeof message === 'object'
+              ? JSON.stringify(message)
+              : String(message || 'An error occurred');
+
       if (type === 'error' || duration === 0) {
         // Show errors and zero-duration toasts immediately
-        addToastBase(message, type, duration);
+        addToastBase(messageString, type, duration);
       } else {
-        debouncedAddToastRef.current?.(message, type, duration);
+        debouncedAddToastRef.current?.(messageString, type, duration);
       }
     },
     [addToastBase]

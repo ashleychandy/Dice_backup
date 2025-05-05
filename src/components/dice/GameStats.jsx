@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
+// eslint-disable-next-line no-unused-vars
 import { formatTokenAmount, formatTimestamp } from '../../utils/formatting';
 import { useGameStatus } from '../../hooks/useGameStatus';
 import { useGameRecovery } from '../../hooks/useGameRecovery';
@@ -17,7 +18,12 @@ const formatTimeElapsed = seconds => {
   return `${minutes}m ${remainingSeconds}s`;
 };
 
-const GameStats = ({ account, onError, addToast }) => {
+const GameStats = ({
+  // eslint-disable-next-line no-unused-vars
+  account,
+  onError,
+  addToast,
+}) => {
   const {
     gameStatus,
     isLoading: statusLoading,

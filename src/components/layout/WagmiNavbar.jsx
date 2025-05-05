@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAccount, useDisconnect, useChainId, useSwitchChain } from 'wagmi';
 import { xdc, xdcTestnet } from 'wagmi/chains';
-import { WagmiProviders } from '../vrf/index.jsx';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
 
@@ -84,14 +84,14 @@ const CustomConnectButton = () => {
   );
 };
 
-const WagmiNavbarContent = () => {
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+const WagmiNavbar = () => {
+  const [_dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Use wagmi hooks
-  const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
-  const chainId = useChainId();
+  // Use wagmi hooks - keep these for potential future use but mark unused ones
+  const { address: _address, isConnected: _isConnected } = useAccount();
+  const { disconnect: _disconnect } = useDisconnect();
+  const _chainId = useChainId();
   const { switchChain } = useSwitchChain();
 
   // Handle clicks outside the dropdown to close it
@@ -109,7 +109,8 @@ const WagmiNavbarContent = () => {
   }, []);
 
   // Handle network switching with specific network types
-  const handleSwitchNetwork = async networkType => {
+  // eslint-disable-next-line no-unused-vars
+  const _handleSwitchNetwork = async networkType => {
     try {
       if (networkType === 'mainnet') {
         await switchChain({ chainId: xdc.id });
@@ -170,100 +171,10 @@ const WagmiNavbarContent = () => {
 
           {/* Use RainbowKit's ConnectButton */}
           <CustomConnectButton />
-
-          {/* Custom wallet menu implementation (alternative to the above) */}
-          {false && isConnected && address && (
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="px-4 py-2 rounded-lg text-sm bg-[#22AD74]/5 border border-[#22AD74]/20 hover:bg-[#22AD74]/10 transition-colors flex items-center gap-2"
-              >
-                <span className="text-gray-900">
-                  {address.slice(0, 6)}...{address.slice(-4)}
-                </span>
-                <svg
-                  className={`w-4 h-4 text-gray-600 transition-transform duration-200 ${
-                    dropdownOpen ? 'rotate-180' : ''
-                  }`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </button>
-
-              {/* Dropdown Menu */}
-              <AnimatePresence>
-                {dropdownOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-48 rounded-xl bg-white shadow-lg border border-gray-200 py-1 z-50"
-                  >
-                    <button
-                      onClick={() => {
-                        handleSwitchNetwork('mainnet');
-                        setDropdownOpen(false);
-                      }}
-                      className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-[#22AD74]/5 flex items-center gap-2"
-                    >
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          chainId === xdc.id ? 'bg-[#22AD74]' : 'bg-gray-300'
-                        }`}
-                      />
-                      Switch to Mainnet
-                    </button>
-                    <button
-                      onClick={() => {
-                        handleSwitchNetwork('apothem');
-                        setDropdownOpen(false);
-                      }}
-                      className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-[#22AD74]/5 flex items-center gap-2"
-                    >
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          chainId === xdcTestnet.id
-                            ? 'bg-[#22AD74]'
-                            : 'bg-gray-300'
-                        }`}
-                      />
-                      Switch to Testnet
-                    </button>
-                    <div className="h-px bg-gray-200 my-1" />
-                    <button
-                      onClick={() => {
-                        disconnect();
-                        setDropdownOpen(false);
-                      }}
-                      className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                    >
-                      Logout
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
         </div>
       </div>
     </header>
   );
 };
-
-// Wrap the Navbar component with the WagmiProviders
-const WagmiNavbar = () => (
-  <WagmiProviders>
-    <WagmiNavbarContent />
-  </WagmiProviders>
-);
 
 export default WagmiNavbar;

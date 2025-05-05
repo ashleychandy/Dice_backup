@@ -21,8 +21,8 @@ export const formatTokenAmount = (value, decimals = 0) => {
       bigIntValue = value;
     }
 
-    // Format with ethers
-    const formatted = ethers.formatEther(bigIntValue);
+    // Format with ethers v6
+    const formatted = ethers.formatUnits(bigIntValue, 18);
 
     // If decimals is 0, return only the whole number part
     if (decimals === 0) {
@@ -63,7 +63,7 @@ export const parseTokenAmount = input => {
     });
 
     // Convert to whole token amount (no decimals)
-    return BigInt(sanitized) * BigInt(10) ** BigInt(18);
+    return ethers.parseUnits(sanitized, 18);
   } catch (error) {
     console.error('Error parsing token amount:', error);
     return BigInt(0);

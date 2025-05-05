@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { ethers } from 'ethers';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ethers } from 'ethers';
 
 // Import utilities and hooks
 import {
@@ -10,7 +10,7 @@ import {
 import { useLoadingState } from './useLoadingState';
 import { useErrorHandler } from './useErrorHandler';
 import { useDiceContract } from './useDiceContract';
-import { useWallet } from './useWallet';
+import { useWallet } from '../hooks/useWallet';
 import { useContractState } from './useContractState';
 import { useContractStats } from './useContractStats';
 import { useRequestTracking } from './useRequestTracking';
@@ -192,9 +192,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           contracts.token
             .allowance(
               walletAccount,
-              contracts.dice?.address ||
-                contracts.dice?.target ||
-                ethers.ZeroAddress
+              contracts.dice?.address || ethers.ZeroAddress
             )
             .catch(err => {
               console.error('Error fetching allowance:', err);
@@ -203,26 +201,24 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         ]);
 
         return {
-          balance: balance || BigInt(0),
-          allowance: tokenAllowance || BigInt(0),
+          balance: balance,
+          allowance: tokenAllowance,
         };
-      } catch (error) {
-        console.error('Balance query error:', error);
+      } catch (err) {
+        console.error('Error fetching wallet data:', err);
         return {
           balance: BigInt(0),
           allowance: BigInt(0),
+          error: err.message,
         };
       }
     },
-    enabled: !!contracts?.token && !!walletAccount,
-    staleTime: 0, // Always consider data stale immediately
-    cacheTime: 0, // Don't cache data at all
-    retry: 2, // Retry up to 2 times
-    refetchInterval: 10000, // Refetch data every 10 seconds
-    refetchIntervalInBackground: false, // Only refetch when tab is in focus
-    onError: error => {
-      console.error('Balance query failed:', error);
-    },
+    // Optimized query configuration to minimize stale data
+    staleTime: 5000, // Consider data stale after 5 seconds
+    cacheTime: 10000, // Cache data for 10 seconds
+    refetchInterval: 15000, // Refetch every 15 seconds
+    refetchOnWindowFocus: true, // Refetch when window gets focus
+    enabled: !!contracts?.token && !!walletAccount, // Only run when dependencies are available
   });
 
   // Handle approving tokens with optimistic updates
@@ -256,9 +252,8 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     });
 
     try {
-      // Get the dice contract address (target for v6 ethers, address for v5)
-      const diceContractAddress =
-        contracts.dice.target || contracts.dice.address;
+      // Get the dice contract address
+      const diceContractAddress = contracts.dice.address;
 
       // Show initial toast
       addToast('Starting token approval process...', 'info');
@@ -311,7 +306,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     queryClient,
     isApproving,
     setProcessingState,
-    checkAndApproveToken,
   ]);
 
   // Validate bet amount against contract limits
@@ -394,8 +388,10 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           try {
             const currentBalance =
               await contracts.token.balanceOf(walletAccount);
-            // Verify balance is sufficient
-            if (currentBalance < betAmount) {
+            // Verify balance is sufficient with a small tolerance (0.1%)
+            // This helps avoid edge cases with BigInt comparison
+            const tolerance = betAmount / BigInt(1000); // 0.1% tolerance
+            if (currentBalance < betAmount - tolerance) {
               throw new Error(
                 "You don't have enough tokens for this bet amount."
               );
@@ -413,9 +409,19 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
             console.log('Falling back to recent balance data');
 
             // Double-check with recent balance data before proceeding
-            if (balanceData?.balance && balanceData.balance < betAmount) {
-              throw new Error(
-                "You don't have enough tokens for this bet amount (balance check)."
+            if (balanceData?.balance) {
+              // Apply the same tolerance for consistency
+              const tolerance = betAmount / BigInt(1000); // 0.1% tolerance
+              if (balanceData.balance < betAmount - tolerance) {
+                throw new Error(
+                  "You don't have enough tokens for this bet amount (balance check)."
+                );
+              }
+            } else {
+              // If we can't verify the balance, warn the user but allow the transaction
+              addToast(
+                'Unable to verify balance. Transaction may fail if insufficient funds.',
+                'warning'
               );
             }
           }
@@ -445,7 +451,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
           // Add transaction options with proper gas settings
           const txOptions = {
-            gasLimit: ethers.parseUnits('500000', 'wei'),
+            gasLimit: ethers.parseUnits('500000', 0),
           };
 
           // Store transaction reference for tracking
@@ -520,7 +526,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
                 // Show result notification
                 if (gameResult.isWin) {
                   addToast(
-                    `🎉 You won ${ethers.formatEther(gameResult.payout)} tokens!`,
+                    `🎉 You won ${ethers.formatUnits(gameResult.payout, 18)} tokens!`,
                     'success'
                   );
                 } else {

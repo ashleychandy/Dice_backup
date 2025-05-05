@@ -1,4 +1,5 @@
-import { http } from 'wagmi';
+// eslint-disable-next-line no-unused-vars
+import { http, createConfig } from 'wagmi';
 import { xdc, xdcTestnet } from 'wagmi/chains';
 import { createPublicClient } from 'viem';
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
@@ -39,66 +40,33 @@ const clearStaleSessions = () => {
     });
   } catch (error) {
     // Silent error handling
+    console.warn('Error clearing stale sessions:', error);
   }
 };
 
-// Only initialize wagmi config in browser environment
-let config = null;
+// Initialize wagmi config with safe defaults for SSR/server environments
+let wagmiConfig = null;
 
-if (typeof window !== 'undefined') {
-  // Try to clear stale sessions before creating the config
-  clearStaleSessions();
+// Try to initialize the config safely
+try {
+  // Only run on client-side
+  if (typeof window !== 'undefined') {
+    // Clear stale sessions before creating the config
+    clearStaleSessions();
 
-  // Create wagmi config with RainbowKit
-  config = getDefaultConfig({
-    appName: 'XDC Dice Game',
-    projectId: 'b62e3b9d0838b22a9ff3d84dc115d759', // WalletConnect Project ID
-    chains: [xdc, xdcTestnet],
-    transports: {
-      [xdc.id]: http(NETWORK_CONFIG.mainnet.rpcUrl),
-      [xdcTestnet.id]: http(NETWORK_CONFIG.apothem.rpcUrl),
-    },
-    // Add these options for better WalletConnect handling
-    walletConnectOptions: {
-      showQrModal: true,
-      // Reset on error or disconnect
-      projectId: 'b62e3b9d0838b22a9ff3d84dc115d759',
-      metadata: {
-        name: 'XDC Dice Game',
-        description: 'XDC Dice Game',
-        url: window.location.origin,
-        icons: ['https://avatars.githubusercontent.com/u/37784886'],
+    // Create wagmi config with RainbowKit (v2.x compatible)
+    wagmiConfig = getDefaultConfig({
+      appName: 'XDC Dice Game',
+      projectId: 'b62e3b9d0838b22a9ff3d84dc115d759', // WalletConnect Project ID
+      chains: [xdc, xdcTestnet],
+      transports: {
+        [xdc.id]: http(NETWORK_CONFIG.mainnet.rpcUrl),
+        [xdcTestnet.id]: http(NETWORK_CONFIG.apothem.rpcUrl),
       },
-      // Important: Pre-authorize all chains to prevent reconnection prompts
-      requiredNamespaces: {
-        eip155: {
-          methods: [
-            'eth_sendTransaction',
-            'eth_signTransaction',
-            'eth_sign',
-            'personal_sign',
-            'eth_signTypedData',
-          ],
-          chains: [`eip155:${xdc.id}`, `eip155:${xdcTestnet.id}`],
-          events: ['chainChanged', 'accountsChanged'],
-        },
-      },
-      // Improved options to handle switching
-      optionalNamespaces: {
-        eip155: {
-          methods: [
-            'eth_sendTransaction',
-            'eth_signTransaction',
-            'eth_sign',
-            'personal_sign',
-            'eth_signTypedData',
-          ],
-          chains: [`eip155:${xdc.id}`, `eip155:${xdcTestnet.id}`],
-          events: ['chainChanged', 'accountsChanged'],
-        },
-      },
-    },
-  });
+    });
+  }
+} catch (error) {
+  console.error('Failed to initialize wagmi config:', error);
 }
 
-export const wagmiConfig = config;
+export { wagmiConfig };

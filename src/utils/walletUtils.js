@@ -61,7 +61,7 @@ export const validateNetwork = async provider => {
       chainId: Number(chainId),
       name:
         network.name ||
-        (chainId === 50 ? 'XDC Mainnet' : 'XDC Apothem Testnet'),
+        (chainId === 50n ? 'XDC Mainnet' : 'XDC Apothem Testnet'),
     };
   } catch (error) {
     console.error('Error validating network:', error);
@@ -75,6 +75,9 @@ export const validateNetwork = async provider => {
   }
 };
 
+/**
+ * Initialize contract instances with ethers v6
+ */
 export const initializeContracts = async (
   provider,
   account,
@@ -83,21 +86,10 @@ export const initializeContracts = async (
   handleError
 ) => {
   try {
-    // DEBUG LOGS - REMOVE AFTER DEBUGGING
-    // console.log(
-    //   'DEBUG CONTRACT INIT: Initializing contracts with account:',
-    //   account
-    // );
-
+    // Get current network information
     const network = await provider.getNetwork();
     // Always convert to Number for consistent comparison
     const currentChainId = Number(network.chainId);
-
-    // DEBUG LOGS - REMOVE AFTER DEBUGGING
-    // console.log(
-    //   'DEBUG CONTRACT INIT: Connected to network with chainId:',
-    //   currentChainId
-    // );
 
     // Find network config
     const networkKey = Object.keys(NETWORK_CONFIG).find(
@@ -106,20 +98,7 @@ export const initializeContracts = async (
 
     const networkConfig = NETWORK_CONFIG[networkKey];
 
-    // DEBUG LOGS - REMOVE AFTER DEBUGGING
-    // console.log('DEBUG CONTRACT INIT: Network config:', networkKey, {
-    //   chainId: networkConfig?.chainId,
-    //   name: networkConfig?.name,
-    //   tokenAddress: networkConfig?.contracts?.token,
-    //   diceAddress: networkConfig?.contracts?.dice,
-    // });
-
     if (!networkConfig) {
-      // DEBUG LOGS - REMOVE AFTER DEBUGGING
-      // console.error(
-      //   'DEBUG CONTRACT INIT: Network config not found for chainId:',
-      //   currentChainId
-      // );
       throw new Error(
         `Unsupported network. Connected to chain ID: ${currentChainId}. Supported chain IDs: ${SUPPORTED_CHAIN_IDS.join(
           ', '
@@ -129,65 +108,34 @@ export const initializeContracts = async (
 
     // Check if contract addresses are configured
     if (!networkConfig.contracts.token) {
-      // DEBUG LOGS - REMOVE AFTER DEBUGGING
-      // console.error(
-      //   'DEBUG CONTRACT INIT: Token contract address not configured'
-      // );
-      // console.error(
-      //   `Token contract address not configured for ${networkConfig.name}`
-      // );
       throw new Error(
         `Token contract address not configured for ${networkConfig.name}`
       );
     }
 
     if (!networkConfig.contracts.dice) {
-      // DEBUG LOGS - REMOVE AFTER DEBUGGING
-      // console.error(
-      //   'DEBUG CONTRACT INIT: Dice contract address not configured'
-      // );
-      // console.error(
-      //   `Dice contract address not configured for ${networkConfig.name}`
-      // );
       throw new Error(
         `Dice contract address not configured for ${networkConfig.name}`
       );
     }
 
-    // DEBUG LOGS - REMOVE AFTER DEBUGGING
-    // console.log('DEBUG CONTRACT INIT: Contract addresses:', {
-    //   token: networkConfig.contracts.token,
-    //   dice: networkConfig.contracts.dice,
-    // });
-
     // Get signer for the connected account
     const signer = await provider.getSigner(account);
-    // console.log('DEBUG CONTRACT INIT: Got signer for account:', account);
 
     try {
-      // Create token contract instance
+      // Create token contract instance with ethers v6
       const tokenContract = new ethers.Contract(
         networkConfig.contracts.token,
         TokenABI.abi,
         signer
       );
 
-      // Create dice contract instance
+      // Create dice contract instance with ethers v6
       const diceContract = new ethers.Contract(
         networkConfig.contracts.dice,
         DiceABI.abi,
         signer
       );
-
-      // DEBUG LOGS - REMOVE AFTER DEBUGGING
-      // console.log('DEBUG CONTRACT INIT: Contracts initialized:', {
-      //   tokenAddress: tokenContract.target,
-      //   diceAddress: diceContract.target,
-      //   diceAbiLength: DiceABI.abi.length,
-      //   diceHasGetBetHistory: DiceABI.abi.some(
-      //     item => item.name === 'getBetHistory'
-      //   ),
-      // });
 
       if (setContracts) {
         setContracts({
@@ -202,18 +150,11 @@ export const initializeContracts = async (
 
       return { token: tokenContract, dice: diceContract };
     } catch (contractError) {
-      // DEBUG LOGS - REMOVE AFTER DEBUGGING
-      // console.error(
-      //   'DEBUG CONTRACT INIT: Error creating contract instances:',
-      //   contractError
-      // );
       throw new Error(
         `Failed to create contract instances: ${contractError.message}`
       );
     }
   } catch (error) {
-    // DEBUG LOGS - REMOVE AFTER DEBUGGING
-    // console.error('DEBUG CONTRACT INIT: Contract initialization error:', error);
     if (handleError) {
       handleError(error, 'initializeContracts');
     }
@@ -436,6 +377,11 @@ export const switchNetwork = async (
   }
 };
 
+/**
+ * Check if an RPC endpoint is healthy by making a basic eth_blockNumber request
+ * @param {string} rpcUrl - The RPC URL to check
+ * @returns {Promise<{ok: boolean, error?: string, blockNumber?: number}>} Health status
+ */
 export const checkRpcHealth = async rpcUrl => {
   try {
     const response = await fetch(rpcUrl, {
@@ -464,49 +410,33 @@ export const checkRpcHealth = async rpcUrl => {
 };
 
 /**
- * Helper function to detect and recover from common RPC errors
+ * Helper function to detect common RPC errors
  * @param {Error} error - The error to analyze
- * @param {Object} provider - Ethers provider instance
- * @param {Function} addToast - Function to display notifications (optional)
- * @returns {Promise<boolean>} - Whether recovery was attempted
+ * @returns {boolean} - Whether it's a common RPC issue
  */
-export const handleRpcError = async (error, provider, addToast = null) => {
-  if (!error || !provider) return false;
+export const isRpcError = error => {
+  if (!error || !error.message) return false;
 
-  const errorMessage = error.message || '';
-
-  // Check for common RPC issues
-  const isRpcIssue =
+  const errorMessage = error.message.toLowerCase();
+  return (
     errorMessage.includes('missing revert data') ||
     errorMessage.includes('failed to meet quorum') ||
     errorMessage.includes('timeout') ||
     errorMessage.includes('connection error') ||
     errorMessage.includes('too many requests') ||
-    errorMessage.includes('rate limit') ||
-    errorMessage.includes('CORS');
+    errorMessage.includes('rate limit')
+  );
+};
 
-  if (!isRpcIssue) return false;
-
-  try {
-    // Log the error for debugging
-    console.warn('RPC issue detected:', errorMessage);
-
-    // Attempt to reset the connection by requesting a block number
-    // This often helps refresh the RPC connection
-    await provider.getBlockNumber().catch(() => {});
-
-    // Show a notification if provided
-    if (addToast) {
-      addToast(
-        'Network connection issue detected. Attempting to recover...',
-        'warning'
-      );
-    }
-
-    // Return true to indicate a recovery was attempted
-    return true;
-  } catch (recoveryError) {
-    console.error('Failed to recover from RPC error:', recoveryError);
-    return false;
-  }
+/**
+ * Format wallet address for display
+ * @param {string} address - Full wallet address
+ * @param {number} first - Number of characters to show at start
+ * @param {number} last - Number of characters to show at end
+ * @returns {string} Formatted address
+ */
+export const formatAddress = (address, first = 6, last = 4) => {
+  if (!address) return '';
+  if (address.length < first + last + 3) return address;
+  return `${address.slice(0, first)}...${address.slice(-last)}`;
 };

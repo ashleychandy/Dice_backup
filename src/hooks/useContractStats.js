@@ -1,10 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { useDiceContract } from './useDiceContract';
-import { useWallet } from './useWallet';
+import { useWallet } from '../hooks/useWallet';
+import { ethers } from 'ethers';
+import { DICE_CONTRACT_ADDRESS } from '../constants/contracts';
+import DiceABI from '../contracts/abi/Dice.json';
+import { safeContractCall } from '../utils/contractUtils';
 
 export const useContractStats = () => {
-  const { contract } = useDiceContract();
-  const { account } = useWallet();
+  // Keep contract reference for backward compatibility
+  const { contract: _contract } = useDiceContract();
+  // eslint-disable-next-line no-unused-vars
+  const { account, provider } = useWallet();
 
   const {
     data: stats,
@@ -14,8 +20,8 @@ export const useContractStats = () => {
   } = useQuery({
     queryKey: ['contractStats'],
     queryFn: async () => {
-      if (!contract) {
-        throw new Error('Contract not initialized');
+      if (!provider || !DICE_CONTRACT_ADDRESS) {
+        throw new Error('Contract client not initialized');
       }
 
       // Default values as fallback in case of errors
@@ -27,88 +33,86 @@ export const useContractStats = () => {
         maxHistorySize: 20,
       };
 
-      try {
-        // Use Promise.allSettled to handle partial failures
-        const [
-          totalGamesResult,
-          totalPayoutResult,
-          totalWageredResult,
-          maxBetAmountResult,
-          maxHistorySizeResult,
-        ] = await Promise.allSettled([
-          contract.totalGamesPlayed(),
-          contract.totalPayoutAmount(),
-          contract.totalWageredAmount(),
-          contract.MAX_BET_AMOUNT(),
-          contract.MAX_HISTORY_SIZE(),
-        ]);
+      // Create ethers contract instance
+      const contract = new ethers.Contract(
+        DICE_CONTRACT_ADDRESS,
+        DiceABI.abi,
+        provider
+      );
 
-        // Extract values or use defaults for any failed promises
-        const totalGames =
-          totalGamesResult.status === 'fulfilled'
-            ? totalGamesResult.value.toString()
-            : defaultStats.totalGames;
+      // Special handling for contract calls using ethers v6
+      const fetchContractValue = async (
+        functionName,
+        defaultValue,
+        logName
+      ) => {
+        try {
+          // Use ethers v6 with safeContractCall for better error handling
+          return await safeContractCall(
+            async () => {
+              // Direct call to contract function using ethers
+              const result = await contract[functionName]();
 
-        const totalPayout =
-          totalPayoutResult.status === 'fulfilled'
-            ? totalPayoutResult.value.toString()
-            : defaultStats.totalPayout;
+              // Extra validation
+              if (!result) {
+                throw new Error('Empty data response');
+              }
 
-        const totalWagered =
-          totalWageredResult.status === 'fulfilled'
-            ? totalWageredResult.value.toString()
-            : defaultStats.totalWagered;
+              return result;
+            },
+            defaultValue,
+            logName || functionName,
+            true
+          );
+        } catch (err) {
+          console.warn(
+            `Error in ${logName || functionName} with special handling:`,
+            err
+          );
+          return defaultValue;
+        }
+      };
 
-        const maxBetAmount =
-          maxBetAmountResult.status === 'fulfilled'
-            ? maxBetAmountResult.value.toString()
-            : defaultStats.maxBetAmount;
+      // Get all stats using our enhanced function with ethers
+      const totalGames = await fetchContractValue(
+        'totalGamesPlayed',
+        defaultStats.totalGames,
+        'totalGames'
+      );
+      const totalPayout = await fetchContractValue(
+        'totalPayoutAmount',
+        defaultStats.totalPayout,
+        'totalPayout'
+      );
+      const totalWagered = await fetchContractValue(
+        'totalWageredAmount',
+        defaultStats.totalWagered,
+        'totalWagered'
+      );
+      const maxBetAmount = await fetchContractValue(
+        'MAX_BET_AMOUNT',
+        defaultStats.maxBetAmount,
+        'maxBetAmount'
+      );
+      const maxHistorySize = await fetchContractValue(
+        'MAX_HISTORY_SIZE',
+        defaultStats.maxHistorySize,
+        'maxHistorySize'
+      );
 
-        const maxHistorySize =
-          maxHistorySizeResult.status === 'fulfilled'
-            ? Number(maxHistorySizeResult.value)
-            : defaultStats.maxHistorySize;
-
-        // Log any errors for debugging
-        [
-          totalGamesResult,
-          totalPayoutResult,
-          totalWageredResult,
-          maxBetAmountResult,
-          maxHistorySizeResult,
-        ]
-          .filter(result => result.status === 'rejected')
-          .forEach((result, index) => {
-            const propertyNames = [
-              'totalGames',
-              'totalPayout',
-              'totalWagered',
-              'maxBetAmount',
-              'maxHistorySize',
-            ];
-            console.error(
-              `Error fetching ${propertyNames[index]}:`,
-              result.reason
-            );
-          });
-
-        return {
-          totalGames,
-          totalPayout,
-          totalWagered,
-          maxBetAmount,
-          maxHistorySize,
-        };
-      } catch (error) {
-        console.error('Error fetching contract stats:', error);
-        // Return default values instead of throwing to prevent UI errors
-        return defaultStats;
-      }
+      // Return the stats, with all values we were able to fetch
+      return {
+        totalGames: totalGames?.toString() || defaultStats.totalGames,
+        totalPayout: totalPayout?.toString() || defaultStats.totalPayout,
+        totalWagered: totalWagered?.toString() || defaultStats.totalWagered,
+        maxBetAmount: maxBetAmount?.toString() || defaultStats.maxBetAmount,
+        maxHistorySize: Number(maxHistorySize) || defaultStats.maxHistorySize,
+      };
     },
-    enabled: !!contract,
+    enabled: !!provider && !!DICE_CONTRACT_ADDRESS,
     staleTime: 0, // Always consider data stale immediately
     cacheTime: 0, // Don't cache data at all
-    retry: 2, // Retry failed requests up to 2 times
+    retry: 1, // Reduced retry count to minimize errors
     refetchInterval: 5000, // Refetch data every 5 seconds
     refetchIntervalInBackground: false, // Only refetch when tab is in focus
   });

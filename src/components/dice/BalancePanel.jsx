@@ -2,14 +2,22 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ethers } from 'ethers';
 
-const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
-  // Safe formatting function for ethers values
-  const safeFormatEther = value => {
+const BalancePanel = ({
+  userBalance,
+  allowance,
+  betAmount = BigInt(0),
+  isLoading = false,
+}) => {
+  // Safe formatting function for token values
+  const safeFormatUnits = value => {
     if (!value || typeof value === 'undefined') return '0';
     try {
-      return ethers.formatEther(value.toString());
+      // Ensure we're handling BigInt values correctly
+      const valueStr =
+        typeof value === 'bigint' ? value.toString() : value.toString();
+      return ethers.formatUnits(BigInt(valueStr), 18);
     } catch (error) {
-      console.error('Error formatting ether value:', error);
+      console.error('Error formatting token value:', error);
       return '0';
     }
   };
@@ -18,18 +26,35 @@ const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
   const checkApprovalStatus = () => {
     if (!allowance) return { sufficient: false, status: 'Not Approved' };
 
-    // Check if allowance is enough for current bet amount
-    const isSufficient = betAmount <= BigInt(0) || allowance >= betAmount;
+    try {
+      // Ensure both values are BigInt for comparison
+      const allowanceBigInt =
+        typeof allowance === 'bigint'
+          ? allowance
+          : BigInt(allowance.toString());
 
-    // For large allowances, show as "Fully Approved"
-    const highThreshold = ethers.MaxUint256 / BigInt(2);
-    const status = !isSufficient
-      ? 'Not Approved'
-      : allowance > highThreshold
-        ? 'Fully Approved'
-        : 'Approved';
+      const betAmountBigInt =
+        typeof betAmount === 'bigint'
+          ? betAmount
+          : BigInt(betAmount.toString());
 
-    return { sufficient: isSufficient, status };
+      // Check if allowance is enough for current bet amount
+      const isSufficient =
+        betAmountBigInt <= BigInt(0) || allowanceBigInt >= betAmountBigInt;
+
+      // For large allowances, show as "Fully Approved"
+      const highThreshold = ethers.MaxUint256 / BigInt(2);
+      const status = !isSufficient
+        ? 'Not Approved'
+        : allowanceBigInt > highThreshold
+          ? 'Fully Approved'
+          : 'Approved';
+
+      return { sufficient: isSufficient, status };
+    } catch (error) {
+      console.error('Error checking approval status:', error);
+      return { sufficient: false, status: 'Error' };
+    }
   };
 
   const approvalStatus = checkApprovalStatus();
@@ -59,7 +84,17 @@ const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
     });
   };
 
-  const formattedBalance = formatBalance(safeFormatEther(userBalance || 0));
+  // Safely convert userBalance to formatted string
+  const formattedBalance = React.useMemo(() => {
+    try {
+      const balance =
+        userBalance !== undefined && userBalance !== null ? userBalance : 0;
+      return formatBalance(safeFormatUnits(balance));
+    } catch (error) {
+      console.error('Error formatting balance:', error);
+      return '0';
+    }
+  }, [userBalance]);
 
   return (
     <motion.div
@@ -70,9 +105,15 @@ const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
     >
       <div className="flex items-center gap-1.5 text-sm">
         <span className="text-secondary-500">Balance:</span>
-        <span className="font-mono font-medium text-secondary-700">
-          {formattedBalance}
-        </span>
+        {isLoading ? (
+          <span className="font-mono font-medium text-secondary-700 animate-pulse">
+            ...
+          </span>
+        ) : (
+          <span className="font-mono font-medium text-secondary-700">
+            {formattedBalance}
+          </span>
+        )}
         <span className="text-secondary-500 text-xs">GAMA</span>
       </div>
       <motion.div

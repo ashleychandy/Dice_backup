@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useDiceContract } from './useDiceContract';
-import { useWallet } from './useWallet';
+import { useWallet } from '../hooks/useWallet';
 
 export const useGameStatus = () => {
   const { contract } = useDiceContract();

@@ -100,10 +100,17 @@ const BetInput = ({
 
         // Only show insufficient balance error if bet is clearly more than available
         if (amount > balanceAmount) {
-          return {
-            isValid: false,
-            error: 'Insufficient balance',
-          };
+          // Add a small buffer (0.1%) to avoid edge case comparison issues with BigInt
+          // Only show error if the amount is significantly more than the balance
+          const tolerance = amount / BigInt(1000); // 0.1% tolerance
+          const effectiveBalance = balanceAmount + tolerance;
+
+          if (amount > effectiveBalance) {
+            return {
+              isValid: false,
+              error: 'Insufficient balance',
+            };
+          }
         }
 
         return { isValid: true };

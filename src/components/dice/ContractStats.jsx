@@ -1,7 +1,7 @@
 import React from 'react';
 import { useContractStats } from '../../hooks/useContractStats';
 import { useContractState } from '../../hooks/useContractState';
-import { ethers } from 'ethers';
+import { motion } from 'framer-motion';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -11,6 +11,7 @@ import {
   faSpinner,
   faRefresh,
 } from '@fortawesome/free-solid-svg-icons';
+import { ethers } from 'ethers';
 
 const StatItem = ({ label, value, isLoading }) => (
   <div className="flex flex-col space-y-1">
@@ -42,10 +43,12 @@ const ContractStats = () => {
     isUnpausing,
   } = useContractState();
 
-  const formatGAMA = value => {
+  const formatTokenValue = value => {
+    if (!value) return '0 GAMA';
     try {
-      return `${ethers.formatEther(value)} GAMA`;
-    } catch {
+      return `${ethers.formatUnits(BigInt(value), 18)} GAMA`;
+    } catch (error) {
+      console.error('Error formatting token value:', error);
       return '0 GAMA';
     }
   };
@@ -84,12 +87,12 @@ const ContractStats = () => {
           />
           <StatItem
             label="Total Payouts"
-            value={formatGAMA(stats?.totalPayout || '0')}
+            value={formatTokenValue(stats?.totalPayout || '0')}
             isLoading={statsLoading}
           />
           <StatItem
             label="Total Wagered"
-            value={formatGAMA(stats?.totalWagered || '0')}
+            value={formatTokenValue(stats?.totalWagered || '0')}
             isLoading={statsLoading}
           />
         </div>
@@ -97,7 +100,7 @@ const ContractStats = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <StatItem
             label="Max Bet Amount"
-            value={formatGAMA(stats?.maxBetAmount || '0')}
+            value={formatTokenValue(stats?.maxBetAmount || '0')}
             isLoading={statsLoading}
           />
           <StatItem

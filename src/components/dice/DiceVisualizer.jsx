@@ -1,7 +1,13 @@
-import { ethers } from 'ethers';
+import React, {
+  useRef,
+  useState,
+  useEffect,
+  _useMemo,
+  _useCallback,
+} from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import React, { useRef, useState, useEffect } from 'react';
 import { useDiceNumber } from '../../hooks/useDiceNumber';
+import { formatUnits } from 'viem';
 
 /**
  * Enhanced Dice Visualizer Component with improved animations, visual feedback, and error handling
@@ -293,7 +299,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
                 transition={{ delay: 0.2 }}
               >
                 {betOutcome === 'win'
-                  ? `Congratulations! ${result?.payout ? `+${ethers.formatEther(result.payout).slice(0, 6)} GAMA` : ''}`
+                  ? `Congratulations! ${result?.payout ? `+${formatUnits(result.payout, 18).slice(0, 6)} GAMA` : ''}`
                   : betOutcome === 'lose'
                     ? 'Better luck next time'
                     : betOutcome === 'recovered'

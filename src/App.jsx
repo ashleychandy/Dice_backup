@@ -1,11 +1,11 @@
 import React from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Components
 import Layout from './components/layout/Layout.jsx';
 import WalletProvider from './components/wallet/WalletProvider.jsx';
 import ErrorBoundary from './components/error/ErrorBoundary.jsx';
+import WagmiProviders from './components/vrf/WagmiProviders.jsx';
 
 // Import directly instead of using lazy loading to avoid potential issues
 import AppRoutes from './components/routes/AppRoutes.jsx';
@@ -14,44 +14,24 @@ import AppRoutes from './components/routes/AppRoutes.jsx';
 import { NotificationProvider } from './contexts/NotificationContext.jsx';
 
 /**
- * Environment variable to enable wagmi
- * This can be controlled via .env file
- * .env: VITE_USE_WAGMI=true|false
- */
-const USE_WAGMI = import.meta.env.VITE_USE_WAGMI === 'true';
-
-/**
  * Main App component
  * Sets up the global providers and layout structure
  */
 function App() {
-  // Configure React Query client with defaults - no caching
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: 2,
-        refetchOnWindowFocus: true,
-        refetchOnMount: true,
-        refetchOnReconnect: true,
-        staleTime: 0, // Always consider data stale immediately
-        cacheTime: 0, // Don't cache data at all
-      },
-    },
-  });
-
   return (
     <ErrorBoundary showDetails={process.env.NODE_ENV === 'development'}>
-      <QueryClientProvider client={queryClient}>
+      {/* WagmiProviders must be the outermost provider for all components using wagmi hooks */}
+      <WagmiProviders>
         <NotificationProvider>
           <Router>
             <WalletProvider>
-              <Layout useWagmi={USE_WAGMI}>
+              <Layout>
                 <AppRoutes />
               </Layout>
             </WalletProvider>
           </Router>
         </NotificationProvider>
-      </QueryClientProvider>
+      </WagmiProviders>
     </ErrorBoundary>
   );
 }

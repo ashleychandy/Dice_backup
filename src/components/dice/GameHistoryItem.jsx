@@ -9,7 +9,7 @@ import {
   faClock,
   faCoins,
 } from '@fortawesome/free-solid-svg-icons';
-import { formatEther } from 'ethers';
+import { formatUnits } from 'viem';
 
 // Helper function to get result type
 const getResultType = game => {
@@ -111,11 +111,9 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
   const chosenNumber = Number(game.chosenNumber);
 
   // Safe amount formatting
-  const betAmount = formatEther(
-    BigInt(game.amount?.toString() || '0').toString()
-  );
+  const betAmount = formatUnits(BigInt(game.amount?.toString() || '0'), 18);
   const formattedBetAmount = formatAmount(betAmount);
-  const payout = formatEther(BigInt(game.payout?.toString() || '0').toString());
+  const payout = formatUnits(BigInt(game.payout?.toString() || '0'), 18);
   const formattedPayout = resultType === 'WIN' ? formatAmount(payout) : '0';
   const formattedDate = getFormattedDate(game.timestamp);
 

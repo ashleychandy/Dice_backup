@@ -3,10 +3,9 @@
  * Centralizes environment variables and other config
  */
 
-// Use CORS proxy for development environments
+// Use local proxy for development environments
 const isDev = import.meta.env.MODE === 'development';
 const useLocalProxy = isDev;
-const corsProxyUrl = 'https://corsproxy.io/?';
 
 // Helper to apply proxy in development
 const applyProxy = url => {
@@ -16,11 +15,6 @@ const applyProxy = url => {
   }
   if (useLocalProxy && url.includes('rpc.apothem.network')) {
     return '/rpc/apothem';
-  }
-
-  // For external CORS proxy (fallback)
-  if (isDev && !useLocalProxy && url.startsWith('http')) {
-    return corsProxyUrl + encodeURIComponent(url);
   }
 
   return url;

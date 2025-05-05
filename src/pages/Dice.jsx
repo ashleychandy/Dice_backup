@@ -192,6 +192,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                     disabled={gameState.isProcessing || hasNoTokens}
                     lastBetAmount={lastBetAmount}
                     onRepeatLastBet={handleRepeatLastBet}
+                    userBalance={balanceData?.balance || BigInt(0)}
                   >
                     <BalancePanel
                       userBalance={balanceData?.balance || BigInt(0)}

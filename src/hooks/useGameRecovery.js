@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
-import { useWallet } from './useWallet';
+import { useWallet } from '../hooks/useWallet';
 import { useDiceContract } from './useDiceContract';
 import { useNotification } from '../contexts/NotificationContext';
 

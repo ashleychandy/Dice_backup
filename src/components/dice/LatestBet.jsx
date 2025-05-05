@@ -1,12 +1,12 @@
 import React from 'react';
-import { ethers } from 'ethers';
+import { formatUnits } from 'viem';
 import { motion } from 'framer-motion';
 
 const LatestBet = ({ result, chosenNumber, betAmount }) => {
   const formatAmount = amount => {
     if (!amount || amount === '0') return '0';
     try {
-      return ethers.formatEther(amount.toString()).slice(0, 6);
+      return formatUnits(BigInt(amount.toString()), 18).slice(0, 6);
     } catch (e) {
       console.error('Error formatting amount:', e);
       return '0';

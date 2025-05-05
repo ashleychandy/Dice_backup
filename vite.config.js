@@ -99,12 +99,11 @@ export default defineConfig(({ command, mode }) => {
     server: {
       port: 3000,
       open: true,
-      cors: true,
       hmr: {
         overlay: true, // Show errors as overlay
       },
       proxy: {
-        // Proxy XDC RPC endpoints to avoid CORS issues in development
+        // Proxy XDC RPC endpoints
         '/rpc/mainnet': {
           target: 'https://rpc.xinfin.network',
           changeOrigin: true,
@@ -122,7 +121,6 @@ export default defineConfig(({ command, mode }) => {
     preview: {
       port: 3000,
       open: true,
-      cors: true,
     },
 
     // Improve resolve performance

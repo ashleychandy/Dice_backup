@@ -607,3 +607,106 @@ export const parseGameResultEvent = (receipt, contractInterface = null) => {
     return null;
   }
 };
+
+/**
+ * Safely makes a contract call and handles empty responses with viem and ethers compatibility
+ * @param {Function} callFn - Async function that performs the contract call
+ * @param {any} defaultValue - Default value to return if call fails or returns empty
+ * @param {String} functionName - Name of the contract function (for logging)
+ * @param {Boolean} logSuccess - Whether to log successful calls
+ * @returns {Promise<any>} - The result or default value
+ */
+export const safeContractCall = async (
+  callFn,
+  defaultValue,
+  functionName = 'contract function',
+  logSuccess = false
+) => {
+  try {
+    // For viem specific handling - need to wrap the contract call
+    // in a try/catch that specifically looks for decode errors
+    try {
+      const result = await callFn();
+
+      // Handle empty response (0x) or null/undefined
+      if (
+        result === undefined ||
+        result === null ||
+        result === '0x' ||
+        result === ''
+      ) {
+        console.log(
+          `${functionName} returned empty data, using default value:`,
+          defaultValue
+        );
+        return defaultValue;
+      }
+
+      // For ethers v6 and viem, ensure proper handling of BigInt
+      let processedResult = result;
+
+      // Convert BigInt to string when it's a standalone BigInt
+      if (typeof result === 'bigint') {
+        processedResult = result.toString();
+      }
+      // Handle array results with potential BigInt values
+      else if (Array.isArray(result)) {
+        processedResult = result.map(item =>
+          typeof item === 'bigint' ? item.toString() : item
+        );
+      }
+      // Handle object results with potential BigInt values
+      else if (result && typeof result === 'object') {
+        processedResult = {};
+        for (const key in result) {
+          if (Object.prototype.hasOwnProperty.call(result, key)) {
+            processedResult[key] =
+              typeof result[key] === 'bigint'
+                ? result[key].toString()
+                : result[key];
+          }
+        }
+      }
+
+      if (logSuccess) {
+        console.log(`Successfully fetched ${functionName}:`, processedResult);
+      }
+
+      return processedResult;
+    } catch (innerError) {
+      // Specifically handle viem's "Cannot decode zero data" error
+      if (
+        innerError.message &&
+        (innerError.message.includes('Cannot decode zero data') ||
+          (innerError.message.includes('0x') &&
+            innerError.message.includes('ABI parameters')))
+      ) {
+        console.warn(
+          `${functionName} returned zero data that couldn't be decoded, using default:`,
+          defaultValue
+        );
+        return defaultValue;
+      }
+
+      // Re-throw other errors to be caught by outer try/catch
+      throw innerError;
+    }
+  } catch (error) {
+    // Enhanced error logging for both viem and ethers
+    const errorInfo = {
+      message: error.message,
+      code: error.code,
+      // Add viem specific properties
+      details: error.details,
+      // ethers v6 specific properties
+      info: error.info,
+      reason: error.reason,
+      errorName: error.errorName,
+      errorArgs: error.errorArgs,
+    };
+
+    console.error(`Error fetching ${functionName}:`, errorInfo);
+    console.log(`Using default ${functionName} value:`, defaultValue);
+    return defaultValue;
+  }
+};

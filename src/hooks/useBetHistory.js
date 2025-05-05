@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useDiceContract } from './useDiceContract';
 import { useWallet } from './useWallet';
 import { useContractStats } from './useContractStats';
@@ -37,7 +37,7 @@ export const useBetHistory = ({
     return 'unknown';
   };
 
-  const fetchBetHistory = async () => {
+  const fetchBetHistory = useCallback(async () => {
     if (!contract || !account) {
       setBetHistory([]);
       setIsLoading(false);
@@ -46,35 +46,74 @@ export const useBetHistory = ({
 
     try {
       setIsLoading(true);
-      const bets = await contract.getBetHistory(account);
 
-      const processedBets = bets.map(bet => {
-        const rolledNumber = Number(bet.rolledNumber);
-        const resultType = getResultType(rolledNumber);
+      // Verify the contract has the getBetHistory method before calling
+      if (
+        !contract.getBetHistory ||
+        typeof contract.getBetHistory !== 'function'
+      ) {
+        console.warn('getBetHistory method not available on contract');
+        setError('Contract method not available');
+        setBetHistory([]);
+        setIsLoading(false);
+        return;
+      }
 
-        return {
-          timestamp: Number(bet.timestamp),
-          chosenNumber: Number(bet.chosenNumber),
-          rolledNumber,
-          amount: bet.amount.toString(),
-          payout: bet.payout.toString(),
-          isWin:
-            resultType === 'normal' &&
-            rolledNumber === Number(bet.chosenNumber),
-          resultType,
-          // Add status for UI display
-          status:
-            resultType === 'force_stopped'
-              ? 'Force Stopped'
-              : resultType === 'recovered'
-                ? 'Recovered'
-                : resultType === 'normal'
-                  ? rolledNumber === Number(bet.chosenNumber)
-                    ? 'Won'
-                    : 'Lost'
-                  : 'Unknown',
-        };
-      });
+      // Use Promise.race with a timeout to prevent hanging calls
+      const bets = await Promise.race([
+        contract.getBetHistory(account),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Bet history request timed out')),
+            15000
+          )
+        ),
+      ]);
+
+      const processedBets = bets
+        .map(bet => {
+          try {
+            const rolledNumber = Number(bet.rolledNumber);
+            const resultType = getResultType(rolledNumber);
+
+            return {
+              timestamp: Number(bet.timestamp),
+              chosenNumber: Number(bet.chosenNumber),
+              rolledNumber,
+              amount: bet.amount.toString(),
+              payout: bet.payout.toString(),
+              isWin:
+                resultType === 'normal' &&
+                rolledNumber === Number(bet.chosenNumber),
+              resultType,
+              // Add status for UI display
+              status:
+                resultType === 'force_stopped'
+                  ? 'Force Stopped'
+                  : resultType === 'recovered'
+                    ? 'Recovered'
+                    : resultType === 'normal'
+                      ? rolledNumber === Number(bet.chosenNumber)
+                        ? 'Won'
+                        : 'Lost'
+                      : 'Unknown',
+            };
+          } catch (betError) {
+            console.warn('Error processing bet data:', betError);
+            // Return a default/fallback bet object
+            return {
+              timestamp: 0,
+              chosenNumber: 0,
+              rolledNumber: 0,
+              amount: '0',
+              payout: '0',
+              isWin: false,
+              resultType: 'error',
+              status: 'Data Error',
+            };
+          }
+        })
+        .filter(bet => bet !== null); // Filter out any nulls from processing errors
 
       // Sort by timestamp (newest first)
       processedBets.sort((a, b) => b.timestamp - a.timestamp);
@@ -82,7 +121,7 @@ export const useBetHistory = ({
       // Calculate total pages based on max history size or actual history length
       const maxHistorySize = stats?.maxHistorySize || processedBets.length;
       const totalItems = Math.min(processedBets.length, maxHistorySize);
-      setTotalPages(Math.ceil(totalItems / itemsPerPage));
+      setTotalPages(Math.ceil(totalItems / itemsPerPage) || 1); // Ensure at least 1 page
 
       // Slice the history based on current page and max history size
       const startIndex = (currentPage - 1) * itemsPerPage;
@@ -93,12 +132,33 @@ export const useBetHistory = ({
       setError(null);
     } catch (err) {
       console.error('Error fetching bet history:', err);
-      setError(err.message);
-      setBetHistory([]);
+
+      // Handle specific error types
+      if (err.message && err.message.includes('missing revert data')) {
+        setError(
+          'Network connectivity issue. Please check your connection or try again later.'
+        );
+      } else if (err.message && err.message.includes('timed out')) {
+        setError('Request timed out. The network may be congested.');
+      } else {
+        setError(err.message || 'Failed to load bet history');
+      }
+
+      // Keep any existing bet history to avoid UI flashing empty
+      if (betHistory.length === 0) {
+        setBetHistory([]);
+      }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [
+    contract,
+    account,
+    currentPage,
+    stats?.maxHistorySize,
+    itemsPerPage,
+    betHistory.length,
+  ]);
 
   useEffect(() => {
     fetchBetHistory();
@@ -120,15 +180,15 @@ export const useBetHistory = ({
       try {
         // In ethers.js v6, we need to store references to the listeners
         const _gameCompletedListener = contract.on(
-          'GameCompleted',
+          'DiceGameCompleted',
           handleGameEvent
         );
         const _gameRecoveredListener = contract.on(
-          'GameRecovered',
+          'DiceGameRecovered',
           handleGameEvent
         );
         const _gameForceStoppedListener = contract.on(
-          'GameForceStopped',
+          'DiceGameForceStopped',
           handleGameEvent
         );
       } catch (err) {
@@ -140,9 +200,9 @@ export const useBetHistory = ({
         try {
           // Remove listeners by removing all listeners for these events
           // This is the recommended approach in ethers.js v6
-          contract.removeAllListeners('GameCompleted');
-          contract.removeAllListeners('GameRecovered');
-          contract.removeAllListeners('GameForceStopped');
+          contract.removeAllListeners('DiceGameCompleted');
+          contract.removeAllListeners('DiceGameRecovered');
+          contract.removeAllListeners('DiceGameForceStopped');
         } catch (err) {
           console.error('Error cleaning up event listeners:', err);
         }
@@ -152,7 +212,15 @@ export const useBetHistory = ({
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [contract, account, currentPage, stats?.maxHistorySize, autoRefresh]);
+  }, [
+    contract,
+    account,
+    currentPage,
+    stats?.maxHistorySize,
+    autoRefresh,
+    fetchBetHistory,
+    itemsPerPage,
+  ]);
 
   const goToPage = page => {
     if (page >= 1 && page <= totalPages) {

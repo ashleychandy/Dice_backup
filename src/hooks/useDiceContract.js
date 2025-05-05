@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useWallet } from './useWallet';
 import { ethers } from 'ethers';
 import DiceABI from '../contracts/abi/Dice.json';
-import TokenABI from '../contracts/abi/Token.json';
+import TokenABI from '../contracts/abi/GamaToken.json';
 import {
   DICE_CONTRACT_ADDRESS,
   TOKEN_CONTRACT_ADDRESS,

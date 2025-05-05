@@ -64,65 +64,146 @@ export const useWallet = () => {
 
   const handleChainChanged = useCallback(
     async newChainId => {
-      const chainIdNumber = parseInt(newChainId);
-      dispatch({
-        type: walletActionTypes.SET_CHAIN_ID,
-        payload: chainIdNumber,
-      });
-
       try {
+        const chainIdNumber = parseInt(newChainId);
+        console.log(`Chain changed to: ${chainIdNumber}`);
+
+        dispatch({
+          type: walletActionTypes.SET_CHAIN_ID,
+          payload: chainIdNumber,
+        });
+
+        // If we're in the middle of connecting, don't show unnecessary messages
+        const isCurrentlyConnecting = stateRef.current.isConnecting;
+
         if (!SUPPORTED_CHAIN_IDS.includes(chainIdNumber)) {
           dispatch({
             type: walletActionTypes.SET_CONTRACTS,
             payload: { token: null, dice: null },
           });
-          dispatch({ type: walletActionTypes.SET_PROVIDER, payload: null });
-          addToast('Please switch to a supported network', 'warning');
-        } else if (stateRef.current.provider && stateRef.current.account) {
-          const walletProvider = getAvailableProvider();
-          if (!walletProvider) {
-            throw new Error('Wallet provider not found');
+
+          if (!isCurrentlyConnecting) {
+            addToast(
+              `Network ID ${chainIdNumber} is not supported. Please switch to XDC Mainnet or Apothem Testnet.`,
+              'warning'
+            );
           }
 
-          const newProvider = new ethers.BrowserProvider(walletProvider);
-          dispatch({
-            type: walletActionTypes.SET_PROVIDER,
-            payload: newProvider,
-          });
+          // Don't try to reconnect provider on unsupported networks
+          return;
+        }
 
-          await validateNetwork(newProvider);
-          const contracts = await initializeContracts(
-            newProvider,
-            stateRef.current.account,
-            null,
-            state =>
-              dispatch({
-                type: walletActionTypes.SET_LOADING_STATE,
-                payload: state,
-              }),
-            handleError
-          );
+        // Only proceed with reconnection if the user's wallet is connected
+        if (stateRef.current.provider && stateRef.current.account) {
+          // Show "connecting" toast for better UX
+          if (!isCurrentlyConnecting) {
+            addToast('Connecting to new network...', 'info');
+          }
 
-          if (contracts) {
+          try {
+            const walletProvider = getAvailableProvider();
+            if (!walletProvider) {
+              throw new Error('Wallet provider not found');
+            }
+
+            // Create new provider with the new chain
+            const newProvider = new ethers.BrowserProvider(walletProvider);
             dispatch({
-              type: walletActionTypes.SET_CONTRACTS,
-              payload: contracts,
+              type: walletActionTypes.SET_PROVIDER,
+              payload: newProvider,
             });
-          }
-          addToast('Network changed successfully', 'success');
 
-          // Refresh all data after network change
-          if (window.refreshAllData) {
-            window.refreshAllData(stateRef.current.account);
-            console.log('Refreshing all data after network change');
+            // Validate network and reinitialize contracts
+            const networkValidation = await validateNetwork(newProvider);
+
+            if (!networkValidation.isValid) {
+              console.warn('Network validation failed:', networkValidation);
+              if (networkValidation.error && !isCurrentlyConnecting) {
+                addToast(
+                  `Network connection issue: ${networkValidation.error}. Please try again.`,
+                  'warning'
+                );
+              }
+              return;
+            }
+
+            // Wrap contract initialization in a timeout to give the network time to stabilize
+            setTimeout(async () => {
+              try {
+                const contracts = await initializeContracts(
+                  newProvider,
+                  stateRef.current.account,
+                  null,
+                  state =>
+                    dispatch({
+                      type: walletActionTypes.SET_LOADING_STATE,
+                      payload: state,
+                    }),
+                  handleError
+                );
+
+                if (contracts) {
+                  dispatch({
+                    type: walletActionTypes.SET_CONTRACTS,
+                    payload: contracts,
+                  });
+
+                  if (!isCurrentlyConnecting) {
+                    addToast('Network changed successfully', 'success');
+                  }
+
+                  // Refresh all data after network change
+                  if (window.refreshAllData) {
+                    window.refreshAllData(stateRef.current.account);
+                    console.log('Refreshing all data after network change');
+                  }
+                } else {
+                  console.warn('No contracts returned after network change');
+                  if (!isCurrentlyConnecting) {
+                    addToast(
+                      'Connected to network, but contracts are not available',
+                      'warning'
+                    );
+                  }
+                }
+              } catch (contractError) {
+                console.error(
+                  'Error initializing contracts after chain change:',
+                  contractError
+                );
+                handleError(
+                  contractError,
+                  'initializeContracts after chain change'
+                );
+              }
+            }, 1000); // Small delay to let network stabilize
+          } catch (providerError) {
+            console.error(
+              'Error reconnecting after chain change:',
+              providerError
+            );
+            handleError(providerError, 'reconnectProvider');
+
+            // Only reset state if we failed to reconnect with a severe error
+            if (
+              providerError.message &&
+              !providerError.message.includes('timeout')
+            ) {
+              dispatch({ type: walletActionTypes.RESET_STATE });
+            }
           }
         }
       } catch (error) {
+        console.error('Error handling chain change:', error);
         handleError(error, 'handleChainChanged');
-        dispatch({ type: walletActionTypes.RESET_STATE });
+
+        // Don't fully reset state for non-critical errors
+        if (error.message && error.message.includes('critical')) {
+          dispatch({ type: walletActionTypes.RESET_STATE });
+        }
       }
     },
-    [addToast, handleError]
+    [addToast, handleError, dispatch]
   );
 
   const connectWallet = useCallback(async () => {

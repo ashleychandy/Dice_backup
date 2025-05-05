@@ -1,9 +1,10 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState, useCallback } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import DicePage from '../../pages/Dice.jsx';
 import { useWallet } from '../wallet/WalletProvider';
 import { useNotification } from '../../contexts/NotificationContext.jsx';
 import LoadingSpinner from '../ui/LoadingSpinner.jsx';
+import { NETWORK_CONFIG } from '../../config/index.js';
 
 const AppRoutes = () => {
   const {
@@ -12,8 +13,30 @@ const AppRoutes = () => {
     handleErrorWithToast,
     isWalletConnected,
     chainId,
+    isLoading: walletLoading,
   } = useWallet();
   const { addToast } = useNotification();
+  const [networkName, setNetworkName] = useState(null);
+  const [contractCheckDone, setContractCheckDone] = useState(false);
+
+  // Determine current network based on chainId
+  useEffect(() => {
+    if (!chainId) {
+      setNetworkName(null);
+      return;
+    }
+
+    if (chainId === 50) {
+      setNetworkName('mainnet');
+    } else if (chainId === 51) {
+      setNetworkName('apothem');
+    } else {
+      setNetworkName('unknown');
+      if (account) {
+        addToast(`Unknown network with chainId: ${chainId}`, 'warning');
+      }
+    }
+  }, [chainId, account, addToast]);
 
   // Create a properly structured contracts object for the DicePage
   // with safeguards against missing contracts
@@ -45,9 +68,14 @@ const AppRoutes = () => {
   }, [contracts]);
 
   // Function to check contracts and display appropriate warning
-  const checkContracts = () => {
+  const checkContracts = useCallback(() => {
     if (!isWalletConnected && account) {
       // Don't show warnings if wallet is intentionally not connected
+      return;
+    }
+
+    if (walletLoading) {
+      // Don't show warnings while wallet is still loading
       return;
     }
 
@@ -55,13 +83,26 @@ const AppRoutes = () => {
     if (!mappedContracts.token && !mappedContracts.dice) {
       console.warn('No token or dice contracts available');
 
-      if (account) {
-        setTimeout(() => {
+      if (account && !contractCheckDone) {
+        // Show network-specific error message
+        if (networkName === 'unknown') {
+          addToast(
+            'Contracts not available. Please switch to XDC Mainnet or Apothem Testnet.',
+            'error'
+          );
+        } else if (networkName) {
+          addToast(
+            `Contracts not available on ${networkName}. Please check your wallet connection.`,
+            'warning'
+          );
+        } else {
           addToast(
             'Contracts not available. Please check your wallet and network connection.',
             'warning'
           );
-        }, 1000);
+        }
+
+        setContractCheckDone(true);
       }
       return;
     }
@@ -69,24 +110,39 @@ const AppRoutes = () => {
     // Show specific warnings for missing contracts
     if (!mappedContracts.token && mappedContracts.dice) {
       console.warn('Token contract not available');
-      if (account) {
+      if (account && !contractCheckDone) {
         addToast(
           'Token contract not available. Some features may not work.',
           'warning'
         );
+        setContractCheckDone(true);
       }
     }
 
     if (mappedContracts.token && !mappedContracts.dice) {
       console.warn('Dice contract not available');
-      if (account) {
+      if (account && !contractCheckDone) {
         addToast(
           'Dice contract not available. Game features will not work.',
           'error'
         );
+        setContractCheckDone(true);
       }
     }
-  };
+
+    // If we have both contracts, reset the check flag
+    if (mappedContracts.token && mappedContracts.dice) {
+      setContractCheckDone(false);
+    }
+  }, [
+    mappedContracts,
+    account,
+    isWalletConnected,
+    networkName,
+    walletLoading,
+    contractCheckDone,
+    addToast,
+  ]);
 
   // Check contracts whenever they change or when wallet connects
   useEffect(() => {
@@ -96,21 +152,91 @@ const AppRoutes = () => {
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [mappedContracts, account, isWalletConnected, chainId]);
+  }, [
+    mappedContracts,
+    account,
+    isWalletConnected,
+    chainId,
+    walletLoading,
+    networkName,
+    checkContracts,
+  ]);
+
+  // Check if the contracts match the current network
+  useEffect(() => {
+    if (!networkName || !account || !isWalletConnected) {
+      return;
+    }
+
+    // Skip for unknown networks
+    if (networkName === 'unknown') {
+      return;
+    }
+
+    // Check if the expected contract addresses match the current network
+    if (NETWORK_CONFIG?.[networkName]?.contracts) {
+      const expectedDiceAddress = NETWORK_CONFIG[networkName].contracts.dice;
+      const expectedTokenAddress = NETWORK_CONFIG[networkName].contracts.token;
+
+      const currentDiceAddress =
+        mappedContracts.dice?.address || mappedContracts.dice?.target;
+      const currentTokenAddress =
+        mappedContracts.token?.address || mappedContracts.token?.target;
+
+      // If we have expected addresses but they don't match the current contract addresses
+      if (
+        expectedDiceAddress &&
+        currentDiceAddress &&
+        expectedDiceAddress.toLowerCase() !== currentDiceAddress.toLowerCase()
+      ) {
+        console.warn('Dice contract address mismatch for current network');
+        addToast(
+          "Dice contract address doesn't match the current network. Please check your wallet connection.",
+          'warning'
+        );
+      }
+
+      if (
+        expectedTokenAddress &&
+        currentTokenAddress &&
+        expectedTokenAddress.toLowerCase() !== currentTokenAddress.toLowerCase()
+      ) {
+        console.warn('Token contract address mismatch for current network');
+        addToast(
+          "Token contract address doesn't match the current network. Please check your wallet connection.",
+          'warning'
+        );
+      }
+    }
+  }, [networkName, mappedContracts, account, isWalletConnected, addToast]);
 
   // Render a loading state if wallet is connecting but contracts aren't ready
   if (
-    isWalletConnected &&
-    account &&
-    !mappedContracts.dice &&
-    !mappedContracts.token
+    walletLoading ||
+    (isWalletConnected &&
+      account &&
+      !mappedContracts.dice &&
+      !mappedContracts.token &&
+      !contractCheckDone)
   ) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh]">
         <LoadingSpinner size="large" />
         <p className="mt-4 text-lg text-secondary-600">
-          Loading game contracts...
+          {walletLoading
+            ? 'Connecting to wallet...'
+            : 'Loading game contracts...'}
         </p>
+        {networkName && (
+          <p className="mt-2 text-sm text-secondary-400">
+            Network:{' '}
+            {networkName === 'mainnet'
+              ? 'XDC Mainnet'
+              : networkName === 'apothem'
+                ? 'XDC Apothem Testnet'
+                : networkName}
+          </p>
+        )}
       </div>
     );
   }
@@ -125,6 +251,7 @@ const AppRoutes = () => {
             account={account}
             onError={handleErrorWithToast}
             addToast={addToast}
+            networkName={networkName}
           />
         }
       />

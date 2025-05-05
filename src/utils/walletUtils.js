@@ -32,27 +32,47 @@ export const getAvailableProvider = () => {
 };
 
 export const validateNetwork = async provider => {
-  const network = await provider.getNetwork();
-  const currentChainId = Number(network.chainId);
-
-  if (!SUPPORTED_CHAIN_IDS.includes(currentChainId)) {
-    throw new Error(
-      `Please switch to a supported network. Connected to chain ID: ${currentChainId}`
-    );
+  if (!provider) {
+    throw new Error('Provider is required');
   }
-
-  const currentNetwork = Object.values(NETWORK_CONFIG).find(
-    n => n.chainId === currentChainId
-  );
-  if (!currentNetwork) throw new Error('Network configuration not found');
 
   try {
-    await provider.getBlockNumber();
-  } catch (rpcError) {
-    throw new Error(`Failed to connect to ${currentNetwork.name}`);
-  }
+    const network = await provider.getNetwork();
+    const chainId = network.chainId;
 
-  return currentChainId;
+    // Create a list of supported chain IDs for easy checking
+    const supportedChainIds = SUPPORTED_CHAIN_IDS;
+
+    // Check if the connected chain is supported
+    const isSupported = supportedChainIds.includes(Number(chainId));
+
+    if (!isSupported) {
+      console.warn(`Connected to unsupported network with chainId ${chainId}`);
+      return {
+        isValid: false,
+        chainId: Number(chainId),
+        name: network.name || 'Unknown Network',
+      };
+    }
+
+    console.log(`Connected to supported network: ${network.name} (${chainId})`);
+    return {
+      isValid: true,
+      chainId: Number(chainId),
+      name:
+        network.name ||
+        (chainId === 50 ? 'XDC Mainnet' : 'XDC Apothem Testnet'),
+    };
+  } catch (error) {
+    console.error('Error validating network:', error);
+    // Instead of throwing, return an error state
+    return {
+      isValid: false,
+      chainId: 0,
+      name: 'Connection Error',
+      error: error.message,
+    };
+  }
 };
 
 export const initializeContracts = async (
@@ -432,5 +452,80 @@ export const switchNetwork = async (
     if (setLoadingStates) {
       setLoadingStates({ wallet: false });
     }
+  }
+};
+
+export const checkRpcHealth = async rpcUrl => {
+  try {
+    const response = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_blockNumber',
+        params: [],
+        id: 1,
+      }),
+    });
+
+    if (!response.ok) {
+      return { ok: false, error: `HTTP error: ${response.status}` };
+    }
+
+    const data = await response.json();
+    return { ok: true, blockNumber: parseInt(data.result, 16) };
+  } catch (error) {
+    console.error('RPC health check failed:', error);
+    return { ok: false, error: error.message };
+  }
+};
+
+/**
+ * Helper function to detect and recover from common RPC errors
+ * @param {Error} error - The error to analyze
+ * @param {Object} provider - Ethers provider instance
+ * @param {Function} addToast - Function to display notifications (optional)
+ * @returns {Promise<boolean>} - Whether recovery was attempted
+ */
+export const handleRpcError = async (error, provider, addToast = null) => {
+  if (!error || !provider) return false;
+
+  const errorMessage = error.message || '';
+
+  // Check for common RPC issues
+  const isRpcIssue =
+    errorMessage.includes('missing revert data') ||
+    errorMessage.includes('failed to meet quorum') ||
+    errorMessage.includes('timeout') ||
+    errorMessage.includes('connection error') ||
+    errorMessage.includes('too many requests') ||
+    errorMessage.includes('rate limit') ||
+    errorMessage.includes('CORS');
+
+  if (!isRpcIssue) return false;
+
+  try {
+    // Log the error for debugging
+    console.warn('RPC issue detected:', errorMessage);
+
+    // Attempt to reset the connection by requesting a block number
+    // This often helps refresh the RPC connection
+    await provider.getBlockNumber().catch(() => {});
+
+    // Show a notification if provided
+    if (addToast) {
+      addToast(
+        'Network connection issue detected. Attempting to recover...',
+        'warning'
+      );
+    }
+
+    // Return true to indicate a recovery was attempted
+    return true;
+  } catch (recoveryError) {
+    console.error('Failed to recover from RPC error:', recoveryError);
+    return false;
   }
 };

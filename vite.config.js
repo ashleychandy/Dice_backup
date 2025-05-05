@@ -104,16 +104,16 @@ export default defineConfig(({ command, mode }) => {
         overlay: true, // Show errors as overlay
       },
       proxy: {
-        // Proxy XDC RPC endpoints to avoid CORS issues
-        '/xdc-mainnet-rpc': {
-          target: 'https://erpc.xinfin.network',
+        // Proxy XDC RPC endpoints to avoid CORS issues in development
+        '/rpc/mainnet': {
+          target: 'https://rpc.xinfin.network',
           changeOrigin: true,
-          rewrite: path => path.replace(/^\/xdc-mainnet-rpc/, ''),
+          rewrite: path => path.replace(/^\/rpc\/mainnet/, ''),
         },
-        '/xdc-apothem-rpc': {
-          target: 'https://erpc.apothem.network',
+        '/rpc/apothem': {
+          target: 'https://rpc.apothem.network',
           changeOrigin: true,
-          rewrite: path => path.replace(/^\/xdc-apothem-rpc/, ''),
+          rewrite: path => path.replace(/^\/rpc\/apothem/, ''),
         },
       },
     },

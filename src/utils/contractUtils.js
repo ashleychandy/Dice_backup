@@ -7,25 +7,120 @@ import { ethers } from 'ethers';
  * @param {Function} addToast - Function to display toast messages
  */
 export const handleContractError = (error, onError, addToast) => {
-  if (error.code === 'CALL_EXCEPTION') {
-    const errorName = error.errorName;
+  // Handle null/undefined error
+  if (!error) {
+    addToast('An unknown error occurred', 'error');
+    return;
+  }
+
+  // Log for debugging
+  console.error('Contract error details:', {
+    code: error.code,
+    message: error.message,
+    errorName: error.errorName,
+    reason: error.reason,
+    details: error.details,
+  });
+
+  // Handle user rejected transactions (MetaMask, etc.)
+  if (
+    error.code === 4001 ||
+    (error.message &&
+      (error.message.includes('rejected') ||
+        error.message.includes('denied') ||
+        error.message.includes('cancelled')))
+  ) {
+    addToast('Transaction rejected by user', 'warning');
+    return;
+  }
+
+  // Handle gas/fee errors
+  if (error.message && error.message.includes('insufficient funds')) {
+    addToast('Insufficient XDC for gas fees', 'error');
+    return;
+  }
+
+  // Handle RPC connection errors
+  if (
+    error.message &&
+    (error.message.includes('network') ||
+      error.message.includes('connection') ||
+      error.message.includes('disconnected') ||
+      error.message.includes('timeout'))
+  ) {
+    addToast(
+      'Network connection error. Please check your internet connection and try again.',
+      'error'
+    );
+    return;
+  }
+
+  // Handle contract specific errors
+  if (
+    error.code === 'CALL_EXCEPTION' ||
+    error.message?.includes('execution reverted')
+  ) {
+    // Try to extract error message from different formats
+    const errorName =
+      error.errorName ||
+      error.reason ||
+      (error.message &&
+        error.message.match(/reverted with reason string '(.+?)'/)?.[1]);
+
     switch (errorName) {
       case 'InvalidBetParameters':
-        addToast('Invalid bet parameters', 'error');
+        addToast(
+          'Invalid bet parameters. Please check your bet amount and selected number.',
+          'error'
+        );
         break;
       case 'InsufficientUserBalance':
-        addToast('Insufficient balance', 'error');
+        addToast('Insufficient token balance for this bet amount.', 'error');
         break;
       case 'GameError':
-        addToast('Game error occurred', 'error');
+        addToast('Game error occurred. Please try again later.', 'error');
         break;
       case 'PayoutCalculationError':
-        addToast('Error calculating payout', 'error');
+        addToast(
+          'Error calculating payout. Please try again with a different amount.',
+          'error'
+        );
+        break;
+      case 'GamePaused':
+      case 'Paused':
+        addToast(
+          'The game is currently paused. Please try again later.',
+          'info'
+        );
+        break;
+      case 'ExceedsMaxBet':
+        addToast('Bet amount exceeds the maximum allowed.', 'warning');
+        break;
+      case 'PendingRequest':
+        addToast(
+          'You already have a pending game. Please wait for it to complete.',
+          'warning'
+        );
         break;
       default:
-        onError(error);
+        // Check for common errors in the message text
+        if (error.message?.includes('max bet')) {
+          addToast('Bet amount exceeds the maximum allowed.', 'warning');
+        } else if (error.message?.includes('insufficient balance')) {
+          addToast('Insufficient token balance', 'error');
+        } else if (error.message?.includes('paused')) {
+          addToast('The game is currently paused', 'info');
+        } else {
+          // Default to generic error message
+          addToast(
+            'Transaction failed: ' + (errorName || 'Contract error'),
+            'error'
+          );
+          onError(error);
+        }
     }
   } else {
+    // Default error handling
     onError(error);
   }
 };
@@ -70,7 +165,8 @@ export const checkAndApproveToken = async (
   }
 
   let retryCount = 0;
-  let lastError = null;
+  // We'll use this for debugging only, don't need to track every error
+  let _lastError = null;
 
   try {
     while (retryCount <= maxRetries) {
@@ -269,7 +365,7 @@ export const checkAndApproveToken = async (
         // Return true since the transaction was confirmed
         return true;
       } catch (error) {
-        lastError = error;
+        _lastError = error;
         // Handle specific error types
         if (error.code === 4001) {
           // User rejected transaction - no need to retry

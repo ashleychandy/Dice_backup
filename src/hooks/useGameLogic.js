@@ -122,16 +122,16 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   const [isApproving, setIsApproving] = useState(false);
   const [isBetting, withBetting] = useLoadingState(false);
   const handleError = useErrorHandler(onError, addToast);
-  const { contract } = useDiceContract();
+  const { contract: _contract } = useDiceContract();
   const { account: walletAccount } = useWallet();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState(null);
+  const [isProcessing, _setIsProcessing] = useState(false);
+  const [error, _setError] = useState(null);
   const pendingTxRef = useRef(null);
 
   // Add new hooks
-  const { contractState } = useContractState();
+  const { contractState: _contractState } = useContractState();
   const { stats } = useContractStats();
-  const { userPendingRequest } = useRequestTracking();
+  const { userPendingRequest: _userPendingRequest } = useRequestTracking();
 
   // Reset last fetched balance when account or token contract changes
   // to ensure fresh data is always fetched
@@ -180,7 +180,10 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     queryKey: ['balance', walletAccount, contracts?.token ? true : false],
     queryFn: async () => {
       if (!contracts?.token || !walletAccount) {
-        return null;
+        return {
+          balance: BigInt(0),
+          allowance: BigInt(0),
+        };
       }
 
       try {
@@ -196,22 +199,34 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           return lastFetchedBalance.current;
         }
 
+        // Add catch blocks to each promise to handle API errors more gracefully
         const [balance, tokenAllowance] = await Promise.all([
-          contracts.token.balanceOf(walletAccount),
-          contracts.token.allowance(
-            walletAccount,
-            contracts.dice.address || contracts.dice.target
-          ),
+          contracts.token.balanceOf(walletAccount).catch(err => {
+            console.error('Error fetching balance:', err);
+            return BigInt(0);
+          }),
+          contracts.token
+            .allowance(
+              walletAccount,
+              contracts.dice?.address ||
+                contracts.dice?.target ||
+                ethers.ZeroAddress
+            )
+            .catch(err => {
+              console.error('Error fetching allowance:', err);
+              return BigInt(0);
+            }),
         ]);
 
         // Store the fetched data for future instant access
         const result = {
-          balance,
-          allowance: tokenAllowance,
+          balance: balance || BigInt(0),
+          allowance: tokenAllowance || BigInt(0),
         };
         lastFetchedBalance.current = result;
         return result;
       } catch (error) {
+        console.error('Balance query error:', error);
         return {
           balance: BigInt(0),
           allowance: BigInt(0),
@@ -219,10 +234,12 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       }
     },
     enabled: !!contracts?.token && !!walletAccount,
-    staleTime: 0, // Always consider data stale to get fresh data
+    staleTime: 10000, // Consider data stale after 10 seconds
     cacheTime: 5 * 60 * 1000, // Keep cached data for 5 minutes
-    retry: 1, // Reduce retries to make fail-fast when there's an issue
-    onError: error => {},
+    retry: 2, // Retry up to 2 times
+    onError: error => {
+      console.error('Balance query failed:', error);
+    },
   });
 
   // Handle approving tokens with optimistic updates
@@ -329,7 +346,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   ]);
 
   // Validate bet amount against contract limits
-  const validateBetAmount = useCallback(
+  const _validateBetAmount = useCallback(
     amount => {
       if (!stats?.maxBetAmount) return false;
 
@@ -377,71 +394,141 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         setProcessingState(true);
 
         // Setup safety timeout to reset state if the bet takes too long
-        const clearTimeout = setupSafetyTimeout(safetyTimeoutRef, () => {
-          operationInProgress.current = false;
-          setProcessingState(false);
-          setRollingState(false);
-          addToast('The bet operation timed out. Please try again.', 'error');
-        });
+        const clearTimeout = setupSafetyTimeout(
+          safetyTimeoutRef,
+          () => {
+            operationInProgress.current = false;
+            setProcessingState(false);
+            setRollingState(false);
+            addToast('The bet operation timed out. Please try again.', 'error');
+          },
+          90000
+        ); // 90 seconds timeout
 
         try {
+          // Check contract availability again before calling
+          if (
+            !contracts.dice ||
+            typeof contracts.dice.placeBet !== 'function'
+          ) {
+            throw new Error('Dice contract is not properly initialized');
+          }
+
           // Show notification
           addToast('Placing your bet...', 'info');
 
-          // Convert chosen number to BigInt format for the contract call
+          // Convert chosen number to proper format for the contract call
           const chosenNumberBigInt = BigInt(chosenNumber);
+
+          // Add transaction options with proper gas settings
+          const txOptions = {
+            gasLimit: ethers.parseUnits('500000', 'wei'),
+          };
 
           // Store transaction reference for tracking
           const tx = await contracts.dice.placeBet(
             chosenNumberBigInt,
-            betAmount
+            betAmount,
+            txOptions
           );
           pendingTxRef.current = tx;
 
           // Show pending notification
           addToast('Bet placed! Waiting for confirmation...', 'info');
 
-          // Wait for transaction confirmation
+          // Wait for transaction confirmation with a timeout
           setRollingState(true);
-          const receipt = await tx.wait();
+          const receipt = await Promise.race([
+            tx.wait(1),
+            new Promise((_, reject) =>
+              setTimeout(
+                () => reject(new Error('Transaction confirmation timeout')),
+                60000
+              )
+            ),
+          ]);
 
           if (receipt && receipt.status === 1) {
             // Clear pending transaction reference
             pendingTxRef.current = null;
 
-            // Process transaction result
-            const gameResult = parseGameResultEvent(receipt);
-
-            if (gameResult) {
-              // Show result notification
-              if (gameResult.isWin) {
-                addToast(
-                  `🎉 You won ${ethers.formatEther(gameResult.payout)} tokens!`,
-                  'success'
-                );
-              } else {
-                addToast(`Better luck next time!`, 'info');
-              }
-
-              // Update game state with result
-              setLastResult(gameResult);
-
-              // Invalidate queries to refresh data
-              queryClient.invalidateQueries(['balance', walletAccount]);
-              queryClient.invalidateQueries(['gameHistory', walletAccount]);
-              queryClient.invalidateQueries(['gameStats', walletAccount]);
-            } else {
-              addToast(
-                'Could not parse game result. Check your transaction history.',
-                'warning'
+            try {
+              // Process transaction result
+              const gameResult = parseGameResultEvent(
+                receipt,
+                contracts.dice.interface
               );
+
+              if (gameResult) {
+                // Show result notification
+                if (gameResult.isWin) {
+                  addToast(
+                    `🎉 You won ${ethers.formatEther(gameResult.payout)} tokens!`,
+                    'success'
+                  );
+                } else {
+                  addToast(`Better luck next time!`, 'info');
+                }
+
+                // Update game state with result
+                setLastResult(gameResult);
+
+                // Schedule refresh of queries for smoother UX
+                setTimeout(() => {
+                  queryClient.invalidateQueries(['balance', walletAccount]);
+                  queryClient.invalidateQueries(['gameHistory', walletAccount]);
+                  queryClient.invalidateQueries(['gameStats', walletAccount]);
+                }, 500);
+              } else {
+                // If we couldn't parse the result, try to find the transaction in the latest events
+                addToast(
+                  'Processing your result. Check your transaction history.',
+                  'info'
+                );
+
+                // Fallback result with default values
+                setLastResult({
+                  rolledNumber: 0,
+                  payout: BigInt(0),
+                  isWin: false,
+                  isSpecialResult: false,
+                  isPending: true,
+                  txHash: receipt.transactionHash,
+                });
+
+                // Refresh data anyway
+                queryClient.invalidateQueries(['balance', walletAccount]);
+                queryClient.invalidateQueries(['gameHistory', walletAccount]);
+              }
+            } catch (parseError) {
+              console.error('Error parsing game result:', parseError);
+              addToast('Error processing game result', 'warning');
             }
           } else {
             addToast('Transaction failed or was reverted', 'error');
           }
         } catch (error) {
           console.error('Place bet error:', error);
-          handleError(error, 'handlePlaceBet');
+
+          // Handle specific error types for better user feedback
+          if (
+            error.code === 4001 ||
+            (error.message && error.message.includes('rejected'))
+          ) {
+            addToast('Transaction rejected in wallet', 'warning');
+          } else if (
+            error.message &&
+            error.message.includes('insufficient funds')
+          ) {
+            addToast('Insufficient XDC for transaction fees', 'error');
+          } else if (error.message && error.message.includes('timeout')) {
+            addToast(
+              'Transaction confirmation timed out. Network may be congested.',
+              'warning'
+            );
+          } else {
+            handleError(error, 'handlePlaceBet');
+          }
         } finally {
           // Clean up resources and reset state regardless of outcome
           clearTimeout();
@@ -511,6 +598,59 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       }
     };
   }, []);
+
+  // When bet is placed, immediately update UI with the result
+  useEffect(() => {
+    if (gameState.lastResult && window.addNewGameResult) {
+      try {
+        // Add this game to history for instant display
+        window.addNewGameResult({
+          timestamp: Math.floor(Date.now() / 1000).toString(),
+          chosenNumber: chosenNumber?.toString() || '0',
+          rolledNumber: gameState.lastResult.rolledNumber?.toString() || '0',
+          amount: betAmount.toString(),
+          payout: gameState.lastResult.payout?.toString() || '0',
+          isWin: gameState.lastResult.isWin,
+          isRecovered: false,
+          isForceStopped: false,
+          isSpecialResult: false,
+        });
+
+        // Optimistically update balance data if we have a win
+        if (gameState.lastResult.isWin && balanceData?.balance) {
+          const updatedBalance =
+            balanceData.balance + gameState.lastResult.payout;
+          queryClient.setQueryData(['balance', walletAccount], {
+            ...balanceData,
+            balance: updatedBalance,
+          });
+        } else if (balanceData?.balance && betAmount) {
+          // Deduct the bet amount for smoother UI
+          const updatedBalance = balanceData.balance - betAmount;
+          queryClient.setQueryData(['balance', walletAccount], {
+            ...balanceData,
+            balance: updatedBalance > BigInt(0) ? updatedBalance : BigInt(0),
+          });
+        }
+
+        // Schedule a background refresh after a short delay to get accurate data
+        setTimeout(() => {
+          queryClient.invalidateQueries(['balance', walletAccount]);
+          queryClient.invalidateQueries(['gameHistory', walletAccount]);
+          queryClient.invalidateQueries(['gameStats', walletAccount]);
+        }, 2000);
+      } catch (error) {
+        console.error('Error updating game result in UI:', error);
+      }
+    }
+  }, [
+    gameState.lastResult,
+    chosenNumber,
+    betAmount,
+    queryClient,
+    walletAccount,
+    balanceData,
+  ]);
 
   // Return all the necessary state and functions
   return {

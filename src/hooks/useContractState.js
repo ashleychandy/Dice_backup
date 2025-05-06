@@ -52,8 +52,8 @@ export const useContractState = () => {
     staleTime: 30000, // Consider data fresh for 30 seconds
     cacheTime: 60000, // Cache data for 1 minute
     retry: 1, // Only retry once
-    refetchInterval: 30000, // Reduce polling frequency to every 30 seconds
-    refetchIntervalInBackground: false, // Only refetch when tab is in focus
+    refetchInterval: 5000, // Refetch data every 5 seconds
+    refetchIntervalInBackground: true, // Continue refetching even when tab is not in focus
     onError: error => {
       console.error('Contract state query error:', error);
       // Don't show toast for this error as it might be frequent

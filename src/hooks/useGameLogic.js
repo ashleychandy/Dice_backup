@@ -283,8 +283,8 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     staleTime: 30000, // Keep data fresh for 30 seconds
     cacheTime: 60000, // Cache for 1 minute
     retry: 1, // Only retry once on failure
-    refetchInterval: 60000, // Reduce polling to once per minute
-    refetchIntervalInBackground: false,
+    refetchInterval: 5000, // Refetch data every 5 seconds
+    refetchIntervalInBackground: true, // Continue refetching even when tab is not in focus
     refetchOnWindowFocus: true,
     onError: error => {
       console.error('Balance query failed:', error);

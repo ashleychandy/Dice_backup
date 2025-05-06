@@ -135,8 +135,8 @@ export const useContractStats = () => {
     staleTime: 30000, // Consider data fresh for 30 seconds
     cacheTime: 60000, // Cache for 1 minute
     retry: 1, // Only retry once on failure
-    refetchInterval: 30000, // Refetch every 30 seconds
-    refetchIntervalInBackground: false, // Only refetch when tab is in focus
+    refetchInterval: 5000, // Refetch every 5 seconds
+    refetchIntervalInBackground: true, // Continue refetching even when tab is not in focus
     onError: err => {
       console.error('Contract stats query error:', err);
       // Don't show toast for this error as it might be frequent

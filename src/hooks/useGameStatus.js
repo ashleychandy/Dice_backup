@@ -43,7 +43,7 @@ export const useGameStatus = () => {
     cacheTime: 0, // Don't cache data at all
     retry: 2, // Retry failed requests up to 2 times
     refetchInterval: 5000, // Refetch data every 5 seconds
-    refetchIntervalInBackground: false, // Only refetch when tab is in focus
+    refetchIntervalInBackground: true, // Continue refetching even when tab is not in focus
   });
 
   return {

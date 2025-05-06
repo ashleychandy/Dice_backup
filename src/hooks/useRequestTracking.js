@@ -159,8 +159,8 @@ export const useRequestTracking = requestId => {
     staleTime: 15000, // Consider data fresh for 15 seconds
     cacheTime: 30000, // Cache for 30 seconds
     retry: 1, // Only retry once
-    refetchInterval: 10000, // Refetch every 10 seconds
-    refetchIntervalInBackground: false, // Only refetch when tab is in focus
+    refetchInterval: 5000, // Refetch every 5 seconds
+    refetchIntervalInBackground: true, // Continue refetching even when tab is not in focus
   });
 
   // Query for checking if current user has pending request
@@ -204,8 +204,8 @@ export const useRequestTracking = requestId => {
       staleTime: 15000, // Consider data fresh for 15 seconds
       cacheTime: 30000, // Cache for 30 seconds
       retry: 1, // Only retry once
-      refetchInterval: 10000, // Refetch every 10 seconds
-      refetchIntervalInBackground: false, // Only refetch when tab is in focus
+      refetchInterval: 5000, // Refetch every 5 seconds
+      refetchIntervalInBackground: true, // Continue refetching even when tab is not in focus
     });
 
   return {

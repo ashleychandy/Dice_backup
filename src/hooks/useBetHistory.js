@@ -124,8 +124,8 @@ export const useBetHistory = ({
     staleTime: 0, // Always consider data stale immediately
     cacheTime: 0, // Don't cache data at all
     retry: 2, // Retry failed requests up to 2 times
-    refetchInterval: autoRefresh ? 10000 : false, // Refetch data every 10 seconds if autoRefresh is true
-    refetchIntervalInBackground: false, // Only refetch when tab is in focus
+    refetchInterval: autoRefresh ? 5000 : false, // Refetch data every 5 seconds if autoRefresh is true
+    refetchIntervalInBackground: true, // Continue refetching even when tab is not in focus
     onError: err => {
       console.error('Error fetching bet history:', err);
     },

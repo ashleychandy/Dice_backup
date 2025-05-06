@@ -23,8 +23,31 @@ const useBetState = (initialBetAmount = '1000000000000000000') => {
   const lastBetAmountRef = useRef(initialBetAmount);
 
   const setBetAmount = useCallback(amount => {
-    // Only update if value has actually changed - stripped debug logs for performance
-    const amountStr = typeof amount === 'bigint' ? amount.toString() : amount;
+    // Debug the amount being set
+    console.log('setBetAmount called with:', {
+      type: typeof amount,
+      value: String(amount),
+      isBigInt: typeof amount === 'bigint',
+    });
+
+    // Convert to string regardless of input type
+    let amountStr;
+    try {
+      if (typeof amount === 'bigint') {
+        amountStr = amount.toString();
+      } else if (typeof amount === 'object' && amount.toString) {
+        amountStr = amount.toString();
+      } else if (amount === null || amount === undefined) {
+        amountStr = '0';
+      } else {
+        amountStr = String(amount);
+      }
+
+      console.log('Converted to string:', amountStr);
+    } catch (error) {
+      console.error('Error converting amount to string:', error);
+      amountStr = '0';
+    }
 
     if (amountStr !== lastBetAmountRef.current) {
       // Immediately update the reference to ensure instant UI feedback
@@ -34,11 +57,21 @@ const useBetState = (initialBetAmount = '1000000000000000000') => {
     }
   }, []);
 
-  // Convert to BigInt when needed - optimized with immediate execution
+  // Convert to BigInt when needed
   const betAmountBigInt = useMemo(() => {
     try {
+      console.log('Converting betAmount to BigInt:', betAmount);
+      if (!betAmount || betAmount === '') {
+        return BigInt(0);
+      }
       return BigInt(betAmount);
     } catch (error) {
+      console.error(
+        'Error converting betAmount to BigInt:',
+        error,
+        'Value:',
+        betAmount
+      );
       return BigInt(0);
     }
   }, [betAmount]);
@@ -132,11 +165,25 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   const { stats } = useContractStats();
   const { userPendingRequest: _userPendingRequest } = useRequestTracking();
 
+  // Helper to batch multiple query invalidations
+  const invalidateQueries = useCallback(
+    (types = ['balance']) => {
+      if (!walletAccount) return;
+
+      const timestamp = Date.now(); // Add timestamp to ensure cache busting
+
+      types.forEach(type => {
+        queryClient.invalidateQueries([type, walletAccount, timestamp]);
+      });
+    },
+    [queryClient, walletAccount]
+  );
+
   // Always invalidate balance data when component mounts or account/contracts change
   useEffect(() => {
     // Invalidate balance data when account or contracts change
     if (walletAccount && contracts?.token) {
-      queryClient.invalidateQueries(['balance', walletAccount]);
+      invalidateQueries(['balance']);
     }
 
     // Register global function to refresh balance data
@@ -157,7 +204,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         safetyTimeoutRef.current = null;
       }
     };
-  }, [contracts, walletAccount, queryClient]);
+  }, [contracts, walletAccount, queryClient, invalidateQueries]);
 
   // Initialize state management hooks
   const {
@@ -171,7 +218,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   const { gameState, setProcessingState, setRollingState, setLastResult } =
     useGameState();
 
-  // Balance Query with no caching
+  // Balance Query with optimized settings
   const { data: balanceData, isLoading: balanceLoading } = useQuery({
     queryKey: ['balance', walletAccount, contracts?.token ? true : false],
     queryFn: async () => {
@@ -183,7 +230,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       }
 
       try {
-        // Always fetch fresh data from the blockchain
         const [balance, tokenAllowance] = await Promise.all([
           contracts.token.balanceOf(walletAccount).catch(err => {
             console.error('Error fetching balance:', err);
@@ -202,9 +248,15 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
             }),
         ]);
 
+        // Force conversion to BigInt to ensure consistency
+        const balanceBigInt = balance ? BigInt(balance.toString()) : BigInt(0);
+        const allowanceBigInt = tokenAllowance
+          ? BigInt(tokenAllowance.toString())
+          : BigInt(0);
+
         return {
-          balance: balance || BigInt(0),
-          allowance: tokenAllowance || BigInt(0),
+          balance: balanceBigInt,
+          allowance: allowanceBigInt,
         };
       } catch (error) {
         console.error('Balance query error:', error);
@@ -215,11 +267,12 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       }
     },
     enabled: !!contracts?.token && !!walletAccount,
-    staleTime: 0, // Always consider data stale immediately
-    cacheTime: 0, // Don't cache data at all
-    retry: 2, // Retry up to 2 times
-    refetchInterval: 10000, // Refetch data every 10 seconds
-    refetchIntervalInBackground: false, // Only refetch when tab is in focus
+    staleTime: 30000, // Keep data fresh for 30 seconds
+    cacheTime: 60000, // Cache for 1 minute
+    retry: 1, // Only retry once on failure
+    refetchInterval: 60000, // Reduce polling to once per minute
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
     onError: error => {
       console.error('Balance query failed:', error);
     },
@@ -281,7 +334,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           await new Promise(resolve => setTimeout(resolve, 2000));
 
           // Refresh balance data
-          queryClient.invalidateQueries(['balance', walletAccount]);
+          invalidateQueries(['balance']);
         } catch (refetchError) {
           console.error('Error refreshing data after approval:', refetchError);
           // Continue despite refetch error, since approval was successful
@@ -312,6 +365,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     isApproving,
     setProcessingState,
     checkAndApproveToken,
+    invalidateQueries,
   ]);
 
   // Validate bet amount against contract limits
@@ -390,33 +444,73 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
             throw new Error('Dice contract is not properly initialized');
           }
 
-          // IMPROVEMENT: Get fresh balance directly from the token contract to avoid race conditions
-          try {
-            const currentBalance =
-              await contracts.token.balanceOf(walletAccount);
-            // Verify balance is sufficient
-            if (currentBalance < betAmount) {
-              throw new Error(
-                "You don't have enough tokens for this bet amount."
-              );
-            }
-          } catch (balanceError) {
-            console.error('Error checking up-to-date balance:', balanceError);
-            // If specific balance check error, use that, otherwise proceed with regular flow
-            if (
-              balanceError.message &&
-              !balanceError.message.includes('checking up-to-date balance')
-            ) {
-              throw balanceError;
-            }
-            // Fallback to recent balance - continue with the transaction
-            console.log('Falling back to recent balance data');
+          // Use cached balance data first to avoid redundant blockchain calls
+          if (balanceData?.balance) {
+            try {
+              // Log the raw values for debugging
+              console.log('[placeBet] Raw balance check values:', {
+                balance:
+                  typeof balanceData.balance === 'bigint'
+                    ? balanceData.balance.toString()
+                    : balanceData.balance,
+                balanceType: typeof balanceData.balance,
+                betAmount:
+                  typeof betAmount === 'bigint'
+                    ? betAmount.toString()
+                    : betAmount,
+                betAmountType: typeof betAmount,
+              });
 
-            // Double-check with recent balance data before proceeding
-            if (balanceData?.balance && balanceData.balance < betAmount) {
-              throw new Error(
-                "You don't have enough tokens for this bet amount (balance check)."
-              );
+              // Ensure both are proper BigInt for comparison
+              const balanceBigInt = BigInt(balanceData.balance.toString());
+              const betAmountBigInt = BigInt(betAmount.toString());
+
+              // Log the converted values and comparison result
+              console.log('[placeBet] Balance check:', {
+                balanceWei: String(balanceBigInt),
+                betAmountWei: String(betAmountBigInt),
+                balanceEther: ethers.formatEther(balanceBigInt),
+                betAmountEther: ethers.formatEther(betAmountBigInt),
+                insufficientBalance: balanceBigInt < betAmountBigInt,
+              });
+
+              if (balanceBigInt < betAmountBigInt) {
+                throw new Error(
+                  "You don't have enough tokens for this bet amount."
+                );
+              }
+            } catch (error) {
+              // If there's an error in comparison, do a fresh balance check
+              console.error('[placeBet] Error comparing balance:', error);
+            }
+          }
+
+          // Only if balance check is close to bet amount, verify with fresh data
+          if (
+            !balanceData?.balance ||
+            balanceData.balance < betAmount * BigInt(2)
+          ) {
+            try {
+              const currentBalance =
+                await contracts.token.balanceOf(walletAccount);
+              const currentBalanceBigInt = BigInt(currentBalance.toString());
+              const betAmountBigInt = BigInt(betAmount.toString());
+
+              if (currentBalanceBigInt < betAmountBigInt) {
+                throw new Error(
+                  "You don't have enough tokens for this bet amount."
+                );
+              }
+            } catch (balanceError) {
+              console.error('Error checking up-to-date balance:', balanceError);
+              // If it's a specific balance check error, throw it
+              if (
+                balanceError.message &&
+                !balanceError.message.includes('checking up-to-date balance')
+              ) {
+                throw balanceError;
+              }
+              // Otherwise continue with the cached balance
             }
           }
 
@@ -530,10 +624,8 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
                 // Update game state with result
                 setLastResult(gameResult);
 
-                // Immediately refresh all data
-                queryClient.invalidateQueries(['balance', walletAccount]);
-                queryClient.invalidateQueries(['gameHistory', walletAccount]);
-                queryClient.invalidateQueries(['gameStats', walletAccount]);
+                // Batch refresh all data with a single timestamp to reduce calls
+                invalidateQueries(['balance', 'gameHistory', 'gameStats']);
               } else {
                 // If we couldn't parse the result, try to find the transaction in the latest events
                 addToast(
@@ -552,8 +644,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
                 });
 
                 // Refresh data anyway
-                queryClient.invalidateQueries(['balance', walletAccount]);
-                queryClient.invalidateQueries(['gameHistory', walletAccount]);
+                invalidateQueries(['balance', 'gameHistory']);
               }
             } catch (parseError) {
               console.error('Error parsing game result:', parseError);
@@ -615,24 +706,37 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     setProcessingState,
     setRollingState,
     setLastResult,
+    invalidateQueries,
   ]);
 
   // Derived state from balance data
   const hasNoTokens = useMemo(() => {
-    // User has no tokens if balance exists and is zero
-    return (
-      balanceData?.balance !== undefined && balanceData.balance <= BigInt(0)
-    );
+    try {
+      // User has no tokens if balance exists and is zero
+      return (
+        balanceData?.balance !== undefined &&
+        BigInt(balanceData.balance.toString()) <= BigInt(0)
+      );
+    } catch (error) {
+      console.error('Error in hasNoTokens calculation:', error);
+      return true; // Assume no tokens on error
+    }
   }, [balanceData]);
 
   const needsApproval = useMemo(() => {
-    // User needs to approve if they have tokens but insufficient allowance
-    return (
-      balanceData?.balance !== undefined &&
-      balanceData.balance > BigInt(0) &&
-      balanceData.allowance !== undefined &&
-      balanceData.allowance < betAmount
-    );
+    try {
+      // User needs to approve if they have tokens but insufficient allowance
+      if (!balanceData?.balance || !balanceData?.allowance) return false;
+
+      const balanceBigInt = BigInt(balanceData.balance.toString());
+      const allowanceBigInt = BigInt(balanceData.allowance.toString());
+      const betAmountBigInt = BigInt(betAmount.toString());
+
+      return balanceBigInt > BigInt(0) && allowanceBigInt < betAmountBigInt;
+    } catch (error) {
+      console.error('Error in needsApproval calculation:', error);
+      return false; // Assume no approval needed on error
+    }
   }, [balanceData, betAmount]);
 
   // Cancel any pending operation when component unmounts or user navigates away
@@ -674,9 +778,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         });
 
         // After result is known, immediately refresh all data
-        queryClient.invalidateQueries(['balance', walletAccount]);
-        queryClient.invalidateQueries(['gameHistory', walletAccount]);
-        queryClient.invalidateQueries(['gameStats', walletAccount]);
+        invalidateQueries(['balance', 'gameHistory', 'gameStats']);
       } catch (error) {
         console.error('Error updating game result in UI:', error);
       }
@@ -695,7 +797,10 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     betAmount,
     betAmountString,
     gameState,
-    balanceData,
+    balanceData: {
+      balance: balanceData?.balance || BigInt(0),
+      allowance: balanceData?.allowance || BigInt(0),
+    },
     balanceLoading,
     hasNoTokens,
     needsApproval,
@@ -707,6 +812,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     setBetAmount,
     handleApproveToken,
     handlePlaceBet,
+    invalidateQueries,
   };
 };
 

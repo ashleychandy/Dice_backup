@@ -18,18 +18,35 @@ const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
   const checkApprovalStatus = () => {
     if (!allowance) return { sufficient: false, status: 'Not Approved' };
 
-    // Check if allowance is enough for current bet amount
-    const isSufficient = betAmount <= BigInt(0) || allowance >= betAmount;
+    try {
+      // Ensure both are proper BigInt
+      const allowanceBigInt = BigInt(allowance.toString());
+      const betAmountBigInt = BigInt(betAmount.toString());
 
-    // For large allowances, show as "Fully Approved"
-    const highThreshold = ethers.MaxUint256 / BigInt(2);
-    const status = !isSufficient
-      ? 'Not Approved'
-      : allowance > highThreshold
-        ? 'Fully Approved'
-        : 'Approved';
+      // Log values for debugging
+      console.log('Approval check:', {
+        allowance: String(allowanceBigInt),
+        betAmount: String(betAmountBigInt),
+        userBalance: String(userBalance),
+      });
 
-    return { sufficient: isSufficient, status };
+      // Check if allowance is enough for current bet amount
+      const isSufficient =
+        betAmountBigInt <= BigInt(0) || allowanceBigInt >= betAmountBigInt;
+
+      // For large allowances, show as "Fully Approved"
+      const highThreshold = ethers.MaxUint256 / BigInt(2);
+      const status = !isSufficient
+        ? 'Not Approved'
+        : allowanceBigInt > highThreshold
+          ? 'Fully Approved'
+          : 'Approved';
+
+      return { sufficient: isSufficient, status };
+    } catch (error) {
+      console.error('Error in approval status check:', error);
+      return { sufficient: false, status: 'Not Approved' };
+    }
   };
 
   const approvalStatus = checkApprovalStatus();

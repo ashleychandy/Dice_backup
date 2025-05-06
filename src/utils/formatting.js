@@ -12,17 +12,32 @@ export const formatTokenAmount = (value, decimals = 0) => {
   try {
     let bigIntValue;
 
+    // Debug the received value
+    console.log('formatTokenAmount received:', {
+      type: typeof value,
+      value: String(value),
+      isBigInt: typeof value === 'bigint',
+    });
+
     // Ensure we have a BigInt
     if (typeof value === 'string') {
       bigIntValue = BigInt(value);
     } else if (typeof value === 'number') {
       bigIntValue = BigInt(Math.floor(value));
-    } else {
+    } else if (typeof value === 'bigint') {
       bigIntValue = value;
+    } else if (typeof value === 'object' && value.toString) {
+      // Handle objects with toString method (like ethers BigNumber)
+      bigIntValue = BigInt(value.toString());
+    } else {
+      // Last resort fallback
+      bigIntValue = BigInt(0);
+      console.error('Unhandled value type in formatTokenAmount:', typeof value);
     }
 
     // Format with ethers
     const formatted = ethers.formatEther(bigIntValue);
+    console.log('ethers.formatEther result:', formatted);
 
     // If decimals is 0, return only the whole number part
     if (decimals === 0) {
@@ -38,7 +53,14 @@ export const formatTokenAmount = (value, decimals = 0) => {
 
     return parts[0];
   } catch (error) {
-    console.error('Error formatting token amount:', error);
+    console.error(
+      'Error formatting token amount:',
+      error,
+      'Value:',
+      value,
+      'Type:',
+      typeof value
+    );
     return '0';
   }
 };
@@ -52,20 +74,37 @@ export const parseTokenAmount = input => {
   if (!input || input === '') return BigInt(0);
 
   try {
+    // Debug the input
+    console.log('parseTokenAmount input:', {
+      input,
+      type: typeof input,
+    });
+
+    // Convert to string first if not already
+    const inputStr = String(input);
+
     // Only allow digits (whole numbers)
-    const sanitized = input.replace(/[^\d]/g, '');
+    const sanitized = inputStr.replace(/[^\d]/g, '');
 
     // Debug logs
-    console.log('parseTokenAmount:', {
-      input,
+    console.log('parseTokenAmount processing:', {
+      input: inputStr,
       sanitized,
       result: `${sanitized} * 10^18`,
     });
 
+    // Handle empty sanitized string
+    if (!sanitized || sanitized === '') {
+      return BigInt(0);
+    }
+
     // Convert to whole token amount (no decimals)
-    return BigInt(sanitized) * BigInt(10) ** BigInt(18);
+    const result = BigInt(sanitized) * BigInt(10) ** BigInt(18);
+    console.log('parseTokenAmount result:', String(result));
+
+    return result;
   } catch (error) {
-    console.error('Error parsing token amount:', error);
+    console.error('Error parsing token amount:', error, 'Input:', input);
     return BigInt(0);
   }
 };

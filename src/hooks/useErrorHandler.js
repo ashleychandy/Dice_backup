@@ -7,7 +7,7 @@ import { useCallback } from 'react';
  * @returns {Function} Error handler function
  */
 export const useErrorHandler = (addToast, onError) => {
-  return useCallback(
+  const handleError = useCallback(
     (error, context = '') => {
       // Log error for debugging
       console.error(`Error in ${context}:`, error);
@@ -46,6 +46,8 @@ export const useErrorHandler = (addToast, onError) => {
     },
     [addToast, onError]
   );
+
+  return handleError;
 };
 
 export default useErrorHandler;

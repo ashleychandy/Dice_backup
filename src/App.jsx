@@ -14,13 +14,6 @@ import AppRoutes from './components/routes/AppRoutes.jsx';
 import { NotificationProvider } from './contexts/NotificationContext.jsx';
 
 /**
- * Environment variable to enable wagmi
- * This can be controlled via .env file
- * .env: VITE_USE_WAGMI=true|false
- */
-const USE_WAGMI = import.meta.env.VITE_USE_WAGMI === 'true';
-
-/**
  * Main App component
  * Sets up the global providers and layout structure
  */
@@ -45,7 +38,7 @@ function App() {
         <NotificationProvider>
           <Router>
             <WalletProvider>
-              <Layout useWagmi={USE_WAGMI}>
+              <Layout>
                 <AppRoutes />
               </Layout>
             </WalletProvider>

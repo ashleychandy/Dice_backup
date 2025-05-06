@@ -71,8 +71,8 @@ export default defineConfig(({ command, mode }) => {
             ],
             // Data management libraries
             data: ['@tanstack/react-query', 'lodash'],
-            // Wallet connection libraries
-            wallet: ['@rainbow-me/rainbowkit', 'wagmi'],
+            // Wallet connection libraries (removed wagmi)
+            wallet: [],
           },
           // Ensure smaller chunks for better loading
           chunkFileNames: isProduction

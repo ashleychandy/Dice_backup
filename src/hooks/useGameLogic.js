@@ -181,6 +181,19 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
   // Always invalidate balance data when component mounts or account/contracts change
   useEffect(() => {
+    // Add placeBet method to contract if it has playDice but not placeBet
+    if (
+      contracts?.dice &&
+      typeof contracts.dice.playDice === 'function' &&
+      typeof contracts.dice.placeBet !== 'function'
+    ) {
+      console.log(
+        'Adding placeBet method to dice contract as wrapper for playDice'
+      );
+      // Use bind to ensure 'this' context is preserved
+      contracts.dice.placeBet = contracts.dice.playDice.bind(contracts.dice);
+    }
+
     // Invalidate balance data when account or contracts change
     if (walletAccount && contracts?.token) {
       invalidateQueries(['balance']);
@@ -422,6 +435,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       await withBetting(async () => {
         // Update UI state immediately
         setProcessingState(true);
+        setRollingState(true);
 
         // Setup safety timeout to reset state if the bet takes too long
         const clearTimeout = setupSafetyTimeout(
@@ -439,7 +453,8 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           // Check contract availability again before calling
           if (
             !contracts.dice ||
-            typeof contracts.dice.placeBet !== 'function'
+            (typeof contracts.dice.placeBet !== 'function' &&
+              typeof contracts.dice.playDice !== 'function')
           ) {
             throw new Error('Dice contract is not properly initialized');
           }
@@ -545,11 +560,25 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           // Store transaction reference for tracking
           let tx;
           try {
-            tx = await contracts.dice.placeBet(
-              chosenNumberBigInt,
-              betAmount,
-              txOptions
-            );
+            if (typeof contracts.dice.placeBet === 'function') {
+              console.log('Using placeBet method');
+              tx = await contracts.dice.placeBet(
+                chosenNumberBigInt,
+                betAmount,
+                txOptions
+              );
+            } else if (typeof contracts.dice.playDice === 'function') {
+              console.log('Using playDice method as fallback');
+              tx = await contracts.dice.playDice(
+                chosenNumberBigInt,
+                betAmount,
+                txOptions
+              );
+            } else {
+              throw new Error(
+                'No valid dice method found (placeBet or playDice)'
+              );
+            }
             pendingTxRef.current = tx;
           } catch (txError) {
             // Handle specific transaction errors
@@ -572,8 +601,18 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           // Show pending notification
           addToast('Bet placed! Waiting for confirmation...', 'info');
 
+          // First set a pending/waiting result to indicate VRF processing
+          setLastResult({
+            rolledNumber: null, // No rolled number yet
+            payout: BigInt(0),
+            isWin: false,
+            isSpecialResult: false,
+            isPending: true,
+            txHash: tx.hash,
+            vrfPending: true, // Flag specifically for VRF waiting state
+          });
+
           // Wait for transaction confirmation with a timeout
-          setRollingState(true);
           let receipt;
           try {
             receipt = await Promise.race([
@@ -611,6 +650,12 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
               );
 
               if (gameResult) {
+                console.log('Game result parsed successfully:', gameResult);
+
+                // Add VRF completion flag for animation handling
+                gameResult.vrfComplete = true;
+                gameResult.vrfPending = false;
+
                 // Show result notification
                 if (gameResult.isWin) {
                   addToast(
@@ -624,35 +669,67 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
                 // Update game state with result
                 setLastResult(gameResult);
 
+                // IMPORTANT: Explicitly stop the rolling animation when we get a result
+                setRollingState(false);
+
                 // Batch refresh all data with a single timestamp to reduce calls
                 invalidateQueries(['balance', 'gameHistory', 'gameStats']);
               } else {
-                // If we couldn't parse the result, try to find the transaction in the latest events
+                // If we couldn't parse the result, we're likely still waiting for VRF
                 addToast(
-                  'Processing your result. Check your transaction history.',
+                  'Processing your result. Waiting for VRF callback...',
                   'info'
                 );
 
-                // Fallback result with default values
-                setLastResult({
-                  rolledNumber: 0,
-                  payout: BigInt(0),
-                  isWin: false,
-                  isSpecialResult: false,
-                  isPending: true,
+                // Keep the pending VRF result state
+                setLastResult(prevResult => ({
+                  ...prevResult,
                   txHash: receipt.transactionHash,
-                });
+                  vrfPending: true,
+                }));
 
-                // Refresh data anyway
-                invalidateQueries(['balance', 'gameHistory']);
+                // Try to fetch result after a delay since VRF might take time
+                setTimeout(() => {
+                  // Refresh all data to capture any results that came in
+                  invalidateQueries(['balance', 'gameHistory']);
+
+                  // Check if we can find the result in game history
+                  setTimeout(
+                    () => checkVrfResultInHistory(receipt.transactionHash),
+                    3000
+                  );
+                }, 5000);
               }
             } catch (parseError) {
               console.error('Error parsing game result:', parseError);
-              addToast('Error processing game result', 'warning');
+              addToast(
+                'Error processing game result. Waiting for VRF...',
+                'warning'
+              );
+
+              // Set a partial result state but mark VRF as pending
+              setLastResult({
+                rolledNumber: null,
+                payout: BigInt(0),
+                isWin: false,
+                isSpecialResult: false,
+                isPending: true,
+                txHash: receipt.transactionHash,
+                vrfPending: true,
+              });
+
+              // Schedule a check for VRF result after a short delay
+              setTimeout(
+                () => checkVrfResultInHistory(receipt.transactionHash),
+                3000
+              );
             }
           } else if (receipt) {
             // Receipt exists but status is not 1 (success)
             addToast('Transaction failed or was reverted', 'error');
+
+            // Clear the rolling state since there's no VRF to wait for
+            setRollingState(false);
           }
         } catch (error) {
           console.error('Place bet error:', error);
@@ -663,26 +740,44 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
             (error.message && error.message.includes('rejected'))
           ) {
             addToast('Transaction rejected in wallet', 'warning');
+            setRollingState(false); // Stop animation immediately on rejection
           } else if (
             error.message &&
             error.message.includes('insufficient funds')
           ) {
             addToast('Insufficient XDC for transaction fees', 'error');
+            setRollingState(false); // Stop animation immediately on funding issue
           } else if (error.message && error.message.includes('timeout')) {
             addToast(
               'Transaction confirmation timed out. Network may be congested.',
               'warning'
             );
+            // Don't stop rolling here as the transaction might still complete
           } else {
             handleError(error, 'handlePlaceBet');
+            setRollingState(false);
           }
         } finally {
-          // Clean up resources and reset state regardless of outcome
+          // Clean up resources but don't reset rolling state
+          // (the useDiceNumber hook will handle that based on result state)
           clearTimeout();
           pendingTxRef.current = null;
           operationInProgress.current = false;
           setProcessingState(false);
-          setRollingState(false);
+
+          // Only reset rolling if there's a definite error or no VRF pending
+          if (!document.hidden) {
+            console.log('Checking if we should stop dice animation');
+            const lastResult = queryClient.getQueryData(['lastResult']);
+
+            if (lastResult && !lastResult.vrfPending) {
+              console.log('Stopping dice animation - VRF completed');
+              setRollingState(false);
+            } else {
+              console.log('Keeping dice animation - waiting for VRF');
+              // Keep rolling animation active while waiting for VRF
+            }
+          }
         }
       });
     } catch (error) {
@@ -790,6 +885,112 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     queryClient,
     walletAccount,
   ]);
+
+  // Add a function to check for VRF results in history
+  const checkVrfResultInHistory = async txHash => {
+    try {
+      // Only proceed if we still have a pending VRF
+      const currentResult = queryClient.getQueryData(['lastResult']);
+      if (!currentResult || !currentResult.vrfPending) {
+        console.log('No pending VRF result to check for');
+        return;
+      }
+
+      console.log('Checking game history for VRF result for tx:', txHash);
+
+      // Fetch the latest history data
+      await queryClient.invalidateQueries(['gameHistory']);
+      const historyData = queryClient.getQueryData(['gameHistory']);
+
+      if (historyData && historyData.length > 0) {
+        // Find a matching transaction in history
+        const matchingGame = historyData.find(
+          game =>
+            game.txHash === txHash ||
+            (game.timestamp &&
+              currentResult.timestamp &&
+              Math.abs(game.timestamp - currentResult.timestamp) < 60)
+        );
+
+        if (
+          matchingGame &&
+          matchingGame.rolledNumber >= 1 &&
+          matchingGame.rolledNumber <= 6
+        ) {
+          console.log('✅ Found matching game in history:', matchingGame);
+
+          // Create a complete result with the VRF data
+          const completeResult = {
+            ...currentResult,
+            rolledNumber: matchingGame.rolledNumber,
+            payout: BigInt(matchingGame.payout || '0'),
+            isWin: matchingGame.isWin,
+            vrfComplete: true,
+            vrfPending: false,
+            isPending: false,
+          };
+
+          // Update the game state with the complete result
+          setLastResult(completeResult);
+
+          // IMPORTANT: Explicitly stop rolling animation when VRF result is found
+          setRollingState(false);
+
+          // Show a notification
+          if (completeResult.isWin) {
+            addToast(`🎉 VRF completed - You won!`, 'success');
+          } else {
+            addToast(`VRF completed - Better luck next time!`, 'info');
+          }
+
+          // Force refresh all data
+          invalidateQueries(['balance', 'gameHistory', 'gameStats']);
+        } else {
+          console.log('💤 No matching game found in history yet, will retry');
+          // If still not found, schedule another check in a few seconds (max 5 retries)
+          if (!currentResult.vrfRetryCount || currentResult.vrfRetryCount < 5) {
+            // Update retry count
+            setLastResult(prev => ({
+              ...prev,
+              vrfRetryCount: (prev.vrfRetryCount || 0) + 1,
+            }));
+
+            setTimeout(() => checkVrfResultInHistory(txHash), 5000);
+          } else {
+            console.log(
+              '⚠️ Maximum VRF retry count reached, marking as incomplete'
+            );
+            // After max retries, mark the VRF as complete but with unknown result
+            setLastResult(prev => ({
+              ...prev,
+              vrfComplete: true,
+              vrfPending: false,
+              isPending: false,
+              vrfTimedOut: true,
+            }));
+
+            // Stop the rolling animation
+            setRollingState(false);
+
+            addToast(
+              'Unable to retrieve VRF result. Please check your history.',
+              'warning'
+            );
+          }
+        }
+      } else {
+        // If no history data, retry
+        setTimeout(() => checkVrfResultInHistory(txHash), 5000);
+      }
+    } catch (error) {
+      console.error('Error checking VRF result in history:', error);
+      // On error, make sure we stop the animation after a few retries
+      const currentResult = queryClient.getQueryData(['lastResult']);
+      if (currentResult && currentResult.vrfRetryCount >= 3) {
+        setRollingState(false);
+      }
+    }
+  };
 
   // Return all the necessary state and functions
   return {

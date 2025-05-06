@@ -47,24 +47,46 @@ const AppRoutes = () => {
       return { token: null, dice: null };
     }
 
+    let diceContract = null;
+    let tokenContract = null;
+
     // Handle different contract structure formats
-    if (contracts?.tokenContract || contracts?.diceContract) {
-      return {
-        token: contracts.tokenContract || null,
-        dice: contracts.diceContract || null,
-      };
+    if (contracts?.tokenContract) {
+      tokenContract = contracts.tokenContract;
+    } else if (contracts?.token) {
+      tokenContract = contracts.token;
     }
 
-    if (contracts?.token || contracts?.dice) {
-      return {
-        token: contracts.token || null,
-        dice: contracts.dice || null,
-      };
+    if (contracts?.diceContract) {
+      diceContract = contracts.diceContract;
+    } else if (contracts?.dice) {
+      diceContract = contracts.dice;
     }
 
-    // Fallback for empty contracts object
-    console.warn('Unknown contract structure:', contracts);
-    return { token: null, dice: null };
+    // Add the placeBet method to the dice contract if it has playDice but not placeBet
+    if (
+      diceContract &&
+      typeof diceContract.playDice === 'function' &&
+      typeof diceContract.placeBet !== 'function'
+    ) {
+      console.log('Adding placeBet method to dice contract in AppRoutes');
+      diceContract.placeBet = diceContract.playDice.bind(diceContract);
+    }
+
+    // Add the playDice method to the dice contract if it has placeBet but not playDice
+    if (
+      diceContract &&
+      typeof diceContract.placeBet === 'function' &&
+      typeof diceContract.playDice !== 'function'
+    ) {
+      console.log('Adding playDice method to dice contract in AppRoutes');
+      diceContract.playDice = diceContract.placeBet.bind(diceContract);
+    }
+
+    return {
+      token: tokenContract,
+      dice: diceContract,
+    };
   }, [contracts]);
 
   // Function to check contracts and display appropriate warning

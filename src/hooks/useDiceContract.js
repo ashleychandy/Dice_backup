@@ -24,8 +24,11 @@ export const useDiceContract = () => {
           return;
         }
 
-        const diceAddress = currentNetwork.diceAddress;
-        const tokenAddress = currentNetwork.tokenAddress;
+        // Handle both address structures
+        const diceAddress =
+          currentNetwork.contracts?.dice || currentNetwork.diceAddress;
+        const tokenAddress =
+          currentNetwork.contracts?.token || currentNetwork.tokenAddress;
 
         if (!diceAddress) {
           console.warn(

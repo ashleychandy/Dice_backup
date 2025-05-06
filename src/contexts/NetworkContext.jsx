@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useWallet } from '../components/wallet/WalletProvider';
+import { NETWORK_CONFIG } from '../config';
 
-// Define available networks
+// Define available networks - use the same structure as NETWORK_CONFIG
 export const NETWORKS = {
   MAINNET: {
     id: 'mainnet',
@@ -9,6 +10,11 @@ export const NETWORKS = {
     rpc: import.meta.env.VITE_XDC_MAINNET_RPC,
     chainId: 50,
     explorer: 'https://explorer.xinfin.network',
+    contracts: {
+      dice: import.meta.env.VITE_DICE_ADDRESS,
+      token: import.meta.env.VITE_TOKEN_ADDRESS,
+    },
+    // Maintain backward compatibility
     diceAddress: import.meta.env.VITE_DICE_ADDRESS,
     tokenAddress: import.meta.env.VITE_TOKEN_ADDRESS,
     icon: '🌐',
@@ -20,6 +26,11 @@ export const NETWORKS = {
     rpc: import.meta.env.VITE_XDC_APOTHEM_RPC,
     chainId: 51,
     explorer: 'https://explorer.apothem.network',
+    contracts: {
+      dice: import.meta.env.VITE_APOTHEM_DICE_ADDRESS,
+      token: import.meta.env.VITE_APOTHEM_TOKEN_ADDRESS,
+    },
+    // Maintain backward compatibility
     diceAddress: import.meta.env.VITE_APOTHEM_DICE_ADDRESS,
     tokenAddress: import.meta.env.VITE_APOTHEM_TOKEN_ADDRESS,
     icon: '🧪',

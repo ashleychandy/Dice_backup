@@ -5,10 +5,36 @@ class GameService {
 
   // Initialize game service with contracts
   init(contracts) {
-    if (!contracts || !contracts.dice) {
+    if (!contracts) {
+      throw new Error('Contracts object not provided');
+    }
+
+    // Handle different contract formats
+    if (contracts.dice) {
+      this.diceContract = contracts.dice;
+    } else if (contracts.diceContract) {
+      this.diceContract = contracts.diceContract;
+    } else {
       throw new Error('Dice contract not provided');
     }
-    this.diceContract = contracts.dice;
+
+    // Validate that the contract has the necessary methods
+    if (
+      !this.diceContract.playDice ||
+      typeof this.diceContract.playDice !== 'function'
+    ) {
+      throw new Error('Invalid dice contract: missing playDice method');
+    }
+
+    // Add placeBet method to the dice contract for compatibility with the frontend
+    // This adapts the playDice method of the contract to the placeBet method expected by the frontend
+    if (!this.diceContract.placeBet) {
+      this.diceContract.placeBet = function (chosenNumber, amount, options) {
+        return this.playDice(chosenNumber, amount, options);
+      };
+    }
+
+    return this;
   }
 
   // Place a bet on the dice game

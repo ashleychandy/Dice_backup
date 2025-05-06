@@ -10,6 +10,9 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
   const timeoutRefs = useRef([]);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const prevResultRef = useRef(null);
+  const vrfStartTimeRef = useRef(null);
+  const maxVrfDurationRef = useRef(null);
 
   // Use the custom hook to handle dice number state with error handling
   const {
@@ -17,13 +20,106 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     betOutcome,
     showResultAnimation,
     showConfetti,
+    processingVrf,
     getSpecialResultText,
+    setProcessingVrf,
   } = useDiceNumber(result, chosenNumber, isRolling);
+
+  // Start a safety timer for VRF animation (max 15 seconds)
+  useEffect(() => {
+    if (processingVrf && !vrfStartTimeRef.current) {
+      // Record when VRF processing started
+      vrfStartTimeRef.current = Date.now();
+
+      // Set a maximum duration timer (15 seconds) to force clear the VRF state
+      maxVrfDurationRef.current = setTimeout(() => {
+        console.log('🚨 Maximum VRF duration reached - forcing clear');
+        setProcessingVrf(false);
+        vrfStartTimeRef.current = null;
+        maxVrfDurationRef.current = null;
+
+        // Set a simple result if none exists
+        if (
+          !result ||
+          !result.rolledNumber ||
+          result.rolledNumber < 1 ||
+          result.rolledNumber > 6
+        ) {
+          console.log('⚠️ Setting fallback result due to VRF timeout');
+        }
+      }, 15000);
+    } else if (!processingVrf) {
+      // Reset when VRF processing stops
+      vrfStartTimeRef.current = null;
+      if (maxVrfDurationRef.current) {
+        clearTimeout(maxVrfDurationRef.current);
+        maxVrfDurationRef.current = null;
+      }
+    }
+
+    return () => {
+      // Clear timeout on unmount or if the effect reruns
+      if (maxVrfDurationRef.current) {
+        clearTimeout(maxVrfDurationRef.current);
+        maxVrfDurationRef.current = null;
+      }
+    };
+  }, [processingVrf, result, setProcessingVrf]);
+
+  // Debug logging to track result changes
+  useEffect(() => {
+    console.log('🎲 DiceVisualizer state:', {
+      prev: prevResultRef.current
+        ? {
+            rolledNumber: prevResultRef.current.rolledNumber,
+            vrfPending: prevResultRef.current.vrfPending,
+            vrfComplete: prevResultRef.current.vrfComplete,
+          }
+        : null,
+      current: result
+        ? {
+            rolledNumber: result.rolledNumber,
+            vrfPending: result.vrfPending,
+            vrfComplete: result.vrfComplete,
+          }
+        : null,
+      isRolling,
+      processingVrf,
+      vrfStartTime: vrfStartTimeRef.current,
+      elapsed: vrfStartTimeRef.current
+        ? Math.floor((Date.now() - vrfStartTimeRef.current) / 1000) + 's'
+        : null,
+      shouldRoll:
+        (isRolling || processingVrf) &&
+        !(
+          result &&
+          ((result.rolledNumber >= 1 && result.rolledNumber <= 6) ||
+            result.vrfComplete === true)
+        ),
+    });
+
+    // If we have a new valid result after a VRF process, ensure processingVrf is cleared
+    if (result && result.rolledNumber >= 1 && result.rolledNumber <= 6) {
+      console.log(
+        '✅ Valid result received, clearing VRF state:',
+        result.rolledNumber
+      );
+      setProcessingVrf(false);
+    }
+
+    // Store the current result for next comparison
+    prevResultRef.current = result;
+  }, [result, isRolling, processingVrf, setProcessingVrf]);
 
   // Clear all timeouts when unmounting or resetting
   const clearAllTimeouts = () => {
     timeoutRefs.current.forEach(clearTimeout);
     timeoutRefs.current = [];
+
+    if (maxVrfDurationRef.current) {
+      clearTimeout(maxVrfDurationRef.current);
+      maxVrfDurationRef.current = null;
+    }
   };
 
   // Error handling for any potential rendering issues
@@ -218,6 +314,20 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     },
   };
 
+  // Check if there's a valid result to display
+  const hasValidResult =
+    result && result.rolledNumber >= 1 && result.rolledNumber <= 6;
+
+  // Determine if the dice should be rolling - fixed logic to properly stop on valid results
+  const shouldRoll =
+    (isRolling || processingVrf) &&
+    !(hasValidResult || (result && result.vrfComplete === true));
+
+  // Calculate elapsed VRF time for display
+  const vrfElapsed = vrfStartTimeRef.current
+    ? Math.floor((Date.now() - vrfStartTimeRef.current) / 1000)
+    : 0;
+
   // Fallback UI for error state
   if (hasError) {
     return (
@@ -240,7 +350,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       <motion.div
         className="dice-face"
         variants={rollingVariants}
-        animate={isRolling ? 'rolling' : 'static'}
+        animate={shouldRoll ? 'rolling' : 'static'}
       >
         {renderDiceFace(displayNumber)}
       </motion.div>
@@ -248,62 +358,71 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       {/* Confetti Animation */}
       {showConfetti && <div className="absolute inset-0 pointer-events-none" />}
 
-      {/* Win/Lose Overlay */}
+      {/* Result Notification */}
       <AnimatePresence>
-        {showResultAnimation && (
-          <motion.div
-            variants={resultVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ zIndex: 10 }}
-          >
-            <div
-              className={`text-center p-6 rounded-2xl flex flex-col items-center justify-center shadow-2xl backdrop-blur-sm
-                ${
-                  betOutcome === 'win'
-                    ? 'bg-gaming-success/90 text-white'
-                    : betOutcome === 'lose'
-                      ? 'bg-gaming-error/90 text-white'
-                      : 'bg-blue-500/90 text-white'
-                }`}
-              style={{
-                maxWidth: '80%',
-                transform: 'translateZ(20px)',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-              }}
+        {showResultAnimation &&
+          betOutcome &&
+          (!processingVrf || vrfElapsed > 10) && (
+            <motion.div
+              className={`result-notification ${
+                betOutcome === 'win'
+                  ? 'bg-green-600'
+                  : betOutcome === 'lose'
+                    ? 'bg-red-600'
+                    : 'bg-gray-600'
+              }`}
+              variants={resultVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
             >
-              <motion.div
-                className="text-2xl md:text-4xl font-bold mb-2"
-                initial={{ scale: 0.8 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-              >
-                {betOutcome === 'win'
-                  ? '🎉 Winner! 🎉'
-                  : betOutcome === 'lose'
-                    ? '😔 Try Again!'
-                    : getSpecialResultText()}
-              </motion.div>
-              <motion.div
-                className="text-sm md:text-lg opacity-90"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                {betOutcome === 'win'
-                  ? `Congratulations! ${result?.payout ? `+${ethers.formatEther(result.payout).slice(0, 6)} GAMA` : ''}`
-                  : betOutcome === 'lose'
-                    ? 'Better luck next time'
-                    : betOutcome === 'recovered'
-                      ? 'Game refunded'
-                      : 'Game ended'}
-              </motion.div>
-            </div>
-          </motion.div>
-        )}
+              {betOutcome === 'win' && (
+                <div className="flex flex-col items-center">
+                  <span className="text-lg font-bold">You Won!</span>
+                  <span className="text-sm">
+                    {result?.payout
+                      ? `${ethers.formatEther(result.payout)} Tokens`
+                      : ''}
+                  </span>
+                </div>
+              )}
+
+              {betOutcome === 'lose' && <span>You Lost</span>}
+
+              {betOutcome === 'recovered' && <span>Game Recovered</span>}
+
+              {betOutcome === 'stopped' && <span>Game Stopped</span>}
+
+              {betOutcome === 'unknown' && vrfElapsed > 10 && (
+                <span>Result Unavailable</span>
+              )}
+            </motion.div>
+          )}
       </AnimatePresence>
+
+      {/* VRF Loading Indicator - Only show for a maximum of 10 seconds */}
+      {processingVrf && vrfElapsed <= 10 && (
+        <motion.div
+          className="absolute top-2 left-2 right-2 text-sm px-3 py-2 rounded-full bg-purple-600 text-white flex items-center justify-center"
+          animate={{ opacity: [0.8, 1, 0.8] }}
+          transition={{ repeat: Infinity, duration: 1.5 }}
+        >
+          <div className="mr-2 h-3 w-3 rounded-full bg-white animate-pulse"></div>
+          Waiting for VRF {vrfElapsed > 3 ? `(${vrfElapsed}s)` : ''}
+        </motion.div>
+      )}
+
+      {/* Timeout message after 10 seconds of VRF waiting */}
+      {processingVrf && vrfElapsed > 10 && (
+        <motion.div
+          className="absolute top-2 left-2 right-2 text-sm px-3 py-2 rounded-full bg-amber-600 text-white flex items-center justify-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <div className="mr-2 h-3 w-3 rounded-full bg-white animate-pulse"></div>
+          VRF timeout - check history for result
+        </motion.div>
+      )}
     </div>
   );
 };

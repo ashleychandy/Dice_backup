@@ -126,7 +126,7 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
         animate={{ opacity: 1, scale: 1 }}
         whileHover={{ scale: 1.02 }}
         transition={{ delay: index * 0.03, duration: 0.2 }}
-        className={`rounded-lg border shadow-sm overflow-hidden h-full ${cardBackground} hover:shadow-md transition-all`}
+        className={`rounded-lg border shadow-sm overflow-hidden ${cardBackground} hover:shadow-md transition-all h-full`}
       >
         <div className="p-3 h-full flex flex-col">
           <div className="flex justify-between items-center mb-2">
@@ -163,19 +163,23 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
             </div>
           </div>
 
-          <div className="flex justify-between items-center mt-auto text-xs">
-            <div className="flex items-center gap-1">
+          <div className="grid grid-cols-2 gap-2 mt-auto">
+            <div className="flex items-center gap-1 text-xs">
               <FontAwesomeIcon
                 icon={faCoins}
                 className="text-secondary-400 w-3 h-3"
               />
               <span className="text-secondary-600">{formattedBetAmount}</span>
             </div>
-            {resultType === 'WIN' && (
-              <div className="flex items-center gap-1 text-green-600 font-medium">
-                +{formattedPayout}
-              </div>
-            )}
+            <div className="flex items-center gap-1 text-xs justify-end">
+              {resultType === 'WIN' ? (
+                <span className="text-green-600 font-medium">
+                  +{formattedPayout}
+                </span>
+              ) : (
+                <span className="text-secondary-400">{formattedDate}</span>
+              )}
+            </div>
           </div>
         </div>
       </motion.div>

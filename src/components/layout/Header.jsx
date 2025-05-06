@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../ui/Button';
-import { useWallet } from '../../contexts/WalletContext';
+import { useWallet } from '../wallet/WalletProvider';
 import { truncateAddress } from '../../utils/formatting';
 import ConnectWalletButton from '../wallet/ConnectWalletButton';
 import WalletStatus from '../wallet/WalletStatus';

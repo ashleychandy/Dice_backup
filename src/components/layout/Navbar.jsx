@@ -1,19 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import NetworkSwitcher from '../ui/NetworkSwitcher';
+import { useWallet } from '../wallet/WalletProvider';
+import { useNetwork } from '../../contexts/NetworkContext';
 
-const Navbar = ({ account, chainId, handleLogout, switchNetwork }) => {
+const Navbar = () => {
+  const { account, handleLogout, connectWallet } = useWallet();
+  const { currentNetwork } = useNetwork();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
-  const [loadingStates, setLoadingStates] = useState({
-    wallet: false,
-  });
+  const [isConnecting, setIsConnecting] = useState(false);
 
-  const connectWallet = async () => {
-    setLoadingStates(prev => ({ ...prev, wallet: true }));
+  const handleConnectWallet = async () => {
+    setIsConnecting(true);
     try {
-      await switchNetwork();
+      await connectWallet();
     } finally {
-      setLoadingStates(prev => ({ ...prev, wallet: false }));
+      setIsConnecting(false);
     }
   };
 
@@ -31,77 +34,60 @@ const Navbar = ({ account, chainId, handleLogout, switchNetwork }) => {
     };
   }, []);
 
-  // Handle network switching with specific network types
-  const handleSwitchNetwork = async networkType => {
-    try {
-      if (typeof switchNetwork === 'function') {
-        await switchNetwork(networkType);
-      } else {
-        console.error('switchNetwork is not a function');
-      }
-    } catch (error) {
-      console.error('Error switching network:', error);
-    }
-  };
-
   return (
-    <header className="px-6 border-b border-[#22AD74]/20 bg-white sticky top-0 z-50 shadow-sm w-full">
-      <div className="max-w-7xl mx-auto flex justify-between items-center h-16">
+    <header className="px-4 sm:px-6 border-b border-gray-100 bg-white sticky top-0 z-50 shadow-sm w-full">
+      <div className="max-w-7xl mx-auto flex justify-between items-center h-14">
         <div className="flex items-center">
           <a
             href="https://gamacoin.ai/"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 hover:opacity-90 transition-all duration-300 group"
+            className="text-xl font-semibold text-[#22AD74]"
           >
-            <img
-              src="/assets/gama-logo.svg"
-              alt="GAMA Logo"
-              className="h-8 sm:h-9 group-hover:scale-105 transition-transform duration-300"
-            />
-            <span className="text-xl sm:text-2xl font-bold text-[#22AD74] bg-gradient-to-r from-[#22AD74] to-[#22AD74]/70 text-transparent bg-clip-text group-hover:to-[#22AD74] transition-all duration-300">
-              Dice
-            </span>
+            Dice
           </a>
         </div>
 
         <div className="hidden sm:flex items-center gap-4">
-          <button
-            onClick={() =>
-              window.open(
-                'https://app.xspswap.finance/#/swap?outputCurrency=0x678adf7955d8f6dcaa9e2fcc1c5ba70bccc464e6',
-                '_blank'
-              )
-            }
-            className="text-gray-600 hover:text-[#22AD74] transition-all duration-300 flex items-center gap-2 font-medium hover:-translate-y-0.5"
+          <a
+            href="https://app.xspswap.finance/#/swap?outputCurrency=0x678adf7955d8f6dcaa9e2fcc1c5ba70bccc464e6"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-gray-600 hover:text-[#22AD74] transition-all duration-300"
           >
-            Buy GAMA
-          </button>
+            Buy
+          </a>
 
-          <div className="h-4 w-px bg-gray-200"></div>
+          <div className="h-3 w-px bg-gray-200"></div>
 
           <a
             href="https://gamacoin.ai/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-gray-600 hover:text-[#22AD74] transition-all duration-300 flex items-center gap-2 font-medium hover:-translate-y-0.5"
+            className="text-sm text-gray-600 hover:text-[#22AD74] transition-all duration-300"
           >
             Home
           </a>
 
-          <div className="h-4 w-px bg-gray-200"></div>
+          <div className="h-3 w-px bg-gray-200"></div>
 
           {account ? (
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="px-4 py-2 rounded-lg text-sm bg-[#22AD74]/5 border border-[#22AD74]/20 hover:bg-[#22AD74]/10 transition-colors flex items-center gap-2"
+                className="px-3 py-1.5 rounded-md text-sm bg-gray-50 border border-gray-100 hover:bg-gray-100/70 transition-colors flex items-center gap-2"
               >
-                <span className="text-gray-900">
+                <div
+                  className="w-2 h-2 rounded-full"
+                  style={{
+                    backgroundColor: currentNetwork?.color || '#22AD74',
+                  }}
+                ></div>
+                <span className="text-gray-700 text-sm">
                   {account.slice(0, 6)}...{account.slice(-4)}
                 </span>
                 <svg
-                  className={`w-4 h-4 text-gray-600 transition-transform duration-200 ${
+                  className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${
                     dropdownOpen ? 'rotate-180' : ''
                   }`}
                   fill="none"
@@ -117,68 +103,62 @@ const Navbar = ({ account, chainId, handleLogout, switchNetwork }) => {
                 </svg>
               </button>
 
-              {/* Dropdown Menu */}
+              {/* Dropdown Menu with Network Switcher */}
               <AnimatePresence>
                 {dropdownOpen && (
                   <motion.div
-                    initial={{ opacity: 0, y: -10 }}
+                    initial={{ opacity: 0, y: -5 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-48 rounded-xl bg-white shadow-lg border border-gray-200 py-1 z-50"
+                    exit={{ opacity: 0, y: -5 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 mt-1.5 w-56 rounded-md bg-white shadow-sm border border-gray-100 overflow-hidden z-50"
                   >
-                    <button
-                      onClick={() => {
-                        handleSwitchNetwork('mainnet');
-                        setDropdownOpen(false);
-                      }}
-                      className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-[#22AD74]/5 flex items-center gap-2"
-                    >
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          chainId === 50 ? 'bg-[#22AD74]' : 'bg-gray-300'
-                        }`}
-                      />
-                      Switch to Mainnet
-                    </button>
-                    <button
-                      onClick={() => {
-                        handleSwitchNetwork('apothem');
-                        setDropdownOpen(false);
-                      }}
-                      className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-[#22AD74]/5 flex items-center gap-2"
-                    >
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          chainId === 51 ? 'bg-[#22AD74]' : 'bg-gray-300'
-                        }`}
-                      />
-                      Switch to Testnet
-                    </button>
-                    <div className="h-px bg-gray-200 my-1" />
-                    <button
-                      onClick={() => {
-                        handleLogout();
-                        setDropdownOpen(false);
-                      }}
-                      className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                    >
-                      Logout
-                    </button>
+                    {/* Network Section */}
+                    <div className="p-2 border-b border-gray-100/80">
+                      <div className="text-xs text-gray-500 mb-2 font-medium">
+                        NETWORK
+                      </div>
+                      <NetworkSwitcher isInDropdown={true} />
+                    </div>
+
+                    {/* Actions Section */}
+                    <div className="p-1.5">
+                      <button
+                        onClick={() => {
+                          handleLogout();
+                          setDropdownOpen(false);
+                        }}
+                        className="w-full px-3 py-2 text-xs text-red-600 hover:bg-red-50/70 rounded-md flex items-center gap-2 transition-colors"
+                      >
+                        <svg
+                          className="w-3.5 h-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                          />
+                        </svg>
+                        Disconnect
+                      </button>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
           ) : (
             <button
-              onClick={connectWallet}
-              className="px-6 py-2 rounded-lg bg-[#22AD74] text-white border border-[#22AD74]/20 hover:bg-[#22AD74]/90 transition-all duration-300 flex items-center gap-2"
-              disabled={loadingStates.wallet}
+              onClick={handleConnectWallet}
+              className="px-4 py-1.5 rounded-md bg-[#22AD74] text-white text-sm hover:bg-[#22AD74]/90 transition-all"
+              disabled={isConnecting}
             >
-              {loadingStates.wallet ? (
+              {isConnecting ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Connecting...
+                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 </>
               ) : (
                 'Connect'

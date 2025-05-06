@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useDiceContract } from './useDiceContract';
-import { useWallet } from './useWallet';
+import { useWallet } from '../components/wallet/WalletProvider';
+import { safeContractCall } from '../utils/contractUtils';
 
 export const useContractStats = () => {
   const { contract } = useDiceContract();
@@ -28,7 +29,7 @@ export const useContractStats = () => {
       };
 
       try {
-        // Use Promise.allSettled to handle partial failures
+        // Use Promise.allSettled with our new safeContractCall utility
         const [
           totalGamesResult,
           totalPayoutResult,
@@ -36,11 +37,36 @@ export const useContractStats = () => {
           maxBetAmountResult,
           maxHistorySizeResult,
         ] = await Promise.allSettled([
-          contract.totalGamesPlayed(),
-          contract.totalPayoutAmount(),
-          contract.totalWageredAmount(),
-          contract.MAX_BET_AMOUNT(),
-          contract.MAX_HISTORY_SIZE(),
+          safeContractCall(
+            contract,
+            'totalGamesPlayed',
+            [],
+            defaultStats.totalGames
+          ),
+          safeContractCall(
+            contract,
+            'totalPayoutAmount',
+            [],
+            defaultStats.totalPayout
+          ),
+          safeContractCall(
+            contract,
+            'totalWageredAmount',
+            [],
+            defaultStats.totalWagered
+          ),
+          safeContractCall(
+            contract,
+            'MAX_BET_AMOUNT',
+            [],
+            defaultStats.maxBetAmount
+          ),
+          safeContractCall(
+            contract,
+            'MAX_HISTORY_SIZE',
+            [],
+            defaultStats.maxHistorySize
+          ),
         ]);
 
         // Extract values or use defaults for any failed promises
@@ -106,11 +132,15 @@ export const useContractStats = () => {
       }
     },
     enabled: !!contract,
-    staleTime: 0, // Always consider data stale immediately
-    cacheTime: 0, // Don't cache data at all
-    retry: 2, // Retry failed requests up to 2 times
-    refetchInterval: 5000, // Refetch data every 5 seconds
+    staleTime: 30000, // Consider data fresh for 30 seconds
+    cacheTime: 60000, // Cache for 1 minute
+    retry: 1, // Only retry once on failure
+    refetchInterval: 30000, // Refetch every 30 seconds
     refetchIntervalInBackground: false, // Only refetch when tab is in focus
+    onError: err => {
+      console.error('Contract stats query error:', err);
+      // Don't show toast for this error as it might be frequent
+    },
   });
 
   return {

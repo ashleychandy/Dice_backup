@@ -1,8 +1,17 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ethers } from 'ethers';
 import { motion } from 'framer-motion';
 
 const LatestBet = ({ result, chosenNumber, betAmount }) => {
+  // Add debugging logs to help diagnose issues
+  useEffect(() => {
+    console.log('LatestBet component received:', {
+      result,
+      chosenNumber,
+      betAmount: betAmount ? betAmount.toString() : null,
+    });
+  }, [result, chosenNumber, betAmount]);
+
   const formatAmount = amount => {
     if (!amount || amount === '0') return '0';
     try {
@@ -38,6 +47,10 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
   const chosenNum = parseInt(chosenNumber?.toString() || '0', 10);
   const isWin = rolledNum === chosenNum;
 
+  // Format bet amount - ensure we're using the actual bet amount that was used, not the current input
+  const formattedBetAmount = formatAmount(betAmount);
+  const formattedPayout = isWin ? formatAmount(result.payout) : '0';
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -60,7 +73,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
       <div className="flex justify-between items-center mb-2">
         <div>
           <div className="font-bold text-lg text-secondary-800">
-            {formatAmount(betAmount)} GAMA
+            {formattedBetAmount} GAMA
           </div>
           <div className="text-sm text-secondary-600">Chosen: {chosenNum}</div>
         </div>
@@ -69,7 +82,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
             isWin ? 'text-gaming-success' : 'text-gaming-error'
           }`}
         >
-          {isWin ? <>+{formatAmount(result.payout)} GAMA</> : 'No Win'}
+          {isWin ? <>+{formattedPayout} GAMA</> : 'No Win'}
         </div>
       </div>
     </motion.div>

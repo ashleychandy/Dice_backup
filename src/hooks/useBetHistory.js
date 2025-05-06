@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useDiceContract } from './useDiceContract';
-import { useWallet } from './useWallet';
+import { useWallet } from '../components/wallet/WalletProvider';
 import { useContractStats } from './useContractStats';
 import { useQuery } from '@tanstack/react-query';
 

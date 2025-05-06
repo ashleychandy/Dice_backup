@@ -1,28 +1,13 @@
 import React, { useState } from 'react';
+import { useNetwork, NETWORKS } from '../../contexts/NetworkContext';
 
-const NetworkWarning = ({ switchNetwork }) => {
-  const [isLoading, setIsLoading] = useState(false);
+const NetworkWarning = () => {
+  const { switchNetwork, isNetworkSwitching, networkError } = useNetwork();
   const [activeNetwork, setActiveNetwork] = useState(null);
 
-  const handleSwitchNetwork = async networkType => {
-    if (typeof switchNetwork !== 'function') {
-      console.error(
-        'switchNetwork is not a function or is not properly passed'
-      );
-      return;
-    }
-
-    setIsLoading(true);
-    setActiveNetwork(networkType);
-
-    try {
-      console.log(`Switching to ${networkType}...`);
-      await switchNetwork(networkType);
-    } catch (error) {
-      console.error(`Error switching to ${networkType}:`, error);
-    } finally {
-      setIsLoading(false);
-    }
+  const handleSwitchNetwork = async networkId => {
+    setActiveNetwork(networkId);
+    await switchNetwork(networkId);
   };
 
   return (
@@ -32,6 +17,12 @@ const NetworkWarning = ({ switchNetwork }) => {
         <p className="mb-3">
           Please connect to one of the supported XDC networks to continue:
         </p>
+
+        {networkError && (
+          <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-sm">
+            Error: {networkError}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           {/* Mainnet Card */}
@@ -46,7 +37,7 @@ const NetworkWarning = ({ switchNetwork }) => {
                 <h4 className="font-semibold">XDC Mainnet</h4>
               </div>
               <span className="text-xs font-mono bg-gray-700 px-2 py-1 rounded">
-                Chain ID: 50
+                Chain ID: {NETWORKS.MAINNET.chainId}
               </span>
             </div>
 
@@ -67,14 +58,14 @@ const NetworkWarning = ({ switchNetwork }) => {
 
             <button
               onClick={() => handleSwitchNetwork('mainnet')}
-              disabled={isLoading}
+              disabled={isNetworkSwitching}
               className={`w-full py-2 rounded-lg font-medium transition-colors ${
-                isLoading && activeNetwork === 'mainnet'
+                isNetworkSwitching && activeNetwork === 'mainnet'
                   ? 'bg-[#22AD74]/50 cursor-wait'
                   : 'bg-[#22AD74] hover:bg-[#22AD74]/80'
               }`}
             >
-              {isLoading && activeNetwork === 'mainnet' ? (
+              {isNetworkSwitching && activeNetwork === 'mainnet' ? (
                 <span className="flex items-center justify-center">
                   <svg
                     className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
@@ -116,7 +107,7 @@ const NetworkWarning = ({ switchNetwork }) => {
                 <h4 className="font-semibold">Apothem Testnet</h4>
               </div>
               <span className="text-xs font-mono bg-gray-700 px-2 py-1 rounded">
-                Chain ID: 51
+                Chain ID: {NETWORKS.APOTHEM.chainId}
               </span>
             </div>
 
@@ -137,14 +128,14 @@ const NetworkWarning = ({ switchNetwork }) => {
 
             <button
               onClick={() => handleSwitchNetwork('apothem')}
-              disabled={isLoading}
+              disabled={isNetworkSwitching}
               className={`w-full py-2 rounded-lg font-medium transition-colors ${
-                isLoading && activeNetwork === 'apothem'
+                isNetworkSwitching && activeNetwork === 'apothem'
                   ? 'bg-blue-500/50 cursor-wait'
                   : 'bg-blue-500 hover:bg-blue-600'
               }`}
             >
-              {isLoading && activeNetwork === 'apothem' ? (
+              {isNetworkSwitching && activeNetwork === 'apothem' ? (
                 <span className="flex items-center justify-center">
                   <svg
                     className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"

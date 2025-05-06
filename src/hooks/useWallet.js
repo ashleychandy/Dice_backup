@@ -1,4 +1,4 @@
-import { useReducer, useEffect, useCallback, useRef } from 'react';
+import { useReducer, useEffect, useCallback, useRef, useContext } from 'react';
 import { ethers } from 'ethers';
 
 // Utils and constants
@@ -23,7 +23,7 @@ import {
  * @param {Object} queryClient - The React Query client instance
  * @returns {Object} Wallet state and functions
  */
-export const useWallet = queryClient => {
+export const useWalletImplementation = queryClient => {
   const { addToast } = useNotification();
   const [state, dispatch] = useReducer(walletReducer, initialWalletState);
   const handleError = useErrorHandler(addToast);
@@ -565,4 +565,11 @@ export const useWallet = queryClient => {
   };
 };
 
-export default useWallet;
+export default useWalletImplementation;
+
+// This is just a placeholder. The actual useWallet is exported from WalletProvider
+export const useWallet = () => {
+  throw new Error(
+    'IMPORT ERROR: useWallet should be imported from "../components/wallet/WalletProvider" instead of directly from useWallet.js. Please update your import statement.'
+  );
+};

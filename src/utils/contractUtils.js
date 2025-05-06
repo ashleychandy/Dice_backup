@@ -55,6 +55,15 @@ export const handleContractError = (error, onError, addToast) => {
     return;
   }
 
+  // Handle missing revert data errors
+  if (error.message && error.message.includes('missing revert data')) {
+    addToast(
+      'The blockchain returned an incomplete response. Please try again.',
+      'warning'
+    );
+    return;
+  }
+
   // Handle contract specific errors
   if (
     error.code === 'CALL_EXCEPTION' ||
@@ -134,6 +143,76 @@ export const handleContractError = (error, onError, addToast) => {
   } else {
     // Default error handling
     onError(error);
+  }
+};
+
+/**
+ * Safely call a contract method with proper error handling
+ * @param {Object} contract - The contract instance
+ * @param {String} methodName - The name of the method to call
+ * @param {Array} params - Parameters to pass to the method
+ * @param {Any} defaultValue - Default value to return if call fails
+ * @param {Function} onError - Optional error handler function
+ * @param {Function} addToast - Optional toast notification function
+ * @param {Object} options - Optional transaction options (for writing methods)
+ * @returns {Promise<Any>} - Result of the contract call or defaultValue if failed
+ */
+export const safeContractCall = async (
+  contract,
+  methodName,
+  params = [],
+  defaultValue = null,
+  onError = null,
+  addToast = null,
+  options = null
+) => {
+  // Check if contract exists
+  if (!contract) {
+    console.warn('Contract is not available for method:', methodName);
+    if (addToast) addToast('Contract is not available', 'error');
+    return defaultValue;
+  }
+
+  // Check if method exists on contract
+  if (!contract[methodName] || typeof contract[methodName] !== 'function') {
+    console.warn(`Method ${methodName} not found on contract`);
+    return defaultValue;
+  }
+
+  try {
+    // Call the contract method with optional transaction options
+    return options
+      ? await contract[methodName](...params, options)
+      : await contract[methodName](...params);
+  } catch (error) {
+    // Log the error for debugging
+    console.error(`Error calling ${methodName}:`, error);
+
+    // Handle specific "missing revert data" error separately
+    if (error.message && error.message.includes('missing revert data')) {
+      console.warn(
+        `Caught missing revert data error on ${methodName} call:`,
+        error.message
+      );
+      if (addToast) {
+        addToast(
+          'The blockchain returned an incomplete response. Please try again.',
+          'warning'
+        );
+      }
+      return defaultValue;
+    }
+
+    // Handle other errors if handlers are provided
+    if (onError || addToast) {
+      handleContractError(
+        error,
+        onError || console.error,
+        addToast || (() => {})
+      );
+    }
+
+    return defaultValue;
   }
 };
 

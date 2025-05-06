@@ -1,8 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDiceContract } from './useDiceContract';
-import { useWallet } from './useWallet';
+import { useWallet } from '../components/wallet/WalletProvider';
 import { useNotification } from '../contexts/NotificationContext';
 import { useEffect } from 'react';
+import { safeContractCall } from '../utils/contractUtils';
+import { ethers } from 'ethers';
 
 export const useContractState = () => {
   const { contract } = useDiceContract();
@@ -19,14 +21,22 @@ export const useContractState = () => {
     queryKey: ['contractState'],
     queryFn: async () => {
       if (!contract) {
-        throw new Error('Contract not initialized');
+        return { isPaused: false, isOwner: false };
       }
 
       try {
-        const [isPaused, contractOwner] = await Promise.all([
-          contract.paused(),
-          contract.owner(),
+        // Use Promise.allSettled with our new safeContractCall utility
+        const [pausedResult, ownerResult] = await Promise.allSettled([
+          // Use safeContractCall for better error handling
+          safeContractCall(contract, 'paused', [], false),
+          safeContractCall(contract, 'owner', [], null),
         ]);
+
+        // Extract results or use defaults
+        const isPaused =
+          pausedResult.status === 'fulfilled' ? pausedResult.value : false;
+        const contractOwner =
+          ownerResult.status === 'fulfilled' ? ownerResult.value : null;
 
         return {
           isPaused,
@@ -34,14 +44,20 @@ export const useContractState = () => {
         };
       } catch (error) {
         console.error('Error fetching contract state:', error);
-        throw error;
+        // Return a default state instead of throwing, to avoid breaking the UI
+        return { isPaused: false, isOwner: false };
       }
     },
-    enabled: !!contract && !!account,
-    staleTime: 0, // Always consider data stale immediately
-    cacheTime: 0, // Don't cache data at all
-    refetchInterval: 5000, // Refetch data every 5 seconds
+    enabled: !!contract,
+    staleTime: 30000, // Consider data fresh for 30 seconds
+    cacheTime: 60000, // Cache data for 1 minute
+    retry: 1, // Only retry once
+    refetchInterval: 30000, // Reduce polling frequency to every 30 seconds
     refetchIntervalInBackground: false, // Only refetch when tab is in focus
+    onError: error => {
+      console.error('Contract state query error:', error);
+      // Don't show toast for this error as it might be frequent
+    },
   });
 
   // Mutation for pausing contract
@@ -51,8 +67,23 @@ export const useContractState = () => {
         throw new Error('Contract or account not available');
       }
 
-      const tx = await contract.pause();
+      // Use safeContractCall with custom error handling and transaction options
+      const tx = await safeContractCall(
+        contract,
+        'pause',
+        [],
+        null,
+        error => {
+          throw error;
+        }, // Rethrow to trigger onError
+        addToast,
+        { gasLimit: ethers.parseUnits('200000', 'wei') }
+      );
+
+      if (!tx) throw new Error('Failed to pause contract');
+
       await tx.wait();
+      return true;
     },
     onSuccess: () => {
       addToast('Contract paused successfully', 'success');
@@ -71,8 +102,23 @@ export const useContractState = () => {
         throw new Error('Contract or account not available');
       }
 
-      const tx = await contract.unpause();
+      // Use safeContractCall with custom error handling and transaction options
+      const tx = await safeContractCall(
+        contract,
+        'unpause',
+        [],
+        null,
+        error => {
+          throw error;
+        }, // Rethrow to trigger onError
+        addToast,
+        { gasLimit: ethers.parseUnits('200000', 'wei') }
+      );
+
+      if (!tx) throw new Error('Failed to unpause contract');
+
       await tx.wait();
+      return true;
     },
     onSuccess: () => {
       addToast('Contract unpaused successfully', 'success');
@@ -88,33 +134,47 @@ export const useContractState = () => {
   useEffect(() => {
     if (!contract) return;
 
-    const handlePaused = account => {
-      queryClient.invalidateQueries(['contractState']);
-      addToast(`Contract paused by ${account}`, 'info');
-    };
+    try {
+      const handlePaused = account => {
+        queryClient.invalidateQueries(['contractState']);
+        addToast(`Contract paused by ${account}`, 'info');
+      };
 
-    const handleUnpaused = account => {
-      queryClient.invalidateQueries(['contractState']);
-      addToast(`Contract unpaused by ${account}`, 'info');
-    };
+      const handleUnpaused = account => {
+        queryClient.invalidateQueries(['contractState']);
+        addToast(`Contract unpaused by ${account}`, 'info');
+      };
 
-    const handleOwnershipTransferred = (previousOwner, newOwner) => {
-      queryClient.invalidateQueries(['contractState']);
-      addToast(
-        `Contract ownership transferred from ${previousOwner} to ${newOwner}`,
-        'info'
-      );
-    };
+      const handleOwnershipTransferred = (previousOwner, newOwner) => {
+        queryClient.invalidateQueries(['contractState']);
+        addToast(
+          `Contract ownership transferred from ${previousOwner} to ${newOwner}`,
+          'info'
+        );
+      };
 
-    contract.on('Paused', handlePaused);
-    contract.on('Unpaused', handleUnpaused);
-    contract.on('OwnershipTransferred', handleOwnershipTransferred);
+      // Safely add event listeners with error handling
+      try {
+        contract.on('Paused', handlePaused);
+        contract.on('Unpaused', handleUnpaused);
+        contract.on('OwnershipTransferred', handleOwnershipTransferred);
+      } catch (err) {
+        console.error('Error setting up contract event listeners:', err);
+      }
 
-    return () => {
-      contract.removeAllListeners('Paused');
-      contract.removeAllListeners('Unpaused');
-      contract.removeAllListeners('OwnershipTransferred');
-    };
+      return () => {
+        try {
+          contract.removeAllListeners('Paused');
+          contract.removeAllListeners('Unpaused');
+          contract.removeAllListeners('OwnershipTransferred');
+        } catch (err) {
+          console.error('Error removing contract event listeners:', err);
+        }
+      };
+    } catch (error) {
+      console.error('Error in contract state effect:', error);
+      return () => {}; // Empty cleanup function
+    }
   }, [contract, queryClient, addToast]);
 
   return {

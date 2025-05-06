@@ -2,13 +2,13 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 // Custom hooks
-import useWalletState from '../../hooks/useWallet';
+import useWalletImplementation from '../../hooks/useWallet';
 import { useNotification } from '../../contexts/NotificationContext.jsx';
 import { NETWORK_CONFIG, DEFAULT_NETWORK } from '../../config';
 import { checkRpcHealth } from '../../utils/walletUtils';
 
 // Create context
-const WalletContext = createContext(null);
+export const WalletContext = createContext(null);
 
 export const useWallet = () => {
   const context = useContext(WalletContext);
@@ -21,7 +21,7 @@ export const useWallet = () => {
 export const WalletProvider = ({ children }) => {
   // Use our custom hook for all wallet functionality
   const queryClient = useQueryClient();
-  const walletState = useWalletState(queryClient);
+  const walletState = useWalletImplementation(queryClient);
   const { addToast } = useNotification();
   const [networkHealth, setNetworkHealth] = useState({
     mainnet: { checked: false, ok: false },

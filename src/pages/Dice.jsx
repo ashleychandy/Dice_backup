@@ -1,6 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import React, { useCallback, useEffect, useState } from 'react';
+import { faRandom } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 // Import components
 import BalancePanel from '../components/dice/BalancePanel';
@@ -8,20 +10,32 @@ import BetInput from '../components/dice/BetInput';
 import DiceVisualizer from '../components/dice/DiceVisualizer';
 import LatestBet from '../components/dice/LatestBet';
 import GameHistory from '../components/dice/GameHistory';
-import GameStats from '../components/dice/GameStats';
 import NumberSelector from '../components/dice/NumberSelector';
 import FilterButton from '../components/ui/FilterButton';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { VrfRecoveryModal } from '../components/vrf';
 
 // Import custom hooks
 import useGameLogic from '../hooks/useGameLogic';
+import { useGameStatus } from '../hooks/useGameStatus';
 
 import '../index.css';
 
 const DicePage = ({ contracts, account, onError, addToast }) => {
-  const [showStats, setShowStats] = useState(false);
   const [lastBetAmount, setLastBetAmount] = useState(null);
+  const [lastBetDetails, setLastBetDetails] = useState(null);
   const queryClient = useQueryClient();
+  const [isVrfModalOpen, setIsVrfModalOpen] = useState(false);
+
+  // Get game status for VRF recovery
+  const { gameStatus, refetch: refetchGameStatus } = useGameStatus();
+
+  // Determine if the VRF recovery button should be shown
+  const showVrfButton =
+    gameStatus?.isActive &&
+    (gameStatus?.recoveryEligible ||
+      (gameStatus?.lastPlayTimestamp &&
+        Math.floor(Date.now() / 1000) - gameStatus.lastPlayTimestamp > 120));
 
   // Create a global function to invalidate game history
   useEffect(() => {
@@ -34,9 +48,6 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
 
         // Refresh game history
         queryClient.invalidateQueries(['gameHistory', targetAccount]);
-
-        // Refresh game stats
-        queryClient.invalidateQueries(['gameStats', targetAccount]);
 
         // Refresh balance data
         queryClient.invalidateQueries(['balance', targetAccount]);
@@ -100,6 +111,13 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
         isForceStopped: false,
         isSpecialResult: false,
       });
+
+      // Store last bet details for LatestBet component
+      setLastBetDetails({
+        result: gameState.lastResult,
+        chosenNumber,
+        betAmount,
+      });
     }
   }, [gameState.lastResult, chosenNumber, betAmount]);
 
@@ -129,6 +147,22 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
       console.log('rolledNumber value:', gameState.lastResult.rolledNumber);
     }
   }, [gameState.lastResult]);
+
+  // Store last bet details when placing a bet
+  const handlePlaceBetWithTracking = useCallback(() => {
+    // Store the current bet details before placing the bet
+    // This ensures we capture the values even if they change during processing
+    setLastBetDetails({
+      // Use existing result if available
+      result: gameState.lastResult,
+      // Store current chosen number and bet amount
+      chosenNumber,
+      betAmount,
+    });
+
+    // Call the original bet handler
+    handlePlaceBet();
+  }, [handlePlaceBet, chosenNumber, betAmount, gameState.lastResult]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -269,7 +303,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={handlePlaceBet}
+                  onClick={handlePlaceBetWithTracking}
                   disabled={
                     gameState.isProcessing ||
                     gameState.isRolling ||
@@ -322,6 +356,21 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                     </span>
                   )}
                 </motion.button>
+
+                {/* VRF Recovery Button */}
+                {showVrfButton && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setIsVrfModalOpen(true)}
+                    className="h-14 mt-4 w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-medium rounded-lg transition-all shadow-lg flex items-center justify-center"
+                  >
+                    <FontAwesomeIcon icon={faRandom} className="mr-2" />
+                    {gameStatus?.recoveryEligible
+                      ? 'Recover Game'
+                      : 'VRF Status'}
+                  </motion.button>
+                )}
               </div>
             </motion.div>
           </div>
@@ -354,9 +403,9 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
               className="bg-white backdrop-blur-3xl rounded-xl border border-secondary-200 shadow-xl"
             >
               <LatestBet
-                result={gameState.lastResult}
-                chosenNumber={chosenNumber}
-                betAmount={betAmount}
+                result={lastBetDetails?.result || gameState.lastResult}
+                chosenNumber={lastBetDetails?.chosenNumber || chosenNumber}
+                betAmount={lastBetDetails?.betAmount || betAmount}
               />
             </motion.div>
           </div>
@@ -369,51 +418,15 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
           transition={{ duration: 0.5, delay: 0.5 }}
           className="bg-white backdrop-blur-md rounded-xl border border-secondary-200 p-6 shadow-xl"
         >
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-secondary-800">
-              {showStats ? 'Game Stats' : 'Game History'}
-            </h2>
-            <FilterButton
-              onClick={() => setShowStats(!showStats)}
-              active={showStats}
-            >
-              {showStats ? 'View History' : 'View Stats'}
-            </FilterButton>
-          </div>
+          <h2 className="text-2xl font-bold text-secondary-800 mb-6">
+            Game History
+          </h2>
 
-          <AnimatePresence mode="wait">
-            {showStats ? (
-              <motion.div
-                key="stats"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.2 }}
-              >
-                <GameStats
-                  account={account}
-                  diceContract={contracts?.dice}
-                  onError={onError}
-                  addToast={addToast}
-                  key={`gamestats-${!!contracts?.dice}`}
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="history"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.2 }}
-              >
-                <GameHistory
-                  account={account}
-                  diceContract={contracts?.dice}
-                  onError={onError}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <GameHistory
+            account={account}
+            diceContract={contracts?.dice}
+            onError={onError}
+          />
         </motion.div>
 
         {/* Game rules and odds */}
@@ -464,6 +477,12 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
           </div>
         </motion.div>
       </motion.div>
+
+      {/* VRF Recovery Modal */}
+      <VrfRecoveryModal
+        isOpen={isVrfModalOpen}
+        onClose={() => setIsVrfModalOpen(false)}
+      />
     </div>
   );
 };

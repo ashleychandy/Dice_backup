@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useWallet } from '../../contexts/WalletContext';
+import { useWallet } from './WalletProvider';
 import { truncateAddress } from '../../utils/formatting';
 
 const WalletStatus = () => {

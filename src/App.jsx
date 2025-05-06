@@ -12,6 +12,7 @@ import AppRoutes from './components/routes/AppRoutes.jsx';
 
 // Utils
 import { NotificationProvider } from './contexts/NotificationContext.jsx';
+import { NetworkProvider } from './contexts/NetworkContext.jsx';
 
 /**
  * Main App component
@@ -38,9 +39,11 @@ function App() {
         <NotificationProvider>
           <Router>
             <WalletProvider>
-              <Layout>
-                <AppRoutes />
-              </Layout>
+              <NetworkProvider>
+                <Layout>
+                  <AppRoutes />
+                </Layout>
+              </NetworkProvider>
             </WalletProvider>
           </Router>
         </NotificationProvider>

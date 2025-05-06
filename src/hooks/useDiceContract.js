@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'react';
-import { useWallet } from './useWallet';
+import { useWallet } from '../components/wallet/WalletProvider';
 import { ethers } from 'ethers';
+import { useNetwork } from '../contexts/NetworkContext';
 import DiceABI from '../contracts/abi/Dice.json';
 import TokenABI from '../contracts/abi/GamaToken.json';
-import {
-  DICE_CONTRACT_ADDRESS,
-  TOKEN_CONTRACT_ADDRESS,
-} from '../constants/contracts';
 
 export const useDiceContract = () => {
-  const { provider, account, chainId } = useWallet();
+  const { provider, account } = useWallet();
+  const { currentNetwork } = useNetwork();
   const [contract, setContract] = useState(null);
   const [tokenContract, setTokenContract] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -18,7 +16,7 @@ export const useDiceContract = () => {
   useEffect(() => {
     const initContracts = async () => {
       try {
-        if (!provider || !account) {
+        if (!provider || !account || !currentNetwork) {
           setContract(null);
           setTokenContract(null);
           setError(null);
@@ -26,11 +24,16 @@ export const useDiceContract = () => {
           return;
         }
 
-        if (!DICE_CONTRACT_ADDRESS) {
-          console.warn('Dice contract address not configured for this network');
+        const diceAddress = currentNetwork.diceAddress;
+        const tokenAddress = currentNetwork.tokenAddress;
+
+        if (!diceAddress) {
+          console.warn(
+            `Dice contract address not configured for network: ${currentNetwork.name}`
+          );
           setError(
             new Error(
-              `Dice contract address not configured for chainId: ${chainId}`
+              `Dice contract address not configured for network: ${currentNetwork.name}`
             )
           );
           setContract(null);
@@ -52,7 +55,7 @@ export const useDiceContract = () => {
         // Initialize dice contract
         try {
           const diceContract = new ethers.Contract(
-            DICE_CONTRACT_ADDRESS,
+            diceAddress,
             DiceABI.abi,
             signer
           );
@@ -68,10 +71,10 @@ export const useDiceContract = () => {
         }
 
         // Initialize token contract if address is available
-        if (TOKEN_CONTRACT_ADDRESS) {
+        if (tokenAddress) {
           try {
             const token = new ethers.Contract(
-              TOKEN_CONTRACT_ADDRESS,
+              tokenAddress,
               TokenABI.abi,
               signer
             );
@@ -92,18 +95,19 @@ export const useDiceContract = () => {
     };
 
     initContracts();
-  }, [provider, account, chainId]);
+  }, [provider, account, currentNetwork]);
 
   // Debug logging on state changes
   useEffect(() => {
-    console.log('Contract state updated:', {
-      hasDiceContract: !!contract,
-      hasTokenContract: !!tokenContract,
+    console.log('Contract initialization result:', {
+      dice: contract,
+      token: tokenContract,
+      network: currentNetwork?.name,
       isLoading,
       hasError: !!error,
       errorMessage: error?.message,
     });
-  }, [contract, tokenContract, isLoading, error]);
+  }, [contract, tokenContract, currentNetwork, isLoading, error]);
 
   return {
     contract,

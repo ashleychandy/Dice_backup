@@ -94,7 +94,7 @@ const BetInput = ({
           type: typeof userBalance,
         });
 
-        // Convert to normalized value (with 18 decimals)
+        // Convert input to BigInt with 18 decimals (wei)
         const amount = BigInt(input) * BigInt(10) ** BigInt(18);
         console.log('Bet amount in wei:', String(amount));
 
@@ -116,24 +116,26 @@ const BetInput = ({
           };
         }
 
-        // Get and safe convert the userBalance value to BigInt
+        // Safely convert userBalance to BigInt
         let balanceAmount;
         try {
           if (typeof userBalance === 'bigint') {
             // Already a BigInt, use directly
             balanceAmount = userBalance;
           } else if (typeof userBalance === 'string') {
-            // Convert string to BigInt
-            balanceAmount = BigInt(userBalance);
+            // Convert string to BigInt, handle empty string
+            balanceAmount =
+              userBalance === '' ? BigInt(0) : BigInt(userBalance);
           } else if (typeof userBalance === 'number') {
-            // Convert number to BigInt
+            // Convert number to BigInt, handle potential floating point
             balanceAmount = BigInt(Math.floor(userBalance));
           } else if (
             userBalance &&
             typeof userBalance.toString === 'function'
           ) {
             // Convert object to BigInt via toString
-            balanceAmount = BigInt(userBalance.toString());
+            const balanceStr = userBalance.toString();
+            balanceAmount = balanceStr === '' ? BigInt(0) : BigInt(balanceStr);
           } else {
             // Unable to convert, log and use 0
             console.warn(
@@ -160,8 +162,12 @@ const BetInput = ({
           insufficientBalance: amount > balanceAmount,
         });
 
-        // Only show insufficient balance error if bet is clearly more than available
-        if (amount > balanceAmount) {
+        // Ensure both values are BigInt before comparison
+        const betAmountBigInt = BigInt(amount.toString());
+        const userBalanceBigInt = BigInt(balanceAmount.toString());
+
+        // Compare using BigInt values
+        if (betAmountBigInt > userBalanceBigInt) {
           return {
             isValid: false,
             error: 'Insufficient balance',

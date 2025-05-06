@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useWallet } from '../../contexts/WalletContext';
+import { useWallet } from './WalletProvider';
 import Button from '../ui/Button';
 import { DEFAULT_NETWORK, NETWORK_CONFIG } from '../../config';
 

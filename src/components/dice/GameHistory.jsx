@@ -22,7 +22,7 @@ const Pagination = ({
       onClick={() => onPageChange(currentPage - 1)}
       disabled={!hasPreviousPage}
       className={`
-        px-3 py-1.5 rounded-lg text-sm font-medium transition-all
+        px-4 py-2 rounded-lg text-sm font-medium transition-all
         ${
           !hasPreviousPage
             ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
@@ -30,16 +30,16 @@ const Pagination = ({
         }
       `}
     >
-      ← Prev
+      ← Previous
     </button>
-    <span className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg shadow-sm text-sm text-secondary-600">
+    <span className="px-4 py-2 bg-white border border-gray-200 rounded-lg shadow-sm text-sm text-secondary-600">
       Page {currentPage} of {totalPages}
     </span>
     <button
       onClick={() => onPageChange(currentPage + 1)}
       disabled={!hasNextPage}
       className={`
-        px-3 py-1.5 rounded-lg text-sm font-medium transition-all
+        px-4 py-2 rounded-lg text-sm font-medium transition-all
         ${
           !hasNextPage
             ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
@@ -95,7 +95,7 @@ const GameHistory = ({ account, onError }) => {
     refetch: forceRefresh,
   } = useBetHistory({
     playerAddress: account,
-    pageSize: 10,
+    pageSize: 12,
     autoRefresh: true,
     diceContract,
   });
@@ -157,65 +157,8 @@ const GameHistory = ({ account, onError }) => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-lg">
-            <Tab
-              label="All Games"
-              active={filter === 'all'}
-              onClick={() => setFilter('all')}
-              icon={faHistory}
-            />
-            {hasPendingGames && (
-              <Tab
-                label="Pending"
-                active={filter === 'pending'}
-                onClick={() => setFilter('pending')}
-                icon={faSpinner}
-              />
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={forceRefresh}
-              className="p-2 rounded-lg transition-all text-secondary-400 hover:text-secondary-600 hover:bg-gray-50"
-            >
-              <FontAwesomeIcon
-                icon={faSpinner}
-                className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`}
-              />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`
-                p-2 rounded-lg transition-all
-                ${
-                  viewMode === 'list'
-                    ? 'bg-white shadow-sm border border-gray-200 text-green-700'
-                    : 'text-secondary-400 hover:text-secondary-600'
-                }
-              `}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 10h16M4 14h16M4 18h16"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
-
         <AnimatePresence>
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {filteredGames.map((game, index) => (
               <GameHistoryItem
                 key={`${game.timestamp}-${index}`}
@@ -225,7 +168,7 @@ const GameHistory = ({ account, onError }) => {
                   isPending: game.resultType === 'unknown',
                 }}
                 index={index}
-                compact={viewMode === 'compact'}
+                compact={true}
               />
             ))}
           </div>

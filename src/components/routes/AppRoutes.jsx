@@ -211,7 +211,6 @@ const AppRoutes = () => {
         currentDiceAddress &&
         expectedDiceAddress.toLowerCase() !== currentDiceAddress.toLowerCase()
       ) {
-        console.warn('Dice contract address mismatch for current network');
         addToast(
           "Dice contract address doesn't match the current network. Please check your wallet connection.",
           'warning'
@@ -223,7 +222,6 @@ const AppRoutes = () => {
         currentTokenAddress &&
         expectedTokenAddress.toLowerCase() !== currentTokenAddress.toLowerCase()
       ) {
-        console.warn('Token contract address mismatch for current network');
         addToast(
           "Token contract address doesn't match the current network. Please check your wallet connection.",
           'warning'

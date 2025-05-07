@@ -1,6 +1,38 @@
 # XDC Dice Game
 
-A decentralized dice game running on the XDC blockchain.
+An interactive dice game built on the XDC blockchain.
+
+## Features
+
+- Connect to XDC wallets (MetaMask, XDCPay, etc.)
+- Place bets with GAMA tokens
+- View game history and statistics
+- Supports both Mainnet and Apothem Testnet
+- RPC URL customization for better performance
+
+## RPC Connection Features
+
+### Automatic RPC URL Syncing
+
+The application will automatically detect and use the RPC URL configured in your connected wallet. This ensures optimal connectivity and helps avoid CORS errors by using the same RPC endpoint as your wallet.
+
+When your wallet connects, the application will:
+
+1. Detect the RPC URL from your wallet
+2. Save it to be used for all blockchain interactions
+3. Display a notification when a new RPC URL is synced
+
+### Manual RPC URL Configuration
+
+You can also manually configure RPC URLs in the Network Settings:
+
+1. Click on the network selector in the top navigation bar
+2. Select "Network Settings"
+3. Enter custom RPC URLs for Mainnet and/or Apothem
+4. Click "Test Connection" to verify it works
+5. Save your settings
+
+If you have a wallet connected, you can also click "Sync RPC URL from Connected Wallet" to automatically fill in the current RPC URL from your wallet.
 
 ## Project Structure
 

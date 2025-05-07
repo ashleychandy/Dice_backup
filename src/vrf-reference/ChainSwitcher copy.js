@@ -1,7 +1,7 @@
-import React, { useState } from "react";
-import { motion } from "framer-motion";
-import { xdc, xdcTestnet } from "../../constants/chains";
-import useWallet from "../../hooks/WalletContext";
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { xdc, xdcTestnet } from '../../constants/chains';
+import useWallet from '../../hooks/WalletContext';
 
 const ChainSwitcher = () => {
   const { chain, switchNetwork } = useWallet();
@@ -14,25 +14,25 @@ const ChainSwitcher = () => {
   const showUnsupported = !isXdcMainnet && !isXdcTestnet;
 
   // Colors based on active chain
-  const getButtonClass = (isActive) =>
+  const getButtonClass = isActive =>
     isActive
-      ? "bg-[#22AD74] text-white hover:bg-[#22AD74]/90"
-      : "bg-gray-700 text-gray-200 hover:bg-gray-600";
+      ? 'bg-[#22AD74] text-white hover:bg-[#22AD74]/90'
+      : 'bg-gray-700 text-gray-200 hover:bg-gray-600';
 
   // Handle switching to XDC mainnet
   const handleSwitchToMainnet = async () => {
     if (!isXdcMainnet && !isPending) {
       // Clear localStorage items
-      localStorage.removeItem("wagmi.store");
-      localStorage.removeItem("wagmi.connected");
-      localStorage.removeItem("wagmi.reconnected");
+      localStorage.removeItem('wagmi.store');
+      localStorage.removeItem('wagmi.connected');
+      localStorage.removeItem('wagmi.reconnected');
 
       try {
         setIsPending(true);
         // Switch chain
         await switchNetwork(xdc.id);
       } catch (error) {
-        console.error("Failed to switch network:", error);
+        console.error('Failed to switch network:', error);
       } finally {
         setIsPending(false);
       }
@@ -43,16 +43,16 @@ const ChainSwitcher = () => {
   const handleSwitchToTestnet = async () => {
     if (!isXdcTestnet && !isPending) {
       // Clear localStorage items
-      localStorage.removeItem("wagmi.store");
-      localStorage.removeItem("wagmi.connected");
-      localStorage.removeItem("wagmi.reconnected");
+      localStorage.removeItem('wagmi.store');
+      localStorage.removeItem('wagmi.connected');
+      localStorage.removeItem('wagmi.reconnected');
 
       try {
         setIsPending(true);
         // Switch chain
         await switchNetwork(xdcTestnet.id);
       } catch (error) {
-        console.error("Failed to switch network:", error);
+        console.error('Failed to switch network:', error);
       } finally {
         setIsPending(false);
       }
@@ -70,11 +70,11 @@ const ChainSwitcher = () => {
           disabled={isXdcMainnet || isPending}
           className={`px-4 py-2 rounded-lg transition-colors ${getButtonClass(
             isXdcMainnet
-          )} ${isPending ? "opacity-70 cursor-not-allowed" : ""}`}
+          )} ${isPending ? 'opacity-70 cursor-not-allowed' : ''}`}
           whileHover={!isXdcMainnet && !isPending ? { scale: 1.03 } : {}}
           whileTap={!isXdcMainnet && !isPending ? { scale: 0.98 } : {}}
         >
-          {isXdcMainnet ? "✓ XDC Mainnet" : "XDC Mainnet"}
+          {isXdcMainnet ? '✓ XDC Mainnet' : 'XDC Mainnet'}
         </motion.button>
 
         <motion.button
@@ -82,11 +82,11 @@ const ChainSwitcher = () => {
           disabled={isXdcTestnet || isPending}
           className={`px-4 py-2 rounded-lg transition-colors ${getButtonClass(
             isXdcTestnet
-          )} ${isPending ? "opacity-70 cursor-not-allowed" : ""}`}
+          )} ${isPending ? 'opacity-70 cursor-not-allowed' : ''}`}
           whileHover={!isXdcTestnet && !isPending ? { scale: 1.03 } : {}}
           whileTap={!isXdcTestnet && !isPending ? { scale: 0.98 } : {}}
         >
-          {isXdcTestnet ? "✓ Apothem Testnet" : "Apothem Testnet"}
+          {isXdcTestnet ? '✓ Apothem Testnet' : 'Apothem Testnet'}
         </motion.button>
 
         {showUnsupported && (

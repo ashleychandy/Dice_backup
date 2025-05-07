@@ -3,9 +3,15 @@ import {
   NETWORK_CONFIG,
   SUPPORTED_CHAIN_IDS,
   DEFAULT_NETWORK,
+  getCurrentRpcUrl,
+  switchToNextRpc,
+  RPC_CONFIG,
 } from '../config';
 import DiceABI from '../contracts/abi/Dice.json';
 import TokenABI from '../contracts/abi/GamaToken.json';
+import { MAINNET_RPC_URLS, APOTHEM_RPC_URLS } from '../constants/networks';
+
+const _getCurrentRpcUrl = getCurrentRpcUrl;
 
 /**
  * Get the best available wallet provider
@@ -83,21 +89,9 @@ export const initializeContracts = async (
   handleError
 ) => {
   try {
-    // DEBUG LOGS - REMOVE AFTER DEBUGGING
-    // console.log(
-    //   'DEBUG CONTRACT INIT: Initializing contracts with account:',
-    //   account
-    // );
-
     const network = await provider.getNetwork();
     // Always convert to Number for consistent comparison
     const currentChainId = Number(network.chainId);
-
-    // DEBUG LOGS - REMOVE AFTER DEBUGGING
-    // console.log(
-    //   'DEBUG CONTRACT INIT: Connected to network with chainId:',
-    //   currentChainId
-    // );
 
     // Find network config
     const networkKey = Object.keys(NETWORK_CONFIG).find(
@@ -106,20 +100,7 @@ export const initializeContracts = async (
 
     const networkConfig = NETWORK_CONFIG[networkKey];
 
-    // DEBUG LOGS - REMOVE AFTER DEBUGGING
-    // console.log('DEBUG CONTRACT INIT: Network config:', networkKey, {
-    //   chainId: networkConfig?.chainId,
-    //   name: networkConfig?.name,
-    //   tokenAddress: networkConfig?.contracts?.token,
-    //   diceAddress: networkConfig?.contracts?.dice,
-    // });
-
     if (!networkConfig) {
-      // DEBUG LOGS - REMOVE AFTER DEBUGGING
-      // console.error(
-      //   'DEBUG CONTRACT INIT: Network config not found for chainId:',
-      //   currentChainId
-      // );
       throw new Error(
         `Unsupported network. Connected to chain ID: ${currentChainId}. Supported chain IDs: ${SUPPORTED_CHAIN_IDS.join(
           ', '
@@ -129,40 +110,19 @@ export const initializeContracts = async (
 
     // Check if contract addresses are configured
     if (!networkConfig.contracts.token) {
-      // DEBUG LOGS - REMOVE AFTER DEBUGGING
-      // console.error(
-      //   'DEBUG CONTRACT INIT: Token contract address not configured'
-      // );
-      // console.error(
-      //   `Token contract address not configured for ${networkConfig.name}`
-      // );
       throw new Error(
         `Token contract address not configured for ${networkConfig.name}`
       );
     }
 
     if (!networkConfig.contracts.dice) {
-      // DEBUG LOGS - REMOVE AFTER DEBUGGING
-      // console.error(
-      //   'DEBUG CONTRACT INIT: Dice contract address not configured'
-      // );
-      // console.error(
-      //   `Dice contract address not configured for ${networkConfig.name}`
-      // );
       throw new Error(
         `Dice contract address not configured for ${networkConfig.name}`
       );
     }
 
-    // DEBUG LOGS - REMOVE AFTER DEBUGGING
-    // console.log('DEBUG CONTRACT INIT: Contract addresses:', {
-    //   token: networkConfig.contracts.token,
-    //   dice: networkConfig.contracts.dice,
-    // });
-
     // Get signer for the connected account
     const signer = await provider.getSigner(account);
-    // console.log('DEBUG CONTRACT INIT: Got signer for account:', account);
 
     try {
       // Create token contract instance
@@ -179,16 +139,6 @@ export const initializeContracts = async (
         signer
       );
 
-      // DEBUG LOGS - REMOVE AFTER DEBUGGING
-      // console.log('DEBUG CONTRACT INIT: Contracts initialized:', {
-      //   tokenAddress: tokenContract.target,
-      //   diceAddress: diceContract.target,
-      //   diceAbiLength: DiceABI.abi.length,
-      //   diceHasGetBetHistory: DiceABI.abi.some(
-      //     item => item.name === 'getBetHistory'
-      //   ),
-      // });
-
       if (setContracts) {
         setContracts({
           token: tokenContract,
@@ -202,18 +152,11 @@ export const initializeContracts = async (
 
       return { token: tokenContract, dice: diceContract };
     } catch (contractError) {
-      // DEBUG LOGS - REMOVE AFTER DEBUGGING
-      // console.error(
-      //   'DEBUG CONTRACT INIT: Error creating contract instances:',
-      //   contractError
-      // );
       throw new Error(
         `Failed to create contract instances: ${contractError.message}`
       );
     }
   } catch (error) {
-    // DEBUG LOGS - REMOVE AFTER DEBUGGING
-    // console.error('DEBUG CONTRACT INIT: Contract initialization error:', error);
     if (handleError) {
       handleError(error, 'initializeContracts');
     }
@@ -436,8 +379,18 @@ export const switchNetwork = async (
   }
 };
 
+/**
+ * Check RPC health with detailed response
+ * @param {string} rpcUrl - The RPC URL to check
+ * @returns {Promise<Object>} Health check result
+ */
 export const checkRpcHealth = async rpcUrl => {
+  if (!rpcUrl) {
+    return { ok: false, error: 'No RPC URL provided' };
+  }
+
   try {
+    const startTime = Date.now();
     const response = await fetch(rpcUrl, {
       method: 'POST',
       headers: {
@@ -449,17 +402,75 @@ export const checkRpcHealth = async rpcUrl => {
         params: [],
         id: 1,
       }),
+      // Add timeout from RPC_CONFIG
+      signal: AbortSignal.timeout(RPC_CONFIG.timeout),
     });
+    const endTime = Date.now();
+    const latency = endTime - startTime;
 
     if (!response.ok) {
-      return { ok: false, error: `HTTP error: ${response.status}` };
+      return {
+        ok: false,
+        error: `HTTP error: ${response.status}`,
+        latency,
+        statusCode: response.status,
+      };
     }
 
     const data = await response.json();
-    return { ok: true, blockNumber: parseInt(data.result, 16) };
+
+    if (data.error) {
+      return {
+        ok: false,
+        error: data.error.message || 'RPC returned an error',
+        latency,
+        errorCode: data.error.code,
+      };
+    }
+
+    // Check if block number is valid
+    const blockNumber = parseInt(data.result, 16);
+    if (isNaN(blockNumber)) {
+      return {
+        ok: false,
+        error: 'Invalid block number received',
+        latency,
+      };
+    }
+
+    return {
+      ok: true,
+      blockNumber,
+      latency,
+    };
   } catch (error) {
     console.error('RPC health check failed:', error);
-    return { ok: false, error: error.message };
+
+    // Check for timeout
+    if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+      return {
+        ok: false,
+        error: 'Connection timeout',
+        isTimeout: true,
+      };
+    }
+
+    // Check for CORS errors
+    const isCorsError =
+      error.message &&
+      (error.message.includes('CORS') ||
+        error.message.includes('cross-origin') ||
+        error.message.includes('Cross-Origin') ||
+        error.message.includes('blocked by mode'));
+
+    return {
+      ok: false,
+      error: isCorsError
+        ? 'Browser security (CORS) blocked the connection'
+        : error.message || 'Connection failed',
+      isCorsError,
+      originalError: error.message,
+    };
   }
 };
 
@@ -467,13 +478,20 @@ export const checkRpcHealth = async rpcUrl => {
  * Helper function to detect and recover from common RPC errors
  * @param {Error} error - The error to analyze
  * @param {Object} provider - Ethers provider instance
- * @param {Function} addToast - Function to display notifications (optional)
- * @returns {Promise<boolean>} - Whether recovery was attempted
+ * @param {string} networkType - The current network type
+ * @param {Function} addToast - Function to display notifications
+ * @returns {Promise<boolean>} Whether recovery was attempted
  */
-export const handleRpcError = async (error, provider, addToast = null) => {
-  if (!error || !provider) return false;
+export const handleRpcError = async (
+  error,
+  provider,
+  networkType,
+  addToast = null
+) => {
+  if (!error || !provider || !networkType) return false;
 
-  const errorMessage = error.message || '';
+  const errorMessage = error.message?.toLowerCase() || '';
+  const retryCount = provider._retryCount || 0;
 
   // Check for common RPC issues
   const isRpcIssue =
@@ -483,30 +501,183 @@ export const handleRpcError = async (error, provider, addToast = null) => {
     errorMessage.includes('connection error') ||
     errorMessage.includes('too many requests') ||
     errorMessage.includes('rate limit') ||
-    errorMessage.includes('CORS');
+    errorMessage.includes('cors');
 
   if (!isRpcIssue) return false;
 
   try {
-    // Log the error for debugging
-    console.warn('RPC issue detected:', errorMessage);
+    // If we've exceeded max retries, try switching to next RPC
+    if (retryCount >= RPC_CONFIG.maxRetries) {
+      const newRpcUrl = switchToNextRpc(networkType);
 
-    // Attempt to reset the connection by requesting a block number
-    // This often helps refresh the RPC connection
-    await provider.getBlockNumber().catch(() => {});
+      if (newRpcUrl) {
+        // Check health of new RPC before switching
+        const healthCheck = await checkRpcHealth(newRpcUrl);
 
-    // Show a notification if provided
-    if (addToast) {
-      addToast(
-        'Network connection issue detected. Attempting to recover...',
-        'warning'
-      );
+        if (healthCheck.ok) {
+          // Update provider's URL
+          provider._network.anyNetwork._provider._url = newRpcUrl;
+
+          if (addToast) {
+            addToast(
+              'Network connection issues detected. Switching to backup RPC...',
+              'warning'
+            );
+          }
+
+          // Reset retry count
+          provider._retryCount = 0;
+
+          // Test new connection
+          await provider.getBlockNumber();
+          return true;
+        } else {
+          // If health check failed, try next RPC
+          console.warn('Backup RPC health check failed:', healthCheck.error);
+          return await handleRpcError(error, provider, networkType, addToast);
+        }
+      } else {
+        // If we've tried all RPCs, reset to highest priority and notify
+        const resetSuccess = resetToHighestPriorityRpc(provider, networkType);
+        if (resetSuccess && addToast) {
+          addToast(
+            'All backup RPCs failed. Resetting to primary RPC...',
+            'warning'
+          );
+        }
+      }
     }
 
-    // Return true to indicate a recovery was attempted
+    // Implement exponential backoff for retries
+    const backoffTime = Math.min(1000 * Math.pow(2, retryCount), 10000);
+    await new Promise(resolve => setTimeout(resolve, backoffTime));
+
+    // Increment retry count
+    provider._retryCount = retryCount + 1;
+
+    // Test connection
+    await provider.getBlockNumber();
     return true;
   } catch (recoveryError) {
     console.error('Failed to recover from RPC error:', recoveryError);
+
+    if (addToast) {
+      addToast(
+        'Unable to connect to network. Please check your connection or try again later.',
+        'error'
+      );
+    }
+
+    return false;
+  }
+};
+
+/**
+ * Get the current RPC URL from the connected wallet
+ * @param {Object} provider - The ethers provider
+ * @param {number} chainId - The current chain ID
+ * @returns {Promise<string|null>} The RPC URL or null if not available
+ */
+export const getCurrentRpcUrlFromWallet = async (provider, chainId) => {
+  if (!provider || !chainId) return null;
+
+  try {
+    // First check if we can access the provider directly
+    const walletProvider = getAvailableProvider();
+
+    if (walletProvider) {
+      // For MetaMask and compatible wallets
+      if (walletProvider.isMetaMask || walletProvider.isXDCPay) {
+        // Try to get the RPC URL using the wallet's API
+        try {
+          // Convert chainId to hex format if needed
+          const chainIdHex =
+            typeof chainId === 'number' ? `0x${chainId.toString(16)}` : chainId;
+
+          // MetaMask's way of getting the current RPC URL
+          const networkDetails = await walletProvider
+            .request({
+              method: 'wallet_getProviderConfig',
+              params: [{ chainId: chainIdHex }],
+            })
+            .catch(() => null);
+
+          if (networkDetails && networkDetails.rpcUrl) {
+            return networkDetails.rpcUrl;
+          }
+
+          // Alternative method for some wallet implementations
+          if (walletProvider._state && walletProvider._state.config) {
+            return walletProvider._state.config.rpcUrl || null;
+          }
+
+          // Another approach for newer MetaMask versions
+          if (
+            walletProvider._rpcEngine &&
+            walletProvider._rpcEngine.currentProvider
+          ) {
+            const currentProvider = walletProvider._rpcEngine.currentProvider;
+            return currentProvider.rpcUrl || currentProvider.host || null;
+          }
+        } catch (walletError) {
+          console.log('Could not get RPC URL via wallet API:', walletError);
+          // Continue to fallback methods
+        }
+      }
+    }
+
+    // Fallback: Try to extract from provider
+    if (provider._network && provider._network.anyNetwork) {
+      return provider._network.anyNetwork._provider._url || null;
+    }
+
+    // Final fallback: For ethers v6
+    if (provider.connection && provider.connection.url) {
+      return provider.connection.url;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error getting RPC URL from wallet:', error);
+    return null;
+  }
+};
+
+/**
+ * Reset to the highest priority RPC URL for the current network
+ * @param {Object} provider - The ethers provider
+ * @param {string} networkType - The network type ('mainnet' or 'apothem')
+ * @returns {Promise<boolean>} Whether the reset was successful
+ */
+const resetToHighestPriorityRpc = async (provider, networkType) => {
+  try {
+    const chainId = await provider.getNetwork().then(n => n.chainId);
+    const rpcUrls =
+      networkType === 'mainnet' ? MAINNET_RPC_URLS : APOTHEM_RPC_URLS;
+
+    if (rpcUrls.length === 0) return false;
+
+    const highestPriorityRpc = rpcUrls[0];
+    await provider.send('wallet_addEthereumChain', [
+      {
+        chainId: `0x${chainId.toString(16)}`,
+        rpcUrls: [highestPriorityRpc],
+        // ... other chain parameters ...
+      },
+    ]);
+
+    return true;
+  } catch (error) {
+    console.error('Failed to reset to highest priority RPC:', error);
+    return false;
+  }
+};
+
+const handleAddNetwork = async (provider, networkType, _addError) => {
+  try {
+    // ... existing code ...
+  } catch (error) {
+    console.error('Error adding network:', error);
     return false;
   }
 };

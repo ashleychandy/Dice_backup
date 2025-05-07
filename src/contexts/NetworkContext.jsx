@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useWallet } from '../components/wallet/WalletProvider';
-import { NETWORK_CONFIG } from '../config';
+import { NETWORK_CONFIG, getUserPreferredNetwork } from '../config';
 
 // Define available networks - use the same structure as NETWORK_CONFIG
 export const NETWORKS = {
   MAINNET: {
     id: 'mainnet',
     name: 'XDC Mainnet',
-    rpc: import.meta.env.VITE_XDC_MAINNET_RPC,
+    rpc: NETWORK_CONFIG.mainnet.rpcUrl,
     chainId: 50,
     explorer: 'https://explorer.xinfin.network',
     contracts: {
@@ -23,7 +23,7 @@ export const NETWORKS = {
   APOTHEM: {
     id: 'apothem',
     name: 'Apothem Testnet',
-    rpc: import.meta.env.VITE_XDC_APOTHEM_RPC,
+    rpc: NETWORK_CONFIG.apothem.rpcUrl,
     chainId: 51,
     explorer: 'https://explorer.apothem.network',
     contracts: {
@@ -38,6 +38,11 @@ export const NETWORKS = {
   },
 };
 
+// Storage keys for RPC settings
+const STORAGE_KEYS = {
+  LAST_RPC_UPDATE: 'xdc_dice_last_rpc_update',
+};
+
 // Create the context
 const NetworkContext = createContext(null);
 
@@ -45,13 +50,43 @@ const NetworkContext = createContext(null);
 export const NetworkProvider = ({ children }) => {
   const { provider } = useWallet();
   const [currentNetwork, setCurrentNetwork] = useState(
-    // Default to env setting or Apothem
-    import.meta.env.VITE_NETWORK === 'mainnet'
-      ? NETWORKS.MAINNET
-      : NETWORKS.APOTHEM
+    // Use the user's preferred network or env setting or default to Apothem
+    NETWORKS[getUserPreferredNetwork().toUpperCase()] ||
+      (import.meta.env.VITE_NETWORK === 'mainnet'
+        ? NETWORKS.MAINNET
+        : NETWORKS.APOTHEM)
   );
   const [isNetworkSwitching, setIsNetworkSwitching] = useState(false);
   const [networkError, setNetworkError] = useState(null);
+
+  // Check for RPC URL changes on component mount
+  useEffect(() => {
+    const checkRpcChanges = () => {
+      // Update network objects with latest RPC URLs from config
+      NETWORKS.MAINNET.rpc = NETWORK_CONFIG.mainnet.rpcUrl;
+      NETWORKS.APOTHEM.rpc = NETWORK_CONFIG.apothem.rpcUrl;
+
+      // Check if we need to reload the page due to RPC changes
+      const lastUpdate = localStorage.getItem(STORAGE_KEYS.LAST_RPC_UPDATE);
+      const currentTimestamp = Date.now().toString();
+
+      if (lastUpdate) {
+        // If storage has a different RPC URL than what's loaded, reload the page
+        if (
+          NETWORKS.MAINNET.rpc !== NETWORK_CONFIG.mainnet.rpcUrl ||
+          NETWORKS.APOTHEM.rpc !== NETWORK_CONFIG.apothem.rpcUrl
+        ) {
+          localStorage.setItem(STORAGE_KEYS.LAST_RPC_UPDATE, currentTimestamp);
+          window.location.reload();
+        }
+      } else {
+        // First time tracking RPC URLs
+        localStorage.setItem(STORAGE_KEYS.LAST_RPC_UPDATE, currentTimestamp);
+      }
+    };
+
+    checkRpcChanges();
+  }, []);
 
   // Detect the current network from provider when available
   useEffect(() => {
@@ -109,6 +144,15 @@ export const NetworkProvider = ({ children }) => {
     }
   };
 
+  // Function to refresh network configuration when RPC URLs change
+  const refreshNetworkConfig = () => {
+    // Update timestamp to prevent unnecessary reloads
+    localStorage.setItem(STORAGE_KEYS.LAST_RPC_UPDATE, Date.now().toString());
+
+    // Force page reload to apply new RPC URLs
+    window.location.reload();
+  };
+
   return (
     <NetworkContext.Provider
       value={{
@@ -117,6 +161,7 @@ export const NetworkProvider = ({ children }) => {
         switchNetwork,
         isNetworkSwitching,
         networkError,
+        refreshNetworkConfig,
       }}
     >
       {children}

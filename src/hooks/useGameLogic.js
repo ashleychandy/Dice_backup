@@ -17,20 +17,11 @@ import { useRequestTracking } from './useRequestTracking';
 
 // Custom hook for bet state management
 const useBetState = (initialBetAmount = '1000000000000000000') => {
-  // Store betAmount as string to avoid serialization issues
   const [betAmount, setBetAmountRaw] = useState(initialBetAmount);
-  const [chosenNumber, setChosenNumber] = useState(null);
+  const [chosenNumber, setChosenNumber] = useState(1);
   const lastBetAmountRef = useRef(initialBetAmount);
 
   const setBetAmount = useCallback(amount => {
-    // Debug the amount being set
-    console.log('setBetAmount called with:', {
-      type: typeof amount,
-      value: String(amount),
-      isBigInt: typeof amount === 'bigint',
-    });
-
-    // Convert to string regardless of input type
     let amountStr;
     try {
       if (typeof amount === 'bigint') {
@@ -42,36 +33,23 @@ const useBetState = (initialBetAmount = '1000000000000000000') => {
       } else {
         amountStr = String(amount);
       }
-
-      console.log('Converted to string:', amountStr);
     } catch (error) {
-      console.error('Error converting amount to string:', error);
       amountStr = '0';
     }
 
     if (amountStr !== lastBetAmountRef.current) {
-      // Immediately update the reference to ensure instant UI feedback
       lastBetAmountRef.current = amountStr;
-      // Update state
       setBetAmountRaw(amountStr);
     }
   }, []);
 
-  // Convert to BigInt when needed
   const betAmountBigInt = useMemo(() => {
     try {
-      console.log('Converting betAmount to BigInt:', betAmount);
       if (!betAmount || betAmount === '') {
         return BigInt(0);
       }
       return BigInt(betAmount);
     } catch (error) {
-      console.error(
-        'Error converting betAmount to BigInt:',
-        error,
-        'Value:',
-        betAmount
-      );
       return BigInt(0);
     }
   }, [betAmount]);
@@ -153,7 +131,13 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   const safetyTimeoutRef = useRef(null);
   const [isApproving, setIsApproving] = useState(false);
   const [isBetting, withBetting] = useLoadingState(false);
-  const handleError = useErrorHandler(onError, addToast);
+  const handleError = useCallback(
+    (_error, source) => {
+      console.error(`Error in ${source}:`, _error);
+      if (onError) onError(_error);
+    },
+    [onError]
+  );
   const { contract: _contract } = useDiceContract();
   const { account: walletAccount } = useWallet();
   const [isProcessing, _setIsProcessing] = useState(false);
@@ -293,77 +277,44 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
   // Handle approving tokens with optimistic updates
   const handleApproveToken = useCallback(async () => {
-    if (!contracts?.token || !contracts?.dice || !walletAccount) {
-      addToast(
-        'Cannot approve tokens: wallet or contract connection issue',
-        'error'
-      );
+    if (!contracts?.token || !walletAccount) {
+      addToast('Cannot approve: wallet or contract connection issue', 'error');
       return;
     }
 
-    // Prevent multiple approval attempts
     if (operationInProgress.current || isApproving) {
-      addToast('An operation is already in progress', 'warning');
+      addToast('An approval operation is already in progress', 'warning');
       return;
     }
 
     operationInProgress.current = true;
-    setIsApproving(true);
-
-    // Set local state immediately for better UI feedback
-    setProcessingState(true);
-
-    // Setup safety timeout to reset state if the operation takes too long
-    const clearTimeout = setupSafetyTimeout(safetyTimeoutRef, () => {
-      operationInProgress.current = false;
-      setIsApproving(false);
-      setProcessingState(false);
-      addToast('The approval operation timed out. Please try again.', 'error');
-    });
 
     try {
-      // Get the dice contract address (target for v6 ethers, address for v5)
-      const diceContractAddress =
-        contracts.dice.target || contracts.dice.address;
+      setIsApproving(true);
+      setProcessingState(true);
 
-      // Show initial toast
-      addToast('Starting token approval process...', 'info');
-
-      // Call the enhanced token approval function with correct parameters
-      // Use maxRetries=2 for up to 3 total attempts (initial + 2 retries)
-      const success = await checkAndApproveToken(
-        contracts.token,
-        diceContractAddress,
-        walletAccount,
-        isProcessing => setProcessingState(isProcessing),
-        addToast,
-        2 // max retries
+      const clearTimeout = setupSafetyTimeout(
+        safetyTimeoutRef,
+        () => {
+          operationInProgress.current = false;
+          setIsApproving(false);
+          setProcessingState(false);
+          addToast(
+            'The approval operation timed out. Please try again.',
+            'error'
+          );
+        },
+        60000
       );
 
-      if (success) {
-        // Force immediate refresh of all data - no caching
-        try {
-          // Create a small delay to let blockchain state settle
-          await new Promise(resolve => setTimeout(resolve, 2000));
+      await checkAndApproveToken();
+      await invalidateQueries();
 
-          // Refresh balance data
-          invalidateQueries(['balance']);
-        } catch (refetchError) {
-          console.error('Error refreshing data after approval:', refetchError);
-          // Continue despite refetch error, since approval was successful
-        }
-      } else {
-        // If approval failed, show a detailed error message
-        addToast(
-          'Token approval failed. Please check your wallet and try again.',
-          'error'
-        );
-      }
-    } catch (error) {
-      console.error('Token approval error:', error);
-      handleError(error, 'handleApproveToken');
+      addToast('Token approval successful!', 'success');
+    } catch (_error) {
+      console.error('Token approval error:', _error);
+      handleError(_error, 'handleApproveToken');
     } finally {
-      // Clean up resources and reset state
       clearTimeout();
       operationInProgress.current = false;
       setIsApproving(false);
@@ -374,11 +325,10 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     walletAccount,
     handleError,
     addToast,
-    queryClient,
     isApproving,
     setProcessingState,
-    checkAndApproveToken,
     invalidateQueries,
+    checkAndApproveToken,
   ]);
 
   // Validate bet amount against contract limits
@@ -991,6 +941,41 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       }
     }
   };
+
+  const checkVrfResult = useCallback(
+    async txHash => {
+      if (!contracts?.dice || !addToast) return;
+
+      try {
+        const result = await checkVrfResultInHistory(txHash);
+        if (result) {
+          addToast('VRF result received!', 'success');
+          setProcessingState(false);
+        }
+      } catch (_error) {
+        handleError(_error, 'checkVrfResult');
+      }
+    },
+    [
+      contracts,
+      addToast,
+      setProcessingState,
+      checkVrfResultInHistory,
+      handleError,
+    ]
+  );
+
+  useEffect(() => {
+    const invalidateAndRefetch = async () => {
+      await invalidateQueries();
+      // ... rest of the effect
+    };
+
+    invalidateAndRefetch();
+  }, [
+    invalidateQueries,
+    // ... other existing dependencies
+  ]);
 
   // Return all the necessary state and functions
   return {

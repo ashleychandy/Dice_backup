@@ -96,6 +96,9 @@ const GameStats = ({ account, onError, addToast }) => {
 
   return (
     <div className="space-y-6">
+      {recoveryError && (
+        <div className="text-red-500 mt-2 text-xs">{recoveryError.message}</div>
+      )}
       <Card className="bg-gray-800/20 p-4 border border-gray-700">
         <div className="flex justify-between items-center">
           <div>
@@ -122,11 +125,6 @@ const GameStats = ({ account, onError, addToast }) => {
             Recover Game
           </Button>
         </div>
-        {recoveryError && (
-          <div className="text-red-500 mt-2 text-xs">
-            {recoveryError.message}
-          </div>
-        )}
       </Card>
       <Card className="bg-gray-800/20 p-4 border border-gray-700">
         <div className="flex flex-col gap-2">

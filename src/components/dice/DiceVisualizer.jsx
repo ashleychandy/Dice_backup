@@ -28,28 +28,13 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
   // Start a safety timer for VRF animation (max 15 seconds)
   useEffect(() => {
     if (processingVrf && !vrfStartTimeRef.current) {
-      // Record when VRF processing started
       vrfStartTimeRef.current = Date.now();
-
-      // Set a maximum duration timer (15 seconds) to force clear the VRF state
       maxVrfDurationRef.current = setTimeout(() => {
-        console.log('🚨 Maximum VRF duration reached - forcing clear');
         setProcessingVrf(false);
         vrfStartTimeRef.current = null;
         maxVrfDurationRef.current = null;
-
-        // Set a simple result if none exists
-        if (
-          !result ||
-          !result.rolledNumber ||
-          result.rolledNumber < 1 ||
-          result.rolledNumber > 6
-        ) {
-          console.log('⚠️ Setting fallback result due to VRF timeout');
-        }
       }, 15000);
     } else if (!processingVrf) {
-      // Reset when VRF processing stops
       vrfStartTimeRef.current = null;
       if (maxVrfDurationRef.current) {
         clearTimeout(maxVrfDurationRef.current);
@@ -58,7 +43,6 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     }
 
     return () => {
-      // Clear timeout on unmount or if the effect reruns
       if (maxVrfDurationRef.current) {
         clearTimeout(maxVrfDurationRef.current);
         maxVrfDurationRef.current = null;
@@ -66,50 +50,13 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     };
   }, [processingVrf, result, setProcessingVrf]);
 
-  // Debug logging to track result changes
-  useEffect(() => {
-    console.log('🎲 DiceVisualizer state:', {
-      prev: prevResultRef.current
-        ? {
-            rolledNumber: prevResultRef.current.rolledNumber,
-            vrfPending: prevResultRef.current.vrfPending,
-            vrfComplete: prevResultRef.current.vrfComplete,
-          }
-        : null,
-      current: result
-        ? {
-            rolledNumber: result.rolledNumber,
-            vrfPending: result.vrfPending,
-            vrfComplete: result.vrfComplete,
-          }
-        : null,
-      isRolling,
-      processingVrf,
-      vrfStartTime: vrfStartTimeRef.current,
-      elapsed: vrfStartTimeRef.current
-        ? Math.floor((Date.now() - vrfStartTimeRef.current) / 1000) + 's'
-        : null,
-      shouldRoll:
-        (isRolling || processingVrf) &&
-        !(
-          result &&
-          ((result.rolledNumber >= 1 && result.rolledNumber <= 6) ||
-            result.vrfComplete === true)
-        ),
-    });
+  // If we have a new valid result after a VRF process, ensure processingVrf is cleared
+  if (result && result.rolledNumber >= 1 && result.rolledNumber <= 6) {
+    setProcessingVrf(false);
+  }
 
-    // If we have a new valid result after a VRF process, ensure processingVrf is cleared
-    if (result && result.rolledNumber >= 1 && result.rolledNumber <= 6) {
-      console.log(
-        '✅ Valid result received, clearing VRF state:',
-        result.rolledNumber
-      );
-      setProcessingVrf(false);
-    }
-
-    // Store the current result for next comparison
-    prevResultRef.current = result;
-  }, [result, isRolling, processingVrf, setProcessingVrf]);
+  // Store the current result for next comparison
+  prevResultRef.current = result;
 
   // Clear all timeouts when unmounting or resetting
   const clearAllTimeouts = () => {

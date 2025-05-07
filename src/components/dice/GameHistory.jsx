@@ -1,13 +1,16 @@
 import { AnimatePresence } from 'framer-motion';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHistory, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { _faHistory, _faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { useBetHistory } from '../../hooks/useBetHistory';
 import { useDiceContract } from '../../hooks/useDiceContract';
 import EmptyState from './EmptyState';
 import GameHistoryItem from './GameHistoryItem';
 import GameHistoryLoader from './GameHistoryLoader';
 import GameHistoryError from '../error/GameHistoryError';
+import { _Tab } from '../ui/Tab';
+import FilterButton from '../ui/FilterButton';
 
 // Minimalist pagination component
 const Pagination = ({
@@ -75,8 +78,8 @@ const Tab = ({ label, active, onClick, icon }) => (
 
 // Game History component with a more modern tab design
 const GameHistory = ({ account, onError }) => {
-  const [filter, setFilter] = useState('all');
-  const [viewMode, setViewMode] = useState('list');
+  const [filter, _setFilter] = useState('all');
+  const [_viewMode, _setViewMode] = useState('list');
   const { contract: diceContract, isLoading: isContractLoading } =
     useDiceContract();
 
@@ -101,7 +104,7 @@ const GameHistory = ({ account, onError }) => {
   });
 
   // Handle any errors
-  React.useEffect(() => {
+  useEffect(() => {
     if (error && onError) {
       onError(
         typeof error === 'string' ? error : error.message || 'Unknown error'
@@ -110,12 +113,12 @@ const GameHistory = ({ account, onError }) => {
   }, [error, onError]);
 
   // Reset to page 1 when changing filters
-  React.useEffect(() => {
+  useEffect(() => {
     goToPage(1);
   }, [filter, goToPage]);
 
   // Filter games based on selected filter
-  const filteredGames = React.useMemo(() => {
+  const filteredGames = useEffect(() => {
     if (!betHistory) return [];
 
     if (filter === 'pending') {
@@ -125,7 +128,7 @@ const GameHistory = ({ account, onError }) => {
   }, [betHistory, filter]);
 
   // Check if there are any pending games
-  const hasPendingGames = React.useMemo(() => {
+  const _hasPendingGames = useEffect(() => {
     return betHistory && betHistory.some(game => game.resultType === 'unknown');
   }, [betHistory]);
 

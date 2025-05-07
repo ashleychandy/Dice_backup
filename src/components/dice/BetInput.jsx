@@ -83,20 +83,8 @@ const BetInput = ({
       }
 
       try {
-        console.log('Validating input:', input);
-
-        // Debug the user's balance
-        console.log('Current userBalance:', {
-          value:
-            typeof userBalance === 'bigint'
-              ? userBalance.toString()
-              : userBalance,
-          type: typeof userBalance,
-        });
-
         // Convert input to BigInt with 18 decimals (wei)
         const amount = BigInt(input) * BigInt(10) ** BigInt(18);
-        console.log('Bet amount in wei:', String(amount));
 
         // Parse min value properly ensuring it's always BigInt
         const minAmount =

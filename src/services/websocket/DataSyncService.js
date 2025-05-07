@@ -36,10 +36,6 @@ class DataSyncService {
     // Start the data synchronization
     this.start();
 
-    console.log(
-      `DataSyncService initialized with ${refreshInterval}ms refresh interval`
-    );
-
     return this;
   }
 
@@ -48,7 +44,6 @@ class DataSyncService {
    */
   start() {
     if (!this.isInitialized) {
-      console.warn('DataSyncService not initialized. Call init() first.');
       return;
     }
 
@@ -57,8 +52,6 @@ class DataSyncService {
 
     // Set up contract event listeners
     this.setupEventListeners();
-
-    console.log('DataSyncService started');
   }
 
   /**
@@ -73,8 +66,6 @@ class DataSyncService {
 
     // Remove all contract event listeners
     this.removeEventListeners();
-
-    console.log('DataSyncService stopped');
   }
 
   /**
@@ -121,30 +112,25 @@ class DataSyncService {
     try {
       // Listen for bet events
       this.listeners.betPlaced = (player, number, amount, result, payout) => {
-        console.log('BetPlaced event detected');
         this.refreshData(['betHistory', 'balance', 'gameStatus']);
       };
 
       // Listen for game completed events
       this.listeners.gameCompleted = (player, isWin) => {
-        console.log('GameCompleted event detected');
         this.refreshData(['betHistory', 'balance', 'gameStatus']);
       };
 
       // Listen for recovery events
       this.listeners.gameRecovered = player => {
-        console.log('GameRecovered event detected');
         this.refreshData(['betHistory', 'balance', 'gameStatus']);
       };
 
       // Listen for contract state changes
       this.listeners.paused = () => {
-        console.log('Paused event detected');
         this.refreshData('contractState');
       };
 
       this.listeners.unpaused = () => {
-        console.log('Unpaused event detected');
         this.refreshData('contractState');
       };
 
@@ -154,8 +140,6 @@ class DataSyncService {
       this.contracts.dice.on('GameRecovered', this.listeners.gameRecovered);
       this.contracts.dice.on('Paused', this.listeners.paused);
       this.contracts.dice.on('Unpaused', this.listeners.unpaused);
-
-      console.log('Contract event listeners set up');
     } catch (error) {
       console.error('Error setting up contract event listeners:', error);
     }
@@ -174,8 +158,6 @@ class DataSyncService {
       this.contracts.dice.removeAllListeners('GameRecovered');
       this.contracts.dice.removeAllListeners('Paused');
       this.contracts.dice.removeAllListeners('Unpaused');
-
-      console.log('Contract event listeners removed');
     } catch (error) {
       console.error('Error removing contract event listeners:', error);
     }
@@ -230,10 +212,5 @@ class DataSyncService {
 
 // Create a singleton instance
 const dataSyncService = new DataSyncService();
-
-// Add to window for debugging purposes
-if (typeof window !== 'undefined') {
-  window.dataSyncService = dataSyncService;
-}
 
 export default dataSyncService;

@@ -21,16 +21,6 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     return betHistory[0]; // First item is the most recent bet
   }, [betHistory]);
 
-  // Add debugging logs to help diagnose issues
-  useEffect(() => {
-    console.log('LatestBet component received:', {
-      result,
-      chosenNumber,
-      betAmount: betAmount ? betAmount.toString() : null,
-      latestHistoryBet,
-    });
-  }, [result, chosenNumber, betAmount, latestHistoryBet]);
-
   const formatAmount = amount => {
     if (!amount || amount === '0') return '0';
     try {

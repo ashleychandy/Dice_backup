@@ -27,100 +27,76 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
 
   // Start a safety timer for VRF animation (max 15 seconds)
   useEffect(() => {
-    if (processingVrf && !vrfStartTimeRef.current) {
-      // Record when VRF processing started
+    // Clear all existing timeouts to avoid race conditions
+    const clearAllTimeouts = () => {
+      timeoutRefs.current.forEach(clearTimeout);
+      timeoutRefs.current = [];
+    };
+
+    // If the component starts rolling, start processing VRF
+    if (isRolling && !processingVrf) {
+      clearAllTimeouts();
+      setProcessingVrf(true);
       vrfStartTimeRef.current = Date.now();
 
-      // Set a maximum duration timer (15 seconds) to force clear the VRF state
-      maxVrfDurationRef.current = setTimeout(() => {
-        console.log('🚨 Maximum VRF duration reached - forcing clear');
-        setProcessingVrf(false);
-        vrfStartTimeRef.current = null;
-        maxVrfDurationRef.current = null;
-
-        // Set a simple result if none exists
-        if (
-          !result ||
-          !result.rolledNumber ||
-          result.rolledNumber < 1 ||
-          result.rolledNumber > 6
-        ) {
-          console.log('⚠️ Setting fallback result due to VRF timeout');
+      // Set a safety timeout to clear the VRF processing state after 15 seconds
+      // This will automatically show a timeout message
+      const timeoutId = setTimeout(() => {
+        // Only clear if we're still processing (result not received)
+        if (!result || !result.requestFulfilled) {
+          setProcessingVrf(false);
         }
       }, 15000);
-    } else if (!processingVrf) {
-      // Reset when VRF processing stops
-      vrfStartTimeRef.current = null;
-      if (maxVrfDurationRef.current) {
-        clearTimeout(maxVrfDurationRef.current);
-        maxVrfDurationRef.current = null;
-      }
+
+      timeoutRefs.current.push(timeoutId);
     }
+
+    // If we receive a result, stop processing VRF
+    if (result && (result.requestFulfilled || result.rolledNumber)) {
+      clearAllTimeouts();
+
+      // Give a slight delay before clearing the VRF processing state
+      // This allows animations to complete
+      const timeoutId = setTimeout(() => {
+        setProcessingVrf(false);
+      }, 1000);
+
+      timeoutRefs.current.push(timeoutId);
+    }
+
+    // Cleanup function to clear all timeouts when unmounting
+    return () => {
+      clearAllTimeouts();
+    };
+  }, [isRolling, result, processingVrf, setProcessingVrf]);
+
+  // Show a timeout message if VRF processing takes too long
+  const vrfElapsed = vrfStartTimeRef.current
+    ? Math.floor((Date.now() - vrfStartTimeRef.current) / 1000)
+    : 0;
+
+  // Keep track of last result to avoid re-rendering issues
+  useEffect(() => {
+    if (
+      result &&
+      JSON.stringify(result) !== JSON.stringify(prevResultRef.current)
+    ) {
+      prevResultRef.current = result;
+    }
+  }, [result]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    // Clear all timeouts
+    const clearAllTimeouts = () => {
+      timeoutRefs.current.forEach(clearTimeout);
+      timeoutRefs.current = [];
+    };
 
     return () => {
-      // Clear timeout on unmount or if the effect reruns
-      if (maxVrfDurationRef.current) {
-        clearTimeout(maxVrfDurationRef.current);
-        maxVrfDurationRef.current = null;
-      }
+      clearAllTimeouts();
     };
-  }, [processingVrf, result, setProcessingVrf]);
-
-  // Debug logging to track result changes
-  useEffect(() => {
-    console.log('🎲 DiceVisualizer state:', {
-      prev: prevResultRef.current
-        ? {
-            rolledNumber: prevResultRef.current.rolledNumber,
-            vrfPending: prevResultRef.current.vrfPending,
-            vrfComplete: prevResultRef.current.vrfComplete,
-          }
-        : null,
-      current: result
-        ? {
-            rolledNumber: result.rolledNumber,
-            vrfPending: result.vrfPending,
-            vrfComplete: result.vrfComplete,
-          }
-        : null,
-      isRolling,
-      processingVrf,
-      vrfStartTime: vrfStartTimeRef.current,
-      elapsed: vrfStartTimeRef.current
-        ? Math.floor((Date.now() - vrfStartTimeRef.current) / 1000) + 's'
-        : null,
-      shouldRoll:
-        (isRolling || processingVrf) &&
-        !(
-          result &&
-          ((result.rolledNumber >= 1 && result.rolledNumber <= 6) ||
-            result.vrfComplete === true)
-        ),
-    });
-
-    // If we have a new valid result after a VRF process, ensure processingVrf is cleared
-    if (result && result.rolledNumber >= 1 && result.rolledNumber <= 6) {
-      console.log(
-        '✅ Valid result received, clearing VRF state:',
-        result.rolledNumber
-      );
-      setProcessingVrf(false);
-    }
-
-    // Store the current result for next comparison
-    prevResultRef.current = result;
-  }, [result, isRolling, processingVrf, setProcessingVrf]);
-
-  // Clear all timeouts when unmounting or resetting
-  const clearAllTimeouts = () => {
-    timeoutRefs.current.forEach(clearTimeout);
-    timeoutRefs.current = [];
-
-    if (maxVrfDurationRef.current) {
-      clearTimeout(maxVrfDurationRef.current);
-      maxVrfDurationRef.current = null;
-    }
-  };
+  }, []);
 
   // Error handling for any potential rendering issues
   useEffect(() => {
@@ -144,13 +120,6 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       setErrorMessage(error.message || 'Error rendering dice');
     }
   }, [displayNumber]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      clearAllTimeouts();
-    };
-  }, []);
 
   // Function to render a dot in the dice with enhanced styling
   const renderDot = (size = 'w-5 h-5') => (
@@ -321,12 +290,11 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
   // Determine if the dice should be rolling - fixed logic to properly stop on valid results
   const shouldRoll =
     (isRolling || processingVrf) &&
-    !(hasValidResult || (result && result.vrfComplete === true));
-
-  // Calculate elapsed VRF time for display
-  const vrfElapsed = vrfStartTimeRef.current
-    ? Math.floor((Date.now() - vrfStartTimeRef.current) / 1000)
-    : 0;
+    !(
+      result &&
+      (result.requestFulfilled ||
+        (result.rolledNumber >= 1 && result.rolledNumber <= 6))
+    );
 
   // Fallback UI for error state
   if (hasError) {

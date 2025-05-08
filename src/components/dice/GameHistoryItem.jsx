@@ -20,11 +20,15 @@ const getResultType = game => {
       return 'WIN';
     }
     return 'LOSS';
-  } else if (game.resultType === 'unknown' || game.isPending) {
+  } else if (
+    game.resultType === 'unknown' ||
+    game.isPending ||
+    !game.requestFulfilled
+  ) {
     return 'PENDING';
-  } else if (game.resultType === 'force_stopped') {
+  } else if (game.resultType === 'force_stopped' || game.rolledNumber === 254) {
     return 'STOPPED';
-  } else if (game.resultType === 'recovered') {
+  } else if (game.resultType === 'recovered' || game.rolledNumber === 255) {
     return 'RECOVERED';
   }
   return 'UNKNOWN';

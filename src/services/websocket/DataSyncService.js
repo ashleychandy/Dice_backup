@@ -120,21 +120,47 @@ class DataSyncService {
 
     try {
       // Listen for bet events
-      this.listeners.betPlaced = (player, number, amount, result, payout) => {
-        console.log('BetPlaced event detected');
-        this.refreshData(['betHistory', 'balance', 'gameStatus']);
+      this.listeners.betPlaced = (player, requestId, chosenNumber, amount) => {
+        console.log('BetPlaced event detected:', {
+          player,
+          requestId: requestId.toString(),
+          chosenNumber: Number(chosenNumber),
+          amount: amount.toString(),
+        });
+
+        // Only refresh data for the current player
+        if (player.toLowerCase() === this.account?.toLowerCase()) {
+          this.refreshData(['betHistory', 'balance', 'gameStatus']);
+        }
       };
 
       // Listen for game completed events
-      this.listeners.gameCompleted = (player, isWin) => {
-        console.log('GameCompleted event detected');
-        this.refreshData(['betHistory', 'balance', 'gameStatus']);
+      this.listeners.gameCompleted = (player, requestId, result, payout) => {
+        console.log('GameCompleted event detected:', {
+          player,
+          requestId: requestId.toString(),
+          result: Number(result),
+          payout: payout.toString(),
+        });
+
+        // Only refresh data for the current player
+        if (player.toLowerCase() === this.account?.toLowerCase()) {
+          this.refreshData(['betHistory', 'balance', 'gameStatus']);
+        }
       };
 
       // Listen for recovery events
-      this.listeners.gameRecovered = player => {
-        console.log('GameRecovered event detected');
-        this.refreshData(['betHistory', 'balance', 'gameStatus']);
+      this.listeners.gameRecovered = (player, requestId, refundAmount) => {
+        console.log('GameRecovered event detected:', {
+          player,
+          requestId: requestId.toString(),
+          refundAmount: refundAmount.toString(),
+        });
+
+        // Only refresh data for the current player
+        if (player.toLowerCase() === this.account?.toLowerCase()) {
+          this.refreshData(['betHistory', 'balance', 'gameStatus']);
+        }
       };
 
       // Listen for contract state changes

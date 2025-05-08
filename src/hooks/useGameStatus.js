@@ -32,6 +32,9 @@ export const useGameStatus = () => {
           requestId: status.requestId.toString(),
           recoveryEligible: status.recoveryEligible,
           lastPlayTimestamp: Number(status.lastPlayTimestamp),
+          requestExists: status.requestExists,
+          requestProcessed: status.requestProcessed,
+          requestFulfilled: status.requestFulfilled,
         };
       } catch (err) {
         console.error('Error fetching game status:', err);

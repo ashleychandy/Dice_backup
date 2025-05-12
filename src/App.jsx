@@ -4,7 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Components
 import Layout from './components/layout/Layout.jsx';
-import WalletProvider from './components/wallet/WalletProvider.jsx';
+import WalletProvider, {
+  useWallet,
+} from './components/wallet/WalletProvider.jsx';
 import ErrorBoundary from './components/error/ErrorBoundary.jsx';
 
 // Import directly instead of using lazy loading to avoid potential issues
@@ -13,6 +15,8 @@ import AppRoutes from './components/routes/AppRoutes.jsx';
 // Utils
 import { NotificationProvider } from './contexts/NotificationContext.jsx';
 import { NetworkProvider } from './contexts/NetworkContext.jsx';
+import { PollingProvider } from './services/pollingService.jsx';
+import { useDiceContract } from './hooks/useDiceContract.js';
 
 /**
  * Main App component
@@ -40,15 +44,29 @@ function App() {
           <Router>
             <WalletProvider>
               <NetworkProvider>
-                <Layout>
-                  <AppRoutes />
-                </Layout>
+                <PollingProviderWrapper>
+                  <Layout>
+                    <AppRoutes />
+                  </Layout>
+                </PollingProviderWrapper>
               </NetworkProvider>
             </WalletProvider>
           </Router>
         </NotificationProvider>
       </QueryClientProvider>
     </ErrorBoundary>
+  );
+}
+
+// Wrapper component for the PollingProvider to have access to wallet and contract
+function PollingProviderWrapper({ children }) {
+  const { contract } = useDiceContract();
+  const { account } = useWallet();
+
+  return (
+    <PollingProvider diceContract={contract} account={account}>
+      {children}
+    </PollingProvider>
   );
 }
 

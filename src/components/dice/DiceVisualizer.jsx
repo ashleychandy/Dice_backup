@@ -25,7 +25,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     setProcessingVrf,
   } = useDiceNumber(result, chosenNumber, isRolling);
 
-  // Start a safety timer for VRF animation (max 15 seconds)
+  // Start a safety timer for VRF animation (max 30 seconds)
   useEffect(() => {
     // Clear all existing timeouts to avoid race conditions
     const clearAllTimeouts = () => {
@@ -39,14 +39,14 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       setProcessingVrf(true);
       vrfStartTimeRef.current = Date.now();
 
-      // Set a safety timeout to clear the VRF processing state after 15 seconds
+      // Set a safety timeout to clear the VRF processing state after 30 seconds
       // This will automatically show a timeout message
       const timeoutId = setTimeout(() => {
         // Only clear if we're still processing (result not received)
         if (!result || !result.requestFulfilled) {
           setProcessingVrf(false);
         }
-      }, 15000);
+      }, 30000);
 
       timeoutRefs.current.push(timeoutId);
     }

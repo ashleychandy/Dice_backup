@@ -1,8 +1,9 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useWallet } from '../components/wallet/WalletProvider';
 import { useDiceContract } from './useDiceContract';
 import { useNotification } from '../contexts/NotificationContext';
+import { usePollingService } from '../services/pollingService.jsx';
 
 // Constants from contract
 const GAME_TIMEOUT = 3600; // 1 hour in seconds
@@ -15,7 +16,7 @@ const BLOCK_THRESHOLD = 300;
 export const useGameRecovery = ({ onSuccess, onError } = {}) => {
   const { account } = useWallet();
   const { contract: diceContract } = useDiceContract();
-  const queryClient = useQueryClient();
+  const { refreshData, gameStatus } = usePollingService();
   const { addToast } = useNotification();
 
   // Mutation for self-recovery
@@ -45,9 +46,8 @@ export const useGameRecovery = ({ onSuccess, onError } = {}) => {
         type: 'success',
       });
 
-      // Invalidate relevant queries
-      queryClient.invalidateQueries(['gameStatus']);
-      queryClient.invalidateQueries(['betHistory']);
+      // Refresh data from polling service
+      refreshData();
 
       if (onSuccess) {
         onSuccess(data);
@@ -98,9 +98,8 @@ export const useGameRecovery = ({ onSuccess, onError } = {}) => {
         type: 'success',
       });
 
-      // Invalidate relevant queries
-      queryClient.invalidateQueries(['gameStatus', variables]);
-      queryClient.invalidateQueries(['betHistory', variables]);
+      // Refresh data from polling service
+      refreshData();
 
       if (onSuccess) {
         onSuccess(data);
@@ -123,48 +122,61 @@ export const useGameRecovery = ({ onSuccess, onError } = {}) => {
   // Check if game is eligible for recovery
   const checkRecoveryEligibility = useCallback(
     async playerAddress => {
-      if (!diceContract) return null;
+      // If we need a specific address other than the current account,
+      // we still need to make a direct contract call
+      if (playerAddress && playerAddress !== account) {
+        if (!diceContract) return null;
 
-      const address = playerAddress || account;
-      if (!address) return null;
-
-      try {
-        const gameStatus = await diceContract.getGameStatus(address);
-        const {
-          isActive,
-          requestId,
-          requestExists,
-          requestProcessed,
-          recoveryEligible,
-          lastPlayTimestamp,
-        } = gameStatus;
-
-        if (!isActive) return { eligible: false, reason: 'No active game' };
-
-        const currentTime = Math.floor(Date.now() / 1000);
-        const elapsedTime = currentTime - Number(lastPlayTimestamp);
-
-        return {
-          eligible: recoveryEligible,
-          isActive,
-          requestStatus: {
-            id: requestId.toString(),
-            exists: requestExists,
-            processed: requestProcessed,
-          },
-          timeStatus: {
-            elapsed: elapsedTime,
-            timeoutReached: elapsedTime >= GAME_TIMEOUT,
-            secondsUntilEligible: Math.max(0, GAME_TIMEOUT - elapsedTime),
-          },
-        };
-      } catch (error) {
-        console.error('Error checking recovery eligibility:', error);
-        return null;
+        try {
+          const status = await diceContract.getGameStatus(playerAddress);
+          return processGameStatusForRecovery(status);
+        } catch (error) {
+          console.error('Error checking recovery eligibility:', error);
+          return null;
+        }
       }
+
+      // For the current account, use the cached gameStatus from polling service
+      if (gameStatus) {
+        return processGameStatusForRecovery(gameStatus);
+      }
+
+      return null;
     },
-    [diceContract, account]
+    [diceContract, account, gameStatus]
   );
+
+  // Helper function to process game status for recovery
+  const processGameStatusForRecovery = status => {
+    const {
+      isActive,
+      requestId,
+      requestExists,
+      requestProcessed,
+      recoveryEligible,
+      lastPlayTimestamp,
+    } = status;
+
+    if (!isActive) return { eligible: false, reason: 'No active game' };
+
+    const currentTime = Math.floor(Date.now() / 1000);
+    const elapsedTime = currentTime - Number(lastPlayTimestamp);
+
+    return {
+      eligible: recoveryEligible,
+      isActive,
+      requestStatus: {
+        id: requestId.toString(),
+        exists: requestExists,
+        processed: requestProcessed,
+      },
+      timeStatus: {
+        elapsed: elapsedTime,
+        timeoutReached: elapsedTime >= GAME_TIMEOUT,
+        secondsUntilEligible: Math.max(0, GAME_TIMEOUT - elapsedTime),
+      },
+    };
+  };
 
   return {
     // Recovery actions

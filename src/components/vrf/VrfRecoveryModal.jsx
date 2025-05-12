@@ -1,40 +1,43 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useGameStatus } from '../../hooks/useGameStatus';
 import { useGameRecovery } from '../../hooks/useGameRecovery';
+import { usePollingService } from '../../services/pollingService.jsx';
 
 const VrfRecoveryModal = ({ isOpen, onClose }) => {
-  const {
-    gameStatus,
-    isLoading: statusLoading,
-    error: statusError,
-    refetch,
-  } = useGameStatus();
+  const { gameStatus, refreshData } = usePollingService();
+
   const { recoverGame, isRecovering, recoveryError } = useGameRecovery({
     onSuccess: () => {
-      refetch();
+      refreshData();
       onClose();
     },
   });
 
-  // Timer for progress
+  // Timer for progress - only updates UI, doesn't poll data
   const [activeGameTimer, setActiveGameTimer] = useState(0);
   useEffect(() => {
     let interval;
-    if (gameStatus?.isActive) {
-      interval = setInterval(() => {
+
+    // Only start UI timer if modal is open and we have an active game
+    if (isOpen && gameStatus?.isActive) {
+      const lastPlayed = gameStatus?.lastPlayTimestamp;
+
+      // Set initial timer value
+      if (lastPlayed > 0) {
         const now = Math.floor(Date.now() / 1000);
-        const lastPlayed = gameStatus?.lastPlayTimestamp;
-        if (lastPlayed > 0) {
-          const elapsed = now - lastPlayed;
-          setActiveGameTimer(elapsed);
-        }
+        setActiveGameTimer(now - lastPlayed);
+      }
+
+      // Update the UI timer every second
+      interval = setInterval(() => {
+        setActiveGameTimer(prev => prev + 1);
       }, 1000);
     } else {
       setActiveGameTimer(0);
     }
+
     return () => clearInterval(interval);
-  }, [gameStatus?.isActive, gameStatus?.lastPlayTimestamp]);
+  }, [isOpen, gameStatus?.isActive, gameStatus?.lastPlayTimestamp]);
 
   const recoveryTimeoutPeriod = 3600; // 1 hour in seconds
   let recoveryProgressPercentage = 0;

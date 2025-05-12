@@ -1,25 +1,17 @@
 import React, { useEffect, useMemo } from 'react';
 import { ethers } from 'ethers';
 import { motion } from 'framer-motion';
-import { useBetHistory } from '../../hooks/useBetHistory';
-import { useDiceContract } from '../../hooks/useDiceContract';
+import { usePollingService } from '../../services/pollingService.jsx';
 
 const LatestBet = ({ result, chosenNumber, betAmount }) => {
-  // Get the dice contract
-  const { contract: diceContract } = useDiceContract();
-
-  // Use the bet history hook to fetch game history (including the most recent bet)
-  const { betHistory, isLoading } = useBetHistory({
-    pageSize: 1, // We only need the most recent bet
-    autoRefresh: true, // Auto refresh to get the latest data
-    diceContract,
-  });
+  // Use the polling service to get bet history data
+  const { betHistory: allBets, isLoading } = usePollingService();
 
   // Get the latest completed bet from history
   const latestHistoryBet = useMemo(() => {
-    if (!betHistory || betHistory.length === 0) return null;
-    return betHistory[0]; // First item is the most recent bet
-  }, [betHistory]);
+    if (!allBets || allBets.length === 0) return null;
+    return allBets[0]; // First item is the most recent bet
+  }, [allBets]);
 
   // Add debugging logs to help diagnose issues
   useEffect(() => {
@@ -28,6 +20,18 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
       chosenNumber,
       betAmount: betAmount ? betAmount.toString() : null,
       latestHistoryBet,
+    });
+  }, [result, chosenNumber, betAmount, latestHistoryBet]);
+
+  // Add detailed debugging for props
+  useEffect(() => {
+    console.log('LatestBet component props:', {
+      resultObj: result ? { ...result } : null,
+      resultKeys: result ? Object.keys(result) : [],
+      chosenNumber,
+      betAmount: betAmount ? betAmount.toString() : null,
+      latestHistoryBet: latestHistoryBet ? { ...latestHistoryBet } : null,
+      latestHistoryKeys: latestHistoryBet ? Object.keys(latestHistoryBet) : [],
     });
   }, [result, chosenNumber, betAmount, latestHistoryBet]);
 
@@ -42,89 +46,158 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
   };
 
   // Check if we're waiting for VRF
-  const isWaitingForVrf =
-    result && (result.vrfPending || (result.isPending && !result.rolledNumber));
+  const isWaitingForVrf = useMemo(() => {
+    // If no result at all, we're not waiting
+    if (!result) return false;
 
-  // If we have an ongoing bet and a history bet, show both
-  if (isWaitingForVrf && latestHistoryBet) {
-    const historyRolledNum = latestHistoryBet.rolledNumber;
-    const historyChosenNum = latestHistoryBet.chosenNumber;
-    const isHistoryWin = latestHistoryBet.isWin;
+    // Check if we have an explicit VRF pending flag
+    if (result.vrfPending) return true;
 
+    // Check if the result is pending
+    if (result.isPending && !result.rolledNumber) return true;
+
+    // Check if we have a completed result
+    if (result.rolledNumber && typeof result.rolledNumber !== 'undefined') {
+      // If we have a valid rolled number, we're not waiting
+      return false;
+    }
+
+    // Check if we have a result in history that matches this bet
+    if (
+      latestHistoryBet &&
+      latestHistoryBet.chosenNumber === chosenNumber &&
+      latestHistoryBet.rolledNumber
+    ) {
+      // We have a result for this bet in history, so we're not waiting
+      return false;
+    }
+
+    // Default to not waiting if we can't determine
+    return false;
+  }, [result, latestHistoryBet, chosenNumber]);
+
+  // Add debug logging for VRF status
+  useEffect(() => {
+    if (result) {
+      console.log('VRF status check:', {
+        resultExists: !!result,
+        vrfPending: result.vrfPending,
+        isPending: result.isPending,
+        rolledNumber: result.rolledNumber,
+        isCompleted: result.isCompleted,
+        isWaitingForVrf,
+      });
+    }
+  }, [result, isWaitingForVrf]);
+
+  // Helper function to check if result matches the current bet values
+  const isCurrentBetResult = (result, chosenNum, amount) => {
+    if (!result || !chosenNum || !amount) return false;
+
+    // Check if chosen number matches
+    const resultChosenNum =
+      result.chosenNumber || (result.chosen ? Number(result.chosen) : null);
+    const chosenMatch = resultChosenNum === Number(chosenNum);
+
+    // For amount, do a rough comparison to avoid precision issues
+    let amountMatch = false;
+    try {
+      const resultAmount = result.amount ? result.amount.toString() : '0';
+      const betAmount = amount.toString();
+      // Compare only the first few digits to avoid precision issues
+      amountMatch = resultAmount.substring(0, 5) === betAmount.substring(0, 5);
+    } catch (e) {
+      console.error('Error comparing amounts:', e);
+    }
+
+    return chosenMatch && amountMatch;
+  };
+
+  // Determine the best result to display
+  const displayResult = useMemo(() => {
+    // If we have a valid result with rolledNumber, use it
+    if (
+      result &&
+      typeof result.rolledNumber !== 'undefined' &&
+      result.rolledNumber !== null
+    ) {
+      return {
+        source: 'current',
+        data: result,
+      };
+    }
+
+    // If we have a history bet that matches current bet parameters, use it
+    if (
+      latestHistoryBet &&
+      isCurrentBetResult(latestHistoryBet, chosenNumber, betAmount)
+    ) {
+      return {
+        source: 'history',
+        data: latestHistoryBet,
+      };
+    }
+
+    // If we're not waiting for VRF and have history, show history
+    if (!isWaitingForVrf && latestHistoryBet) {
+      return {
+        source: 'history',
+        data: latestHistoryBet,
+      };
+    }
+
+    // If we're waiting for VRF, return the pending result
+    if (isWaitingForVrf) {
+      return {
+        source: 'pending',
+        data: result,
+      };
+    }
+
+    // Default to history if available
+    if (latestHistoryBet) {
+      return {
+        source: 'history',
+        data: latestHistoryBet,
+      };
+    }
+
+    // No valid result to display
+    return null;
+  }, [result, latestHistoryBet, isWaitingForVrf, chosenNumber, betAmount]);
+
+  // Log the display result for debugging
+  useEffect(() => {
+    console.log('Display result decision:', displayResult);
+  }, [displayResult]);
+
+  // If no data is available, show a loading state
+  if (isLoading && !displayResult) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full bg-white rounded-xl border-2 border-secondary-200 p-4 shadow-lg"
       >
-        <div className="text-center mb-2 flex justify-between items-center">
+        <div className="text-center mb-2">
           <span className="font-bold text-secondary-800">Latest Roll</span>
-          <div className="flex items-center">
-            <motion.div
-              className="w-2 h-2 rounded-full bg-purple-600 mr-1"
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ repeat: Infinity, duration: 1.5 }}
-            />
-            <span className="text-xs text-purple-600">New bet in progress</span>
-          </div>
         </div>
-
-        {/* Show the last completed bet from history */}
-        <div className="flex justify-between items-center text-sm text-secondary-600 mb-2">
-          <span className="font-medium">Rolled: {historyRolledNum}</span>
-          <span className="text-base">
-            {isHistoryWin ? (
-              <span className="text-gaming-success">🎉 Won!</span>
-            ) : (
-              <span className="text-gaming-error">😔 Lost</span>
-            )}
-          </span>
-        </div>
-        <div className="flex justify-between items-center mb-2">
-          <div>
-            <div className="font-bold text-lg text-secondary-800">
-              {formatAmount(latestHistoryBet.amount)} GAMA
-            </div>
-            <div className="text-sm text-secondary-600">
-              Chosen: {historyChosenNum}
-            </div>
-          </div>
-          <div
-            className={`text-lg font-bold ${
-              isHistoryWin ? 'text-gaming-success' : 'text-gaming-error'
-            }`}
-          >
-            {isHistoryWin ? (
-              <>+{formatAmount(latestHistoryBet.payout)} GAMA</>
-            ) : (
-              'No Win'
-            )}
-          </div>
-        </div>
-
-        {/* Show current bet status in a subdued section */}
-        <div className="mt-3 pt-3 border-t border-secondary-100">
-          <div className="flex items-center justify-center mb-1">
-            <motion.div
-              className="w-2 h-2 rounded-full bg-purple-600 mr-1"
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ repeat: Infinity, duration: 1.5 }}
-            />
-            <span className="text-sm text-purple-600 font-medium">
-              Waiting for VRF...
-            </span>
-          </div>
-          <div className="flex justify-between text-xs text-secondary-500">
-            <span>Bet: {formatAmount(betAmount)} GAMA</span>
-            <span>Chosen: {chosenNumber || '-'}</span>
-          </div>
+        <div className="flex justify-center items-center py-4">
+          <motion.div
+            className="w-3 h-3 rounded-full bg-secondary-400 mr-2"
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ repeat: Infinity, duration: 1.5 }}
+          />
+          <span className="text-secondary-600">Loading bet history...</span>
         </div>
       </motion.div>
     );
   }
 
-  // If we're waiting for VRF and have no history, show the waiting state
-  if (isWaitingForVrf) {
+  // Show pending VRF result
+  if (displayResult?.source === 'pending') {
+    const pendingBetAmount = betAmount || '0';
+
     return (
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -146,25 +219,49 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
             </span>
           </div>
           <span className="text-secondary-600 text-sm text-center">
-            Your bet of {formatAmount(betAmount)} GAMA is being processed
+            Your bet of {formatAmount(pendingBetAmount)} GAMA is being processed
           </span>
           <span className="text-secondary-600 text-sm mt-1">
             Chosen number: {chosenNumber || '-'}
           </span>
         </div>
+
+        {/* If we also have history, show it below */}
+        {latestHistoryBet && (
+          <div className="mt-3 pt-3 border-t border-secondary-100">
+            <div className="text-xs text-secondary-500 mb-1">
+              Last Completed Bet:
+            </div>
+            <div className="flex justify-between items-center text-sm text-secondary-600">
+              <span>Rolled: {latestHistoryBet.rolledNumber}</span>
+              <span>
+                {latestHistoryBet.isWin ? (
+                  <span className="text-gaming-success text-xs">Won</span>
+                ) : (
+                  <span className="text-gaming-error text-xs">Lost</span>
+                )}
+              </span>
+            </div>
+          </div>
+        )}
       </motion.div>
     );
   }
 
-  // If we have a valid result, show it
-  if (result && typeof result.rolledNumber !== 'undefined' && !isLoading) {
-    const rolledNum = parseInt(result.rolledNumber.toString(), 10);
-    const chosenNum = parseInt(chosenNumber?.toString() || '0', 10);
-    const isWin = rolledNum === chosenNum;
-
-    // Format bet amount - ensure we're using the actual bet amount that was used, not the current input
-    const formattedBetAmount = formatAmount(betAmount);
-    const formattedPayout = isWin ? formatAmount(result.payout) : '0';
+  // Show completed bet result
+  if (
+    displayResult?.source === 'current' ||
+    displayResult?.source === 'history'
+  ) {
+    const data = displayResult.data;
+    const rolledNum = parseInt(data.rolledNumber?.toString() || '0', 10);
+    const chosenNum = parseInt(
+      data.chosenNumber?.toString() || chosenNumber?.toString() || '0',
+      10
+    );
+    const isWin = data.isWin || rolledNum === chosenNum;
+    const amount = data.amount || betAmount || '0';
+    const payout = data.payout || '0';
 
     return (
       <motion.div
@@ -188,7 +285,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
         <div className="flex justify-between items-center mb-2">
           <div>
             <div className="font-bold text-lg text-secondary-800">
-              {formattedBetAmount} GAMA
+              {formatAmount(amount)} GAMA
             </div>
             <div className="text-sm text-secondary-600">
               Chosen: {chosenNum}
@@ -199,87 +296,14 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
               isWin ? 'text-gaming-success' : 'text-gaming-error'
             }`}
           >
-            {isWin ? <>+{formattedPayout} GAMA</> : 'No Win'}
+            {isWin ? <>+{formatAmount(payout)} GAMA</> : 'No Win'}
           </div>
         </div>
       </motion.div>
     );
   }
 
-  // If no current result but we have history, show the latest bet from history
-  if (latestHistoryBet && !isLoading) {
-    const historyRolledNum = latestHistoryBet.rolledNumber;
-    const historyChosenNum = latestHistoryBet.chosenNumber;
-    const isHistoryWin = latestHistoryBet.isWin;
-
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full bg-white rounded-xl border-2 border-secondary-200 p-4 shadow-lg"
-      >
-        <div className="text-center mb-2">
-          <span className="font-bold text-secondary-800">Latest Roll</span>
-        </div>
-        <div className="flex justify-between items-center text-sm text-secondary-600 mb-2">
-          <span className="font-medium">Rolled: {historyRolledNum}</span>
-          <span className="text-base">
-            {isHistoryWin ? (
-              <span className="text-gaming-success">🎉 Won!</span>
-            ) : (
-              <span className="text-gaming-error">😔 Lost</span>
-            )}
-          </span>
-        </div>
-        <div className="flex justify-between items-center mb-2">
-          <div>
-            <div className="font-bold text-lg text-secondary-800">
-              {formatAmount(latestHistoryBet.amount)} GAMA
-            </div>
-            <div className="text-sm text-secondary-600">
-              Chosen: {historyChosenNum}
-            </div>
-          </div>
-          <div
-            className={`text-lg font-bold ${
-              isHistoryWin ? 'text-gaming-success' : 'text-gaming-error'
-            }`}
-          >
-            {isHistoryWin ? (
-              <>+{formatAmount(latestHistoryBet.payout)} GAMA</>
-            ) : (
-              'No Win'
-            )}
-          </div>
-        </div>
-      </motion.div>
-    );
-  }
-
-  // Loading state
-  if (isLoading) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full bg-white rounded-xl border-2 border-secondary-200 p-4 shadow-lg"
-      >
-        <div className="text-center mb-2">
-          <span className="font-bold text-secondary-800">Latest Roll</span>
-        </div>
-        <div className="flex justify-center items-center py-6">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-            className="w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full"
-          />
-          <span className="ml-2 text-secondary-600">Loading history...</span>
-        </div>
-      </motion.div>
-    );
-  }
-
-  // Fallback/empty state
+  // Fallback if nothing else matches
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -290,9 +314,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
         <span className="font-bold text-secondary-800">Latest Roll</span>
       </div>
       <div className="flex justify-center items-center py-4">
-        <span className="text-secondary-600">
-          Place a bet to see your roll result
-        </span>
+        <span className="text-secondary-600">No bet history available</span>
       </div>
     </motion.div>
   );

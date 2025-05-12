@@ -14,6 +14,7 @@ import { useWallet } from '../components/wallet/WalletProvider';
 import { useContractState } from './useContractState';
 import { useContractStats } from './useContractStats';
 import { useRequestTracking } from './useRequestTracking';
+import { handleContractError } from '../utils/errorHandling';
 
 // Custom hook for bet state management
 const useBetState = (initialBetAmount = '1000000000000000000') => {
@@ -399,33 +400,50 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   // Handle placing a bet with improved error handling and race condition prevention
   const handlePlaceBet = useCallback(async () => {
     if (!contracts?.dice || !walletAccount) {
-      addToast(
-        'Cannot place bet: wallet or contract connection issue',
-        'error'
-      );
+      addToast({
+        title: 'Connection Error',
+        description: 'Cannot place bet: wallet or contract connection issue',
+        type: 'error',
+      });
       return;
     }
 
     // Validate that a number is chosen
     if (chosenNumber === null || chosenNumber === undefined) {
-      addToast('Please select a number first', 'warning');
+      addToast({
+        title: 'Invalid Input',
+        description: 'Please select a number first',
+        type: 'warning',
+      });
       return;
     }
 
     // Ensure chosenNumber is between 1-6
     if (chosenNumber < 1 || chosenNumber > 6) {
-      addToast('Please select a valid number between 1 and 6', 'warning');
+      addToast({
+        title: 'Invalid Input',
+        description: 'Please select a valid number between 1 and 6',
+        type: 'warning',
+      });
       return;
     }
 
     if (betAmount <= BigInt(0)) {
-      addToast('Please enter a valid bet amount', 'warning');
+      addToast({
+        title: 'Invalid Input',
+        description: 'Please enter a valid bet amount',
+        type: 'warning',
+      });
       return;
     }
 
     // Prevent multiple betting attempts
     if (operationInProgress.current || isBetting) {
-      addToast('A game is already in progress', 'warning');
+      addToast({
+        title: 'Operation in Progress',
+        description: 'A game is already in progress',
+        type: 'warning',
+      });
       return;
     }
 
@@ -437,20 +455,24 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         setProcessingState(true);
         setRollingState(true);
 
-        // Setup safety timeout to reset state if the bet takes too long
+        // Setup safety timeout
         const clearTimeout = setupSafetyTimeout(
           safetyTimeoutRef,
           () => {
             operationInProgress.current = false;
             setProcessingState(false);
             setRollingState(false);
-            addToast('The bet operation timed out. Please try again.', 'error');
+            addToast({
+              title: 'Operation Timeout',
+              description: 'The bet operation timed out. Please try again.',
+              type: 'error',
+            });
           },
           90000
-        ); // 90 seconds timeout
+        );
 
         try {
-          // Check contract availability again before calling
+          // Check contract availability
           if (
             !contracts.dice ||
             (typeof contracts.dice.placeBet !== 'function' &&
@@ -459,48 +481,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
             throw new Error('Dice contract is not properly initialized');
           }
 
-          // Use cached balance data first to avoid redundant blockchain calls
-          if (balanceData?.balance) {
-            try {
-              // Log the raw values for debugging
-              console.log('[placeBet] Raw balance check values:', {
-                balance:
-                  typeof balanceData.balance === 'bigint'
-                    ? balanceData.balance.toString()
-                    : balanceData.balance,
-                balanceType: typeof balanceData.balance,
-                betAmount:
-                  typeof betAmount === 'bigint'
-                    ? betAmount.toString()
-                    : betAmount,
-                betAmountType: typeof betAmount,
-              });
-
-              // Ensure both are proper BigInt for comparison
-              const balanceBigInt = BigInt(balanceData.balance.toString());
-              const betAmountBigInt = BigInt(betAmount.toString());
-
-              // Log the converted values and comparison result
-              console.log('[placeBet] Balance check:', {
-                balanceWei: String(balanceBigInt),
-                betAmountWei: String(betAmountBigInt),
-                balanceEther: ethers.formatEther(balanceBigInt),
-                betAmountEther: ethers.formatEther(betAmountBigInt),
-                insufficientBalance: balanceBigInt < betAmountBigInt,
-              });
-
-              if (balanceBigInt < betAmountBigInt) {
-                throw new Error(
-                  "You don't have enough tokens for this bet amount."
-                );
-              }
-            } catch (error) {
-              // If there's an error in comparison, do a fresh balance check
-              console.error('[placeBet] Error comparing balance:', error);
-            }
-          }
-
-          // Only if balance check is close to bet amount, verify with fresh data
+          // Balance verification with fresh data
           if (
             !balanceData?.balance ||
             balanceData.balance < betAmount * BigInt(2)
@@ -517,28 +498,22 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
                 );
               }
             } catch (balanceError) {
-              console.error('Error checking up-to-date balance:', balanceError);
-              // If it's a specific balance check error, throw it
-              if (
-                balanceError.message &&
-                !balanceError.message.includes('checking up-to-date balance')
-              ) {
-                throw balanceError;
-              }
-              // Otherwise continue with the cached balance
+              handleContractError(balanceError, addToast);
+              return;
             }
           }
 
           // Show notification
-          addToast('Placing your bet...', 'info');
+          addToast({
+            title: 'Placing Bet',
+            description: 'Placing your bet...',
+            type: 'info',
+          });
 
-          // Convert chosen number to proper format for the contract call
-          // Ensure it's a valid BigInt
+          // Convert chosen number to proper format
           let chosenNumberBigInt;
           try {
             chosenNumberBigInt = BigInt(chosenNumber);
-
-            // Validate again after conversion
             if (
               chosenNumberBigInt < BigInt(1) ||
               chosenNumberBigInt > BigInt(6)
@@ -546,18 +521,17 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
               throw new Error('Invalid dice number after conversion');
             }
           } catch (conversionError) {
-            console.error('Error converting chosen number:', conversionError);
             throw new Error(
               'Invalid dice number. Please select a number between 1 and 6.'
             );
           }
 
-          // Add transaction options with proper gas settings
+          // Add transaction options
           const txOptions = {
             gasLimit: ethers.parseUnits('500000', 'wei'),
           };
 
-          // Store transaction reference for tracking
+          // Place bet
           let tx;
           try {
             if (typeof contracts.dice.placeBet === 'function') {
@@ -581,201 +555,49 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
             }
             pendingTxRef.current = tx;
           } catch (txError) {
-            // Handle specific transaction errors
-            console.error('Transaction creation error:', txError);
-
-            // Check for common errors
-            if (txError.message && txError.message.includes('user rejected')) {
-              throw new Error('Transaction rejected in wallet.');
-            } else if (
-              txError.message &&
-              txError.message.includes('insufficient funds')
-            ) {
-              throw new Error('Insufficient XDC for transaction fees.');
-            } else {
-              // Rethrow with original error
-              throw txError;
-            }
+            handleContractError(txError, addToast);
+            return;
           }
 
           // Show pending notification
-          addToast('Bet placed! Waiting for confirmation...', 'info');
-
-          // First set a pending/waiting result to indicate VRF processing
-          setLastResult({
-            rolledNumber: null, // No rolled number yet
-            payout: BigInt(0),
-            isWin: false,
-            isSpecialResult: false,
-            isPending: true,
-            txHash: tx.hash,
-            vrfPending: true, // Flag specifically for VRF waiting state
+          addToast({
+            title: 'Bet Placed',
+            description: 'Bet placed! Waiting for confirmation...',
+            type: 'info',
           });
 
-          // Wait for transaction confirmation with a timeout
-          let receipt;
+          // Wait for transaction confirmation
           try {
-            receipt = await Promise.race([
-              tx.wait(1),
-              new Promise((_, reject) =>
-                setTimeout(
-                  () => reject(new Error('Transaction confirmation timeout')),
-                  60000
-                )
-              ),
-            ]);
-          } catch (waitError) {
-            console.error('Transaction wait error:', waitError);
+            const receipt = await tx.wait();
+            console.log('Transaction confirmed:', receipt);
 
-            // Clean up references but don't reset rolling state yet
-            // The transaction might still confirm later
-            addToast(
-              'Transaction confirmation is taking longer than expected. Check your wallet for updates.',
-              'warning'
-            );
+            // Update queries and state
+            invalidateQueries(['balance', 'gameStatus', 'betHistory']);
 
-            // Don't throw here, let the function continue to cleanup phase
-            receipt = null;
-          }
-
-          if (receipt && receipt.status === 1) {
-            // Clear pending transaction reference
-            pendingTxRef.current = null;
-
-            try {
-              // Process transaction result
-              const gameResult = parseGameResultEvent(
-                receipt,
-                contracts.dice.interface
-              );
-
-              if (gameResult) {
-                console.log('Game result parsed successfully:', gameResult);
-
-                // Add VRF completion flag for animation handling
-                gameResult.vrfComplete = true;
-                gameResult.vrfPending = false;
-
-                // Show result notification
-                if (gameResult.isWin) {
-                  addToast(
-                    `🎉 You won ${ethers.formatEther(gameResult.payout)} tokens!`,
-                    'success'
-                  );
-                } else {
-                  addToast(`Better luck next time!`, 'info');
-                }
-
-                // Update game state with result
-                setLastResult(gameResult);
-
-                // IMPORTANT: Explicitly stop the rolling animation when we get a result
-                setRollingState(false);
-
-                // Batch refresh all data with a single timestamp to reduce calls
-                invalidateQueries(['balance', 'gameHistory', 'gameStats']);
-              } else {
-                // If we couldn't parse the result, we're likely still waiting for VRF
-                addToast(
-                  'Processing your result. Waiting for VRF callback...',
-                  'info'
-                );
-
-                // Keep the pending VRF result state
-                setLastResult(prevResult => ({
-                  ...prevResult,
-                  txHash: receipt.transactionHash,
-                  vrfPending: true,
-                }));
-
-                // Try to fetch result after a delay since VRF might take time
-                setTimeout(() => {
-                  // Refresh all data to capture any results that came in
-                  invalidateQueries(['balance', 'gameHistory']);
-
-                  // Check if we can find the result in game history
-                  setTimeout(
-                    () => checkVrfResultInHistory(receipt.transactionHash),
-                    3000
-                  );
-                }, 5000);
-              }
-            } catch (parseError) {
-              console.error('Error parsing game result:', parseError);
-              addToast(
-                'Error processing game result. Waiting for VRF...',
-                'warning'
-              );
-
-              // Set a partial result state but mark VRF as pending
-              setLastResult({
-                rolledNumber: null,
-                payout: BigInt(0),
-                isWin: false,
-                isSpecialResult: false,
-                isPending: true,
-                txHash: receipt.transactionHash,
-                vrfPending: true,
-              });
-
-              // Schedule a check for VRF result after a short delay
-              setTimeout(
-                () => checkVrfResultInHistory(receipt.transactionHash),
-                3000
-              );
-            }
-          } else if (receipt) {
-            // Receipt exists but status is not 1 (success)
-            addToast('Transaction failed or was reverted', 'error');
-
-            // Clear the rolling state since there's no VRF to wait for
-            setRollingState(false);
+            // Set last result for animation
+            setLastResult({
+              txHash: receipt.hash,
+              timestamp: Date.now(),
+              isPending: true,
+              vrfPending: true,
+            });
+          } catch (confirmError) {
+            handleContractError(confirmError, addToast);
           }
         } catch (error) {
-          console.error('Place bet error:', error);
-
-          // Handle specific error types for better user feedback
-          if (
-            error.code === 4001 ||
-            (error.message && error.message.includes('rejected'))
-          ) {
-            addToast('Transaction rejected in wallet', 'warning');
-            setRollingState(false); // Stop animation immediately on rejection
-          } else if (
-            error.message &&
-            error.message.includes('insufficient funds')
-          ) {
-            addToast('Insufficient XDC for transaction fees', 'error');
-            setRollingState(false); // Stop animation immediately on funding issue
-          } else if (error.message && error.message.includes('timeout')) {
-            addToast(
-              'Transaction confirmation timed out. Network may be congested.',
-              'warning'
-            );
-            // Don't stop rolling here as the transaction might still complete
-          } else {
-            handleError(error, 'handlePlaceBet');
-            setRollingState(false);
-          }
+          handleContractError(error, addToast);
         } finally {
-          // Clean up resources but don't reset rolling state
-          // (the useDiceNumber hook will handle that based on result state)
+          // Clean up resources
           clearTimeout();
           pendingTxRef.current = null;
           operationInProgress.current = false;
           setProcessingState(false);
 
-          // Only reset rolling if there's a definite error or no VRF pending
+          // Handle rolling state
           if (!document.hidden) {
-            console.log('Checking if we should stop dice animation');
             const lastResult = queryClient.getQueryData(['lastResult']);
-
             if (lastResult && !lastResult.vrfPending) {
-              console.log('Stopping dice animation - VRF completed');
               setRollingState(false);
-            } else {
-              console.log('Keeping dice animation - waiting for VRF');
-              // Keep rolling animation active while waiting for VRF
             }
           }
         }
@@ -785,7 +607,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       operationInProgress.current = false;
       setProcessingState(false);
       setRollingState(false);
-      handleError(error, 'handlePlaceBet wrapper');
+      handleContractError(error, addToast);
     }
   }, [
     contracts,
@@ -793,7 +615,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     chosenNumber,
     betAmount,
     balanceData,
-    handleError,
     addToast,
     queryClient,
     isBetting,

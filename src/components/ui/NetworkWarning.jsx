@@ -1,9 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNetwork, NETWORKS } from '../../contexts/NetworkContext';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faExclamationTriangle,
+  faInfoCircle,
+  faSpinner,
+} from '@fortawesome/free-solid-svg-icons';
 
 const NetworkWarning = () => {
-  const { switchNetwork, isNetworkSwitching, networkError } = useNetwork();
+  const { currentNetwork, switchNetwork, isNetworkSwitching, networkError } =
+    useNetwork();
   const [activeNetwork, setActiveNetwork] = useState(null);
+  const [showRetryTip, setShowRetryTip] = useState(false);
+
+  // Reset active network when switching is completed
+  useEffect(() => {
+    if (!isNetworkSwitching && activeNetwork) {
+      // Add a small delay before resetting to ensure UI updates are seen
+      const timer = setTimeout(() => setActiveNetwork(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isNetworkSwitching, activeNetwork]);
+
+  // Show retry tip when error persists
+  useEffect(() => {
+    if (networkError) {
+      const timer = setTimeout(() => setShowRetryTip(true), 5000);
+      return () => {
+        clearTimeout(timer);
+        setShowRetryTip(false);
+      };
+    }
+  }, [networkError]);
 
   const handleSwitchNetwork = async networkId => {
     setActiveNetwork(networkId);
@@ -20,14 +48,36 @@ const NetworkWarning = () => {
 
         {networkError && (
           <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-sm">
-            Error: {networkError}
+            <div className="flex items-center space-x-2">
+              <FontAwesomeIcon
+                icon={faExclamationTriangle}
+                className="text-red-400"
+              />
+              <span className="text-red-200">{networkError}</span>
+            </div>
+
+            {showRetryTip && (
+              <div className="mt-2 text-xs text-red-300 italic flex items-center space-x-2">
+                <FontAwesomeIcon icon={faInfoCircle} />
+                <span>
+                  If you&apos;re having trouble switching networks, try manually
+                  switching in your wallet first and then refreshing this page.
+                </span>
+              </div>
+            )}
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           {/* Mainnet Card */}
           <div
-            className={`bg-gray-800 rounded-lg p-4 border-2 transition-all ${activeNetwork === 'mainnet' ? 'border-[#22AD74]' : 'border-transparent'}`}
+            className={`bg-gray-800 rounded-lg p-4 border-2 transition-all ${
+              currentNetwork?.id === 'mainnet'
+                ? 'border-green-500'
+                : activeNetwork === 'mainnet'
+                  ? 'border-[#22AD74]'
+                  : 'border-transparent'
+            }`}
           >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center">
@@ -58,35 +108,23 @@ const NetworkWarning = () => {
 
             <button
               onClick={() => handleSwitchNetwork('mainnet')}
-              disabled={isNetworkSwitching}
+              disabled={isNetworkSwitching || currentNetwork?.id === 'mainnet'}
               className={`w-full py-2 rounded-lg font-medium transition-colors ${
-                isNetworkSwitching && activeNetwork === 'mainnet'
-                  ? 'bg-[#22AD74]/50 cursor-wait'
-                  : 'bg-[#22AD74] hover:bg-[#22AD74]/80'
+                currentNetwork?.id === 'mainnet'
+                  ? 'bg-green-700 cursor-default'
+                  : isNetworkSwitching && activeNetwork === 'mainnet'
+                    ? 'bg-[#22AD74]/50 cursor-wait'
+                    : 'bg-[#22AD74] hover:bg-[#22AD74]/80'
               }`}
             >
-              {isNetworkSwitching && activeNetwork === 'mainnet' ? (
+              {currentNetwork?.id === 'mainnet' ? (
+                'Currently Connected'
+              ) : isNetworkSwitching && activeNetwork === 'mainnet' ? (
                 <span className="flex items-center justify-center">
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
+                  <FontAwesomeIcon
+                    icon={faSpinner}
+                    className="animate-spin mr-2"
+                  />
                   Switching...
                 </span>
               ) : (
@@ -97,7 +135,13 @@ const NetworkWarning = () => {
 
           {/* Testnet Card */}
           <div
-            className={`bg-gray-800 rounded-lg p-4 border-2 transition-all ${activeNetwork === 'apothem' ? 'border-blue-500' : 'border-transparent'}`}
+            className={`bg-gray-800 rounded-lg p-4 border-2 transition-all ${
+              currentNetwork?.id === 'apothem'
+                ? 'border-green-500'
+                : activeNetwork === 'apothem'
+                  ? 'border-blue-500'
+                  : 'border-transparent'
+            }`}
           >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center">
@@ -128,35 +172,23 @@ const NetworkWarning = () => {
 
             <button
               onClick={() => handleSwitchNetwork('apothem')}
-              disabled={isNetworkSwitching}
+              disabled={isNetworkSwitching || currentNetwork?.id === 'apothem'}
               className={`w-full py-2 rounded-lg font-medium transition-colors ${
-                isNetworkSwitching && activeNetwork === 'apothem'
-                  ? 'bg-blue-500/50 cursor-wait'
-                  : 'bg-blue-500 hover:bg-blue-600'
+                currentNetwork?.id === 'apothem'
+                  ? 'bg-green-700 cursor-default'
+                  : isNetworkSwitching && activeNetwork === 'apothem'
+                    ? 'bg-blue-500/50 cursor-wait'
+                    : 'bg-blue-500 hover:bg-blue-600'
               }`}
             >
-              {isNetworkSwitching && activeNetwork === 'apothem' ? (
+              {currentNetwork?.id === 'apothem' ? (
+                'Currently Connected'
+              ) : isNetworkSwitching && activeNetwork === 'apothem' ? (
                 <span className="flex items-center justify-center">
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
+                  <FontAwesomeIcon
+                    icon={faSpinner}
+                    className="animate-spin mr-2"
+                  />
                   Switching...
                 </span>
               ) : (
@@ -167,8 +199,14 @@ const NetworkWarning = () => {
         </div>
 
         <p className="text-xs text-gray-400 mt-4">
-          If you&apos;re new to XDC, we recommend trying the Apothem testnet
-          first to get familiar with the platform.
+          {!networkError ? (
+            'If you&apos;re new to XDC, we recommend trying the Apothem testnet first to get familiar with the platform.'
+          ) : (
+            <>
+              Having trouble? Make sure your wallet is unlocked and refresh the
+              page after switching networks manually.
+            </>
+          )}
         </p>
       </div>
     </div>

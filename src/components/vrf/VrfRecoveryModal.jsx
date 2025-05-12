@@ -26,13 +26,17 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
       if (lastPlayed > 0) {
         const now = Math.floor(Date.now() / 1000);
         setActiveGameTimer(now - lastPlayed);
+      } else {
+        // If no timestamp available, reset timer
+        setActiveGameTimer(0);
       }
 
       // Update the UI timer every second
       interval = setInterval(() => {
         setActiveGameTimer(prev => prev + 1);
       }, 1000);
-    } else {
+    } else if (!gameStatus?.isActive) {
+      // No active game, reset timer
       setActiveGameTimer(0);
     }
 
@@ -47,6 +51,22 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
       (activeGameTimer / recoveryTimeoutPeriod) * 100
     );
   }
+
+  // Format time remaining for recovery
+  const formatTimeRemaining = () => {
+    if (!gameStatus?.isActive || gameStatus?.recoveryEligible) {
+      return null;
+    }
+
+    const secondsRemaining = Math.max(
+      0,
+      recoveryTimeoutPeriod - activeGameTimer
+    );
+    const minutes = Math.floor(secondsRemaining / 60);
+    const seconds = secondsRemaining % 60;
+
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
 
   if (!isOpen) return null;
 
@@ -73,33 +93,67 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
           <div className="text-center mb-6 relative">
             <h2 className="text-2xl font-bold text-gray-900">VRF Recovery</h2>
             <p className="text-gray-600 mt-2">
-              {gameStatus?.recoveryEligible
-                ? 'Your game is now eligible for recovery. You can recover your bet now.'
-                : 'Your game is in progress. You can recover your bet after the waiting period completes.'}
+              {!gameStatus?.isActive
+                ? "You don't have any active game that needs recovery."
+                : gameStatus?.recoveryEligible
+                  ? 'Your game is now eligible for recovery. You can recover your bet now.'
+                  : 'Your game is in progress. You can recover your bet after the waiting period completes.'}
             </p>
             <p className="text-xs text-gray-500 mt-2">
               Recovery becomes available after 1 hour and 300 blocks have passed
             </p>
           </div>
           <div className="space-y-4 mb-6">
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-secondary-400">
-                  Recovery eligibility:
-                </span>
-                <span className="text-secondary-400">
-                  {gameStatus?.recoveryEligible
-                    ? 'Available'
-                    : `${recoveryProgressPercentage}%`}
-                </span>
+            {gameStatus?.isActive && (
+              <div>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-secondary-400">
+                    Recovery eligibility:
+                  </span>
+                  <span className="text-secondary-400">
+                    {gameStatus?.recoveryEligible
+                      ? 'Available'
+                      : formatTimeRemaining()
+                        ? `Time remaining: ${formatTimeRemaining()}`
+                        : `${Math.floor(recoveryProgressPercentage)}%`}
+                  </span>
+                </div>
+                <div className="h-2 bg-secondary-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-gaming-primary to-yellow-500 transition-all duration-1000 ease-linear"
+                    style={{ width: `${recoveryProgressPercentage}%` }}
+                  ></div>
+                </div>
               </div>
-              <div className="h-2 bg-secondary-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-gaming-primary to-yellow-500 transition-all duration-1000 ease-linear"
-                  style={{ width: `${recoveryProgressPercentage}%` }}
-                ></div>
+            )}
+
+            {/* Game Status Information */}
+            {gameStatus?.isActive && (
+              <div className="mt-4 text-sm text-gray-600 border border-gray-200 rounded-lg p-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>Bet Number:</div>
+                  <div className="font-medium">
+                    {gameStatus?.chosenNumber || 'Unknown'}
+                  </div>
+
+                  <div>Bet Amount:</div>
+                  <div className="font-medium">
+                    {gameStatus?.betAmount
+                      ? `${parseFloat(gameStatus.betAmount).toFixed(2)} Tokens`
+                      : 'Unknown'}
+                  </div>
+
+                  <div>VRF Status:</div>
+                  <div className="font-medium">
+                    {gameStatus?.requestFulfilled
+                      ? 'Completed'
+                      : gameStatus?.recoveryEligible
+                        ? 'Timed Out'
+                        : 'Pending'}
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
           <div className="flex justify-end gap-2">
             <button
@@ -109,13 +163,15 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
             >
               Close
             </button>
-            <button
-              className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-400"
-              onClick={recoverGame}
-              disabled={!gameStatus?.recoveryEligible || isRecovering}
-            >
-              {isRecovering ? 'Recovering...' : 'Recover Game'}
-            </button>
+            {gameStatus?.isActive && (
+              <button
+                className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-400"
+                onClick={recoverGame}
+                disabled={!gameStatus?.recoveryEligible || isRecovering}
+              >
+                {isRecovering ? 'Recovering...' : 'Recover Game'}
+              </button>
+            )}
           </div>
           {recoveryError && (
             <div className="text-red-500 mt-2 text-xs">

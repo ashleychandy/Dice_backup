@@ -295,8 +295,15 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   // Handle approving tokens with optimistic updates
   const handleApproveToken = useCallback(async () => {
     if (!contracts?.token || !contracts?.dice || !walletAccount) {
+      const errorMessage = !contracts?.token
+        ? 'Token contract not connected'
+        : !contracts?.dice
+          ? 'Game contract not connected'
+          : 'Wallet not connected';
+
+      console.error(`Approval failed: ${errorMessage}`);
       addToast(
-        'Cannot approve tokens: wallet or contract connection issue',
+        `Cannot approve tokens: ${errorMessage}. This may be a network issue.`,
         'error'
       );
       return;
@@ -319,10 +326,27 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       operationInProgress.current = false;
       setIsApproving(false);
       setProcessingState(false);
-      addToast('The approval operation timed out. Please try again.', 'error');
+      addToast(
+        'The approval operation timed out. This could be due to network congestion or wallet issues.',
+        'error'
+      );
     });
 
     try {
+      // Get the current network from provider
+      let currentChainId;
+      try {
+        if (window.ethereum) {
+          const chainIdHex = await window.ethereum.request({
+            method: 'eth_chainId',
+          });
+          currentChainId = parseInt(chainIdHex, 16);
+          console.log(`Current chain ID during approval: ${currentChainId}`);
+        }
+      } catch (networkError) {
+        console.warn('Could not detect current network:', networkError);
+      }
+
       // Get the dice contract address (target for v6 ethers, address for v5)
       const diceContractAddress =
         contracts.dice.target || contracts.dice.address;
@@ -354,15 +378,68 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           // Continue despite refetch error, since approval was successful
         }
       } else {
-        // If approval failed, show a detailed error message
-        addToast(
-          'Token approval failed. Please check your wallet and try again.',
-          'error'
-        );
+        // Check if we might be on the wrong network
+        let networkIssue = false;
+
+        try {
+          if (window.ethereum) {
+            const newChainIdHex = await window.ethereum.request({
+              method: 'eth_chainId',
+            });
+            const newChainId = parseInt(newChainIdHex, 16);
+
+            // If chain ID changed during the operation, it was likely a network issue
+            if (currentChainId && newChainId !== currentChainId) {
+              networkIssue = true;
+              addToast(
+                'Network appears to have changed during approval. Please ensure you stay on the same network throughout the operation.',
+                'warning'
+              );
+            }
+          }
+        } catch (networkCheckError) {
+          console.warn(
+            'Error checking for network changes:',
+            networkCheckError
+          );
+        }
+
+        if (!networkIssue) {
+          // If approval failed, show a detailed error message
+          addToast(
+            'Token approval failed. This could be due to network congestion or wallet connection issues. Please try again.',
+            'error'
+          );
+        }
+
+        // Add debug information to console
+        console.info('Debug information for approval failure:', {
+          walletConnected: !!walletAccount,
+          tokenContract: !!contracts?.token,
+          diceContract: !!contracts?.dice,
+          diceAddress: diceContractAddress,
+          chainId: currentChainId,
+        });
       }
     } catch (error) {
       console.error('Token approval error:', error);
-      handleError(error, 'handleApproveToken');
+
+      // Check for network-related errors
+      if (
+        error.message &&
+        (error.message.includes('network') ||
+          error.message.includes('chain') ||
+          error.message.includes('connect') ||
+          error.message.includes('metadata') ||
+          error.message.includes('provider'))
+      ) {
+        addToast(
+          'Network connection issue detected. Please check your wallet connection and make sure you are on the correct XDC network.',
+          'error'
+        );
+      } else {
+        handleError(error, 'handleApproveToken');
+      }
     } finally {
       // Clean up resources and reset state
       clearTimeout();
@@ -641,14 +718,45 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
   const needsApproval = useMemo(() => {
     try {
-      // User needs to approve if they have tokens but insufficient allowance
-      if (!balanceData?.balance || !balanceData?.allowance) return false;
+      // For debugging purposes, log the current balance data
+      console.log('Checking approval needs:', {
+        balance: balanceData?.balance
+          ? balanceData.balance.toString()
+          : 'undefined',
+        allowance: balanceData?.allowance
+          ? balanceData.allowance.toString()
+          : 'undefined',
+        betAmount: betAmount.toString(),
+      });
 
-      const balanceBigInt = BigInt(balanceData.balance.toString());
-      const allowanceBigInt = BigInt(balanceData.allowance.toString());
+      // If we don't have balance data yet, we can't determine if approval is needed
+      if (!balanceData) {
+        console.log('No balance data available yet, deferring approval check');
+        return false;
+      }
+
+      // Convert to BigInt with safe fallbacks
+      const balanceBigInt = balanceData.balance
+        ? BigInt(balanceData.balance.toString())
+        : BigInt(0);
+      const allowanceBigInt = balanceData.allowance
+        ? BigInt(balanceData.allowance.toString())
+        : BigInt(0);
       const betAmountBigInt = BigInt(betAmount.toString());
 
-      return balanceBigInt > BigInt(0) && allowanceBigInt < betAmountBigInt;
+      // If balance is zero, no need to approve (can't bet anyway)
+      if (balanceBigInt <= BigInt(0)) {
+        console.log('Balance is zero or negative, no approval needed');
+        return false;
+      }
+
+      // Check if allowance is less than bet amount
+      const needsApproval = allowanceBigInt < betAmountBigInt;
+      console.log(
+        `Approval check result: ${needsApproval ? 'Needs approval' : 'Already approved'}`
+      );
+
+      return needsApproval;
     } catch (error) {
       console.error('Error in needsApproval calculation:', error);
       return false; // Assume no approval needed on error

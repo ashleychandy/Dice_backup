@@ -164,6 +164,44 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
     handlePlaceBet();
   }, [handlePlaceBet, chosenNumber, betAmount, gameState.lastResult]);
 
+  // Debug approval state
+  useEffect(() => {
+    if (contracts?.token && contracts?.dice && account) {
+      console.log('=== Approval Debug Info ===');
+      console.log('needsApproval:', needsApproval);
+      console.log('Balance data:', {
+        balance: balanceData?.balance
+          ? balanceData.balance.toString()
+          : 'undefined',
+        allowance: balanceData?.allowance
+          ? balanceData.allowance.toString()
+          : 'undefined',
+        betAmount: betAmount ? betAmount.toString() : 'undefined',
+      });
+      console.log('Game state:', gameState);
+      console.log('isApproving:', isApproving);
+
+      // Add a window method to force show the approve button for testing
+      window.forceShowApprove = () => {
+        document
+          .querySelector('.temp-approve-button')
+          ?.classList.remove('hidden');
+      };
+    }
+
+    return () => {
+      delete window.forceShowApprove;
+    };
+  }, [
+    needsApproval,
+    balanceData,
+    betAmount,
+    account,
+    contracts,
+    gameState,
+    isApproving,
+  ]);
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <motion.div
@@ -299,6 +337,15 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                     )}
                   </motion.button>
                 )}
+
+                {/* Temporary backup approval button - hidden by default, can be shown with window.forceShowApprove() */}
+                <button
+                  onClick={handleApproveToken}
+                  disabled={gameState.isProcessing || isApproving}
+                  className="temp-approve-button hidden h-14 w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-medium rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  Backup Approve Button (temporary)
+                </button>
 
                 <motion.button
                   whileHover={{ scale: 1.02 }}

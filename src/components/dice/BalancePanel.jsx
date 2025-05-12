@@ -16,23 +16,39 @@ const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
 
   // Check if approval is sufficient for the current bet amount
   const checkApprovalStatus = () => {
-    if (!allowance) return { sufficient: false, status: 'Not Approved' };
+    // Log the incoming props for debugging
+    console.log('BalancePanel props:', {
+      userBalance: userBalance ? userBalance.toString() : 'undefined',
+      allowance: allowance ? allowance.toString() : 'undefined',
+      betAmount: betAmount ? betAmount.toString() : 'undefined',
+    });
+
+    if (!allowance) {
+      console.log('No allowance data available');
+      return { sufficient: false, status: 'Not Approved' };
+    }
 
     try {
-      // Ensure both are proper BigInt
+      // Ensure both are proper BigInt with safe fallbacks
       const allowanceBigInt = BigInt(allowance.toString());
-      const betAmountBigInt = BigInt(betAmount.toString());
+      const betAmountBigInt = betAmount
+        ? BigInt(betAmount.toString())
+        : BigInt(0);
 
       // Log values for debugging
       console.log('Approval check:', {
         allowance: String(allowanceBigInt),
         betAmount: String(betAmountBigInt),
-        userBalance: String(userBalance),
+        userBalance: userBalance ? String(userBalance) : 'undefined',
       });
 
+      // If bet amount is zero, we consider it approved (nothing to approve)
+      if (betAmountBigInt <= BigInt(0)) {
+        return { sufficient: true, status: 'No Bet Amount' };
+      }
+
       // Check if allowance is enough for current bet amount
-      const isSufficient =
-        betAmountBigInt <= BigInt(0) || allowanceBigInt >= betAmountBigInt;
+      const isSufficient = allowanceBigInt >= betAmountBigInt;
 
       // For large allowances, show as "Fully Approved"
       const highThreshold = ethers.MaxUint256 / BigInt(2);
@@ -42,6 +58,7 @@ const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
           ? 'Fully Approved'
           : 'Approved';
 
+      console.log(`Approval status: ${status} (sufficient: ${isSufficient})`);
       return { sufficient: isSufficient, status };
     } catch (error) {
       console.error('Error in approval status check:', error);

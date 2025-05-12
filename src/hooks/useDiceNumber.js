@@ -69,13 +69,18 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
         resultNumber = result;
       }
 
+      // Check if result indicates request is fulfilled
+      const isRequestFulfilled = result.requestFulfilled === true;
+
       // Validate the result number is not NaN
       if (isNaN(resultNumber)) {
         resultNumber = null;
       }
 
-      // Immediately update the rolled number to update the dice face
-      setRolledNumber(resultNumber);
+      // Only update the rolled number if we have a valid result or fulfilled request
+      if (resultNumber !== null || isRequestFulfilled) {
+        setRolledNumber(resultNumber);
+      }
 
       // Store the last valid rolled number (1-6)
       if (
@@ -106,11 +111,14 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
           }
         }
         // Any other unknown result
-        else if (resultNumber !== null) {
+        else if (resultNumber !== null || isRequestFulfilled) {
           setBetOutcome('unknown');
         }
 
-        setShowResultAnimation(true);
+        // Always show result animation if we have a result or fulfilled request
+        if (resultNumber !== null || isRequestFulfilled) {
+          setShowResultAnimation(true);
+        }
       }, 100);
     } else {
       // Reset state when no result, but keep lastRolledNumber

@@ -43,7 +43,10 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       // This will automatically show a timeout message
       const timeoutId = setTimeout(() => {
         // Only clear if we're still processing (result not received)
-        if (!result || !result.requestFulfilled) {
+        if (
+          !result ||
+          (result && !result.requestFulfilled && !result.rolledNumber)
+        ) {
           setProcessingVrf(false);
         }
       }, 30000);
@@ -52,7 +55,10 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     }
 
     // If we receive a result, stop processing VRF
-    if (result && (result.requestFulfilled || result.rolledNumber)) {
+    if (
+      result &&
+      (result.requestFulfilled || result.rolledNumber !== undefined)
+    ) {
       clearAllTimeouts();
 
       // Give a slight delay before clearing the VRF processing state
@@ -293,7 +299,9 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     !(
       result &&
       (result.requestFulfilled ||
-        (result.rolledNumber >= 1 && result.rolledNumber <= 6))
+        (result.rolledNumber !== undefined &&
+          result.rolledNumber >= 1 &&
+          result.rolledNumber <= 6))
     );
 
   // Fallback UI for error state

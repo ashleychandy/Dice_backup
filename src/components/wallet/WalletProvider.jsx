@@ -46,6 +46,28 @@ export const WalletProvider = ({ children }) => {
   });
   const [isAutoConnecting, setIsAutoConnecting] = useState(false);
 
+  // On initial load - clear stale reload flags to prevent reload loops
+  useEffect(() => {
+    try {
+      // Check for stale reload flags
+      const recentReload = sessionStorage.getItem('xdc_recent_reload');
+      const reloadTimestamp = parseInt(recentReload || '0');
+      const now = Date.now();
+
+      // If the reload flag is older than 10 seconds, clear it
+      if (recentReload && now - reloadTimestamp > 10000) {
+        console.log('Clearing stale reload flags from previous session');
+        sessionStorage.removeItem('xdc_recent_reload');
+        sessionStorage.removeItem('xdc_network_changing');
+      }
+
+      // Log initialization for debugging
+      console.log('WalletProvider initialized, preventing reload loops');
+    } catch (e) {
+      console.warn('Error managing session storage during initialization:', e);
+    }
+  }, []);
+
   // Store connection details when wallet connects
   useEffect(() => {
     if (walletState.account && !isAutoConnecting) {
@@ -469,6 +491,231 @@ export const WalletProvider = ({ children }) => {
     getXDCBalance,
     getNetworkForChainId,
     handleErrorWithToast,
+  ]);
+
+  // Enhanced network detection logic
+  useEffect(() => {
+    if (!walletState.provider) return;
+
+    // Normalize chainId to decimal format
+    const normalizeChainId = chainId => {
+      if (typeof chainId === 'string') {
+        return chainId.startsWith('0x')
+          ? parseInt(chainId, 16)
+          : Number(chainId);
+      }
+      return Number(chainId);
+    };
+
+    const handleChainChanged = async chainIdRaw => {
+      console.log(`Network change detected. Raw chain ID: ${chainIdRaw}`);
+
+      // Convert to numeric chainId
+      const chainId = normalizeChainId(chainIdRaw);
+      console.log(`Normalized chain ID: ${chainId}`);
+
+      // Prevent excessive handling - check if we're in a cooldown period
+      try {
+        const recentNetworkChange = sessionStorage.getItem(
+          'xdc_recent_network_change'
+        );
+        const changeTimestamp = parseInt(recentNetworkChange || '0');
+        const now = Date.now();
+
+        if (recentNetworkChange && now - changeTimestamp < 2000) {
+          console.log(
+            'Recent network change detected, waiting for things to settle'
+          );
+          return;
+        }
+
+        // Mark that we just handled a network change
+        sessionStorage.setItem('xdc_recent_network_change', now.toString());
+      } catch (e) {
+        console.warn('Error accessing sessionStorage:', e);
+      }
+
+      // Check if this is a supported network
+      const network = getNetworkForChainId(chainId);
+
+      if (network) {
+        console.log(`Detected supported network: ${network.name}`);
+
+        // Only update if the chain ID actually changed
+        if (chainId !== normalizeChainId(walletState.chainId)) {
+          console.log(
+            `Chain ID changed from ${walletState.chainId} to ${chainId}`
+          );
+
+          // First approach: Try to handle the change without reloading
+          // Most users will benefit from this smoother experience
+          try {
+            // Attempt to reinitialize contracts without reload
+            const reinitializeSuccess =
+              await walletState.reinitializeWithChainId(chainId);
+
+            if (reinitializeSuccess) {
+              console.log(
+                'Successfully reinitialized contracts for new network without reload'
+              );
+              // No need to reload!
+              return;
+            }
+          } catch (reinitError) {
+            console.warn(
+              'Error reinitializing contracts, will fall back to reload:',
+              reinitError
+            );
+          }
+
+          // If reinitialization didn't work, fall back to reload approach
+          console.log('Falling back to page reload to handle network change');
+
+          // Use session storage to coordinate the reload
+          try {
+            // Mark that we're about to reload
+            sessionStorage.setItem('xdc_recent_reload', Date.now().toString());
+            sessionStorage.setItem('xdc_network_changing', 'true');
+            sessionStorage.setItem('xdc_target_network', chainId.toString());
+          } catch (e) {
+            console.warn('Could not access sessionStorage:', e);
+          }
+
+          // Delay reload to allow for any pending operations to complete
+          setTimeout(() => {
+            try {
+              sessionStorage.removeItem('xdc_network_changing');
+            } catch (e) {
+              console.warn('Error removing session storage item:', e);
+            }
+            window.location.reload();
+          }, 1000);
+        } else {
+          console.log('Chain ID matches current chain, no action needed');
+        }
+      } else {
+        console.warn(`Unsupported network detected. Chain ID: ${chainId}`);
+        // Check if we already warned about this network to avoid duplicate toasts
+        try {
+          const lastWarningNetwork = sessionStorage.getItem(
+            'xdc_network_warning'
+          );
+          if (lastWarningNetwork !== chainId.toString()) {
+            addToast(
+              `Unsupported network detected (Chain ID: ${chainId}). Please switch to XDC Mainnet or Apothem Testnet.`,
+              'warning'
+            );
+            // Remember we warned about this network
+            sessionStorage.setItem('xdc_network_warning', chainId.toString());
+          }
+        } catch (e) {
+          // If we can't use sessionStorage, just show the warning
+          addToast(
+            `Unsupported network detected (Chain ID: ${chainId}). Please switch to XDC Mainnet or Apothem Testnet.`,
+            'warning'
+          );
+        }
+      }
+    };
+
+    // Check if we need to initialize with the current chain ID
+    const initializeChainId = async () => {
+      try {
+        // Different providers have different methods to get chain ID
+        let currentChainId;
+
+        if (typeof walletState.provider.getNetwork === 'function') {
+          currentChainId = await walletState.provider
+            .getNetwork()
+            .then(network => network.chainId)
+            .catch(() => null);
+        } else if (
+          walletState.provider.provider &&
+          typeof walletState.provider.provider.request === 'function'
+        ) {
+          currentChainId = await walletState.provider.provider
+            .request({ method: 'eth_chainId' })
+            .then(hexChainId => normalizeChainId(hexChainId))
+            .catch(() => null);
+        } else if (window.ethereum) {
+          currentChainId = await window.ethereum
+            .request({ method: 'eth_chainId' })
+            .then(hexChainId => normalizeChainId(hexChainId))
+            .catch(() => null);
+        }
+
+        if (currentChainId) {
+          console.log(`Initial chain ID: ${currentChainId}`);
+          handleChainChanged(currentChainId);
+        }
+      } catch (error) {
+        console.error('Error getting initial chain ID:', error);
+      }
+    };
+
+    // Run initial check
+    initializeChainId();
+
+    // Different providers expose different events
+    const setupListeners = () => {
+      // Modern wallet providers
+      if (window.ethereum && typeof window.ethereum.on === 'function') {
+        console.log('Setting up ethereum provider listeners');
+        window.ethereum.on('chainChanged', handleChainChanged);
+        // Fallback for older implementations
+        window.ethereum.on('networkChanged', handleChainChanged);
+
+        return () => {
+          if (typeof window.ethereum.removeListener === 'function') {
+            window.ethereum.removeListener('chainChanged', handleChainChanged);
+            window.ethereum.removeListener(
+              'networkChanged',
+              handleChainChanged
+            );
+          }
+        };
+      }
+
+      // ethers.js provider might have events
+      if (
+        walletState.provider &&
+        typeof walletState.provider.on === 'function'
+      ) {
+        console.log('Setting up ethers provider listeners');
+        walletState.provider.on('chainChanged', handleChainChanged);
+        walletState.provider.on('network', (newNetwork, oldNetwork) => {
+          if (oldNetwork) {
+            console.log('Network changed via ethers provider event');
+            handleChainChanged(newNetwork.chainId);
+          }
+        });
+
+        return () => {
+          if (typeof walletState.provider.removeListener === 'function') {
+            walletState.provider.removeListener(
+              'chainChanged',
+              handleChainChanged
+            );
+            walletState.provider.removeListener('network', handleChainChanged);
+          }
+        };
+      }
+
+      // For providers without events, we could set up a polling mechanism
+      // But that's a fallback and might not be necessary
+      return () => {};
+    };
+
+    // Set up event listeners
+    const cleanupListeners = setupListeners();
+
+    // Return cleanup function
+    return cleanupListeners;
+  }, [
+    walletState.provider,
+    walletState.chainId,
+    getNetworkForChainId,
+    addToast,
   ]);
 
   return (

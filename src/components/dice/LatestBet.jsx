@@ -301,61 +301,139 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full bg-white rounded-xl border-2 border-secondary-200 p-4 shadow-lg"
+        className="w-full bg-white rounded-xl border-2 border-secondary-200 p-4 shadow-lg relative overflow-hidden"
       >
-        <div className="text-center mb-2">
-          <span className="font-bold text-secondary-800">Latest Roll</span>
+        {/* Purple glow effects */}
+        <div className="absolute -top-10 -right-10 w-24 h-24 bg-purple-500/20 rounded-full blur-xl" />
+        <div className="absolute -bottom-12 -left-12 w-28 h-28 bg-purple-500/10 rounded-full blur-xl" />
+
+        <div className="text-center mb-3">
+          <span className="font-bold text-secondary-800 text-lg">
+            Latest Roll
+          </span>
         </div>
-        <div className="flex flex-col justify-center items-center py-4">
-          <div className="flex items-center mb-2">
-            <motion.div
-              className="w-3 h-3 rounded-full bg-purple-600 mr-2"
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ repeat: Infinity, duration: 1.5 }}
-            />
+
+        {/* VRF Status Card */}
+        <div className="flex flex-col justify-center items-center py-4 relative z-10">
+          <div className="flex items-center mb-3 bg-purple-100/70 px-4 py-2 rounded-xl w-full justify-center">
+            <div className="relative mr-3">
+              <motion.div
+                className="w-5 h-5 rounded-full bg-purple-600 absolute"
+                animate={{ scale: [1, 1.5, 1], opacity: [1, 0.7, 1] }}
+                transition={{ repeat: Infinity, duration: 1.8 }}
+              />
+              <motion.div
+                className="w-5 h-5 rounded-full bg-purple-500 absolute"
+                animate={{ scale: [1.2, 1.7, 1.2], opacity: [0.7, 0.2, 0.7] }}
+                transition={{ repeat: Infinity, duration: 1.8, delay: 0.2 }}
+              />
+              <div className="w-5 h-5 rounded-full bg-purple-700 relative z-10" />
+            </div>
             <span
-              className={`${
-                showExtendedInfo ? 'text-purple-700' : 'text-purple-600'
-              } font-medium`}
+              className={`${showExtendedInfo ? 'text-purple-800' : 'text-purple-700'} font-medium`}
             >
               {showExtendedInfo
                 ? 'Verification in progress...'
                 : 'Verifying your roll...'}
             </span>
           </div>
-          <span className="text-secondary-600 text-sm text-center">
-            Your bet of {formatAmount(pendingBetAmount)} GAMA is being processed
-          </span>
-          <span className="text-secondary-600 text-sm mt-1">
-            Chosen number:{' '}
-            {displayResult.data.chosenNumber ||
-              chosenNumber ||
-              gameStatus?.chosenNumber ||
-              '-'}
-          </span>
+
+          <div className="flex flex-col w-full mt-2 space-y-2">
+            <div className="flex justify-between items-center p-2 rounded-lg bg-secondary-50">
+              <span className="text-secondary-700 font-medium">
+                Bet Amount:
+              </span>
+              <span className="font-bold text-secondary-800">
+                {formatAmount(pendingBetAmount)} GAMA
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center p-2 rounded-lg bg-secondary-50">
+              <span className="text-secondary-700 font-medium">
+                Chosen Number:
+              </span>
+              <span className="font-bold text-secondary-800">
+                {displayResult.data.chosenNumber ||
+                  chosenNumber ||
+                  gameStatus?.chosenNumber ||
+                  '-'}
+              </span>
+            </div>
+          </div>
+
           {showExtendedInfo && (
-            <span className="text-purple-700/80 text-xs mt-2 text-center bg-purple-100/50 px-2 py-1 rounded-full">
-              Taking longer than usual. You can check game history or recovery
-              options.
-            </span>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex items-center mt-4 text-purple-700 text-sm px-3 py-2 rounded-xl bg-purple-100/80 shadow-sm border border-purple-200 w-full"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-2 flex-shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span>
+                Taking longer than usual. You can check game history or recovery
+                options.
+              </span>
+            </motion.div>
           )}
         </div>
 
-        {/* If we also have history, show it below */}
+        {/* History Section with improved styling */}
         {latestHistoryBet && (
-          <div className="mt-3 pt-3 border-t border-secondary-100">
-            <div className="text-xs text-secondary-500 mb-1">
-              Last Completed Bet:
+          <div className="mt-4 pt-4 border-t border-secondary-200">
+            <div className="flex items-center mb-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4 text-secondary-500 mr-1"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <div className="text-sm font-medium text-secondary-700">
+                Last Completed Bet
+              </div>
             </div>
-            <div className="flex justify-between items-center text-sm text-secondary-600">
-              <span>Rolled: {latestHistoryBet.rolledNumber}</span>
-              <span>
-                {latestHistoryBet.isWin ? (
-                  <span className="text-gaming-success text-xs">Won</span>
-                ) : (
-                  <span className="text-gaming-error text-xs">Lost</span>
-                )}
-              </span>
+
+            <div className="bg-gradient-to-r from-secondary-50 to-secondary-100 rounded-lg p-3">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 rounded-full bg-secondary-200 flex items-center justify-center mr-2 font-bold text-secondary-700">
+                    {latestHistoryBet.rolledNumber}
+                  </div>
+                  <div>
+                    <div className="text-xs text-secondary-600">Rolled</div>
+                  </div>
+                </div>
+                <div>
+                  {latestHistoryBet.isWin ? (
+                    <span className="text-gaming-success text-sm font-medium px-2 py-1 bg-gaming-success/10 rounded-full">
+                      Won
+                    </span>
+                  ) : (
+                    <span className="text-gaming-error text-sm font-medium px-2 py-1 bg-gaming-error/10 rounded-full">
+                      Lost
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -378,42 +456,105 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     const amount = data.amount || betAmount || '0';
     const payout = data.payout || '0';
 
+    // Determine background style based on win/loss
+    const resultBgGradient = isWin
+      ? 'from-gaming-success/5 to-gaming-success/10'
+      : 'from-gaming-error/5 to-gaming-error/10';
+
     return (
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full bg-white rounded-xl border-2 border-secondary-200 p-4 shadow-lg"
+        className="w-full bg-white rounded-xl border-2 border-secondary-200 p-4 shadow-lg relative overflow-hidden"
       >
-        <div className="text-center mb-2">
-          <span className="font-bold text-secondary-800">Latest Roll</span>
-        </div>
-        <div className="flex justify-between items-center text-sm text-secondary-600 mb-2">
-          <span className="font-medium">Rolled: {rolledNum}</span>
-          <span className="text-base">
-            {isWin ? (
-              <span className="text-gaming-success">🎉 Won!</span>
-            ) : (
-              <span className="text-gaming-error">😔 Lost</span>
-            )}
+        {/* Background effects */}
+        <div
+          className={`absolute inset-0 bg-gradient-to-br ${resultBgGradient} opacity-60`}
+        />
+
+        {/* Decorative elements */}
+        <div
+          className={`absolute top-0 right-0 w-20 h-20 rounded-bl-full ${isWin ? 'bg-gaming-success/10' : 'bg-gaming-error/10'}`}
+        />
+
+        <div className="text-center mb-3 relative z-10">
+          <span className="font-bold text-secondary-800 text-lg">
+            Latest Roll
           </span>
         </div>
-        <div className="flex justify-between items-center mb-2">
-          <div>
-            <div className="font-bold text-lg text-secondary-800">
-              {formatAmount(amount)} GAMA
-            </div>
-            <div className="text-sm text-secondary-600">
-              Chosen: {chosenNum}
+
+        {/* Result Display */}
+        <div className="flex justify-between items-center relative z-10 mb-4">
+          <div className="flex items-center">
+            <motion.div
+              initial={{ scale: 0.5, rotate: -10 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+              className={`w-12 h-12 rounded-xl ${isWin ? 'bg-gaming-success/20' : 'bg-gaming-error/20'} flex items-center justify-center mr-3`}
+            >
+              <span className="text-2xl font-bold">{rolledNum}</span>
+            </motion.div>
+            <div>
+              <div className="text-sm text-secondary-600">Rolled Number</div>
+              <div className="text-xs text-secondary-500">
+                Chosen: {chosenNum}
+              </div>
             </div>
           </div>
-          <div
-            className={`text-lg font-bold ${
-              isWin ? 'text-gaming-success' : 'text-gaming-error'
+
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className={`text-lg font-bold px-3 py-1.5 rounded-lg ${
+              isWin
+                ? 'bg-gaming-success/20 text-gaming-success'
+                : 'bg-gaming-error/20 text-gaming-error'
             }`}
           >
-            {isWin ? <>+{formatAmount(payout)} GAMA</> : 'No Win'}
+            {isWin ? (
+              <span className="flex items-center">
+                <span className="mr-1">🎉</span> Won!
+              </span>
+            ) : (
+              <span className="flex items-center">
+                <span className="mr-1">😔</span> Lost
+              </span>
+            )}
+          </motion.div>
+        </div>
+
+        {/* Bet Details */}
+        <div className="relative z-10 bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-secondary-200">
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="text-sm text-secondary-600">Bet Amount</div>
+              <div className="font-bold text-lg text-secondary-800">
+                {formatAmount(amount)} GAMA
+              </div>
+            </div>
+            <div className="h-10 border-r border-secondary-200 mx-2"></div>
+            <div>
+              <div className="text-sm text-secondary-600">
+                {isWin ? 'Payout' : 'Result'}
+              </div>
+              <div
+                className={`text-lg font-bold ${
+                  isWin ? 'text-gaming-success' : 'text-gaming-error'
+                }`}
+              >
+                {isWin ? <>+{formatAmount(payout)} GAMA</> : 'No Win'}
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Timestamp - would need to add this data */}
+        {data.timestamp && (
+          <div className="mt-3 text-xs text-secondary-500 text-right relative z-10">
+            {new Date(data.timestamp * 1000).toLocaleString()}
+          </div>
+        )}
       </motion.div>
     );
   }

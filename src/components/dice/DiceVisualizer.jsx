@@ -24,7 +24,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     showResultAnimation,
     showConfetti,
     processingVrf,
-    getSpecialResultText,
+    getSpecialResultText: _getSpecialResultText,
     setProcessingVrf,
   } = useDiceNumber(result, chosenNumber, isRolling);
 
@@ -308,7 +308,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
   };
 
   // Check if there's a valid result to display
-  const hasValidResult =
+  const _hasValidResult =
     result && result.rolledNumber >= 1 && result.rolledNumber <= 6;
 
   // Determine if the dice should be rolling - fixed logic to properly stop on valid results
@@ -408,7 +408,8 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
           )}
       </AnimatePresence>
 
-      {/* VRF Processing Indicator - No timeout, always show while processing */}
+      {/* VRF Processing Indicator - COMMENTED OUT SINCE WE NOW HAVE A GLOBAL NOTIFICATION */}
+      {/* 
       {processingVrf && (
         <motion.div
           className={`absolute top-2 left-2 right-2 text-sm px-3 py-2 rounded-full ${
@@ -429,6 +430,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
           )}
         </motion.div>
       )}
+      */}
     </div>
   );
 };

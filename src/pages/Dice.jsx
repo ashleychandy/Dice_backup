@@ -470,6 +470,9 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                 </motion.button>
 
                 {/* VRF Recovery Button */}
+                {/* Note: This button can potentially be removed in a future update
+                    since we now have the global VRF notification in the Layout component
+                    with recovery functionality. Keeping it for now for backward compatibility. */}
                 {showVrfButton && (
                   <motion.button
                     whileHover={{ scale: 1.02 }}
@@ -529,6 +532,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.5 }}
           className="bg-white backdrop-blur-md rounded-xl border border-secondary-200 p-6 shadow-xl"
+          data-section="game-history"
         >
           <h2 className="text-2xl font-bold text-secondary-800 mb-6">
             Game History

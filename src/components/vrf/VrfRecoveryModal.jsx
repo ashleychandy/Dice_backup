@@ -95,23 +95,26 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
         className="fixed inset-0 z-[100] flex items-center justify-center isolation-auto"
       >
         {/* Fixed overlay to prevent clicks on the betting board */}
-        <div className="fixed inset-0 bg-black/40" onClick={onClose} />
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+          onClick={onClose}
+        />
         {/* Modal container */}
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="relative z-[110] bg-white rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl isolate"
+          className="relative z-[110] bg-white/90 backdrop-blur-md rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl isolate"
           onClick={e => e.stopPropagation()}
         >
-          <div className="absolute -top-6 -right-6 w-20 h-20 bg-[#22AD74]/20 rounded-full blur-xl" />
-          <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-[#22AD74]/10 rounded-full blur-xl" />
+          <div className="absolute -top-6 -right-6 w-20 h-20 bg-purple-500/20 rounded-full blur-xl" />
+          <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-purple-500/10 rounded-full blur-xl" />
           <div className="flex justify-between items-center mb-6 relative">
-            <h2 className="text-2xl font-bold text-gray-900">VRF Recovery</h2>
+            <h2 className="text-2xl font-bold text-gray-900">Roll Status</h2>
             <button
               onClick={handleManualRefresh}
               disabled={isRefreshing}
-              className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-600 py-1 px-3 rounded-lg flex items-center"
+              className="text-sm bg-gray-100/80 hover:bg-gray-200 text-gray-600 py-1 px-3 rounded-lg flex items-center"
             >
               {isRefreshing ? (
                 <span className="flex items-center">
@@ -135,35 +138,33 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     ></path>
                   </svg>
-                  Refreshing
+                  Refreshing...
                 </span>
               ) : (
-                <span>Refresh Data</span>
+                <span>Refresh Status</span>
               )}
             </button>
           </div>
           <div className="text-center mb-6">
             <p className="text-gray-600 mt-2">
               {!gameStatus?.isActive
-                ? "You don't have any active game that needs recovery."
+                ? "You don't have any active bets that need recovery."
                 : gameStatus?.recoveryEligible
-                  ? 'Your game is now eligible for recovery. You can recover your bet now.'
-                  : 'Your game is in progress. You can recover your bet after the waiting period completes.'}
+                  ? 'Your bet can now be recovered. You can safely recover your tokens.'
+                  : 'Your bet is still being processed. Recovery becomes available after the waiting period.'}
             </p>
             <p className="text-xs text-gray-500 mt-2">
-              Recovery becomes available after 1 hour and 300 blocks have passed
+              Recovery is available after the required verification period
             </p>
           </div>
           <div className="space-y-4 mb-6">
             {gameStatus?.isActive && (
               <div>
                 <div className="flex justify-between text-xs mb-1">
-                  <span className="text-secondary-400">
-                    Recovery eligibility:
-                  </span>
+                  <span className="text-secondary-400">Recovery progress:</span>
                   <span className="text-secondary-400">
                     {gameStatus?.recoveryEligible
-                      ? 'Available'
+                      ? 'Ready to recover'
                       : formatTimeRemaining()
                         ? `Time remaining: ${formatTimeRemaining()}`
                         : `${Math.floor(recoveryProgressPercentage)}%`}
@@ -171,7 +172,7 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
                 </div>
                 <div className="h-2 bg-secondary-200 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-gaming-primary to-yellow-500 transition-all duration-1000 ease-linear"
+                    className="h-full bg-gradient-to-r from-purple-500/80 to-purple-700/80 transition-all duration-1000 ease-linear"
                     style={{ width: `${recoveryProgressPercentage}%` }}
                   ></div>
                 </div>
@@ -180,7 +181,7 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
 
             {/* Game Status Information */}
             {gameStatus?.isActive && (
-              <div className="mt-4 text-sm text-gray-600 border border-gray-200 rounded-lg p-3">
+              <div className="mt-4 text-sm text-gray-600 border border-gray-200/80 rounded-lg p-3 bg-white/50">
                 <div className="grid grid-cols-2 gap-2">
                   <div>Bet Number:</div>
                   <div className="font-medium">
@@ -194,33 +195,35 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
                       : 'Unknown'}
                   </div>
 
-                  <div>VRF Status:</div>
+                  <div>Verification:</div>
                   <div className="font-medium">
                     {gameStatus?.requestProcessed
                       ? 'Completed'
                       : gameStatus?.recoveryEligible
-                        ? 'Waiting for Recovery'
-                        : 'Pending'}
+                        ? 'Ready for recovery'
+                        : 'In progress'}
                   </div>
 
-                  <div>Recovery Eligible:</div>
+                  <div>Recovery Available:</div>
                   <div className="font-medium">
-                    {gameStatus?.recoveryEligible ? 'Yes' : 'No'}
+                    {gameStatus?.recoveryEligible ? 'Yes' : 'Not yet'}
                   </div>
                 </div>
 
                 <div className="mt-2 text-right">
                   <button
                     onClick={() => setShowDebug(!showDebug)}
-                    className="text-xs text-blue-500 hover:text-blue-700"
+                    className="text-xs text-purple-600 hover:text-purple-700"
                   >
-                    {showDebug ? 'Hide Debug Info' : 'Show Debug Info'}
+                    {showDebug
+                      ? 'Hide Technical Details'
+                      : 'Show Technical Details'}
                   </button>
                 </div>
 
                 {showDebug && (
                   <div className="mt-2 text-xs border-t pt-2 border-gray-200">
-                    <h4 className="font-medium mb-1">Contract Conditions:</h4>
+                    <h4 className="font-medium mb-1">Technical Details:</h4>
                     <div className="grid grid-cols-2 gap-1">
                       <div>Request ID:</div>
                       <div className="text-gray-700">
@@ -266,11 +269,10 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
                       <div>Time Required:</div>
                       <div>{GAME_TIMEOUT || 3600}s (1 hour)</div>
                     </div>
-                    <p className="mt-2 text-amber-600">
-                      <strong>Note:</strong> For recovery eligibility, the
-                      contract now requires: 1) Block threshold passed, 2) Time
-                      threshold passed, 3) VRF request exists (processing status
-                      is no longer required)
+                    <p className="mt-2 text-purple-700">
+                      <strong>Note:</strong> Recovery becomes available after:
+                      1) Block threshold passed, 2) Time threshold passed, 3)
+                      Request verification exists
                     </p>
                   </div>
                 )}
@@ -279,7 +281,7 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
           </div>
           <div className="flex justify-end gap-2">
             <button
-              className="px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
+              className="px-4 py-2 rounded bg-gray-200/80 text-gray-700 hover:bg-gray-300"
               onClick={onClose}
               disabled={isRecovering}
             >
@@ -287,16 +289,16 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
             </button>
             {gameStatus?.isActive && (
               <button
-                className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-400"
+                className="px-4 py-2 rounded bg-purple-600/80 text-white hover:bg-purple-700 disabled:bg-gray-400/80"
                 onClick={recoverGame}
                 disabled={!gameStatus?.recoveryEligible || isRecovering}
               >
-                {isRecovering ? 'Recovering...' : 'Recover Game'}
+                {isRecovering ? 'Recovering...' : 'Recover Bet'}
               </button>
             )}
           </div>
           {recoveryError && (
-            <div className="text-red-500 mt-2 text-xs">
+            <div className="text-purple-800 bg-purple-100/50 p-2 rounded-lg mt-2 text-xs">
               {recoveryError.message}
             </div>
           )}

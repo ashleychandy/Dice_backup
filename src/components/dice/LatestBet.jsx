@@ -5,8 +5,8 @@ import { usePollingService } from '../../services/pollingService.jsx';
 import { useWallet } from '../wallet/WalletProvider.jsx';
 
 const LatestBet = ({ result, chosenNumber, betAmount }) => {
-  // Use the polling service to get bet history data
-  const { betHistory: allBets, isLoading } = usePollingService();
+  // Use the polling service to get bet history data and game status
+  const { betHistory: allBets, isLoading, gameStatus } = usePollingService();
   const { account, isWalletConnected } = useWallet();
 
   // Get the latest completed bet from history
@@ -22,8 +22,9 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
       chosenNumber,
       betAmount: betAmount ? betAmount.toString() : null,
       latestHistoryBet,
+      gameStatus,
     });
-  }, [result, chosenNumber, betAmount, latestHistoryBet]);
+  }, [result, chosenNumber, betAmount, latestHistoryBet, gameStatus]);
 
   // Add detailed debugging for props
   useEffect(() => {
@@ -49,14 +50,30 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
 
   // Check if we're waiting for VRF
   const isWaitingForVrf = useMemo(() => {
+    // First check contract state - this is the source of truth
+    if (
+      gameStatus?.isActive &&
+      gameStatus?.requestExists &&
+      !gameStatus?.requestProcessed
+    ) {
+      return true;
+    }
+
     // If no result at all, we're not waiting
     if (!result) return false;
 
     // Check if we have an explicit VRF pending flag
     if (result.vrfPending) return true;
 
-    // Check if the result is pending
-    if (result.isPending && !result.rolledNumber) return true;
+    // Check if the result is pending and we're expecting verification
+    if (
+      (result.isPending || result.pendingVerification) &&
+      !result.rolledNumber
+    )
+      return true;
+
+    // If the result indicates a request is in progress but not fulfilled
+    if (result.requestId && !result.requestFulfilled) return true;
 
     // Check if we have a completed result
     if (result.rolledNumber && typeof result.rolledNumber !== 'undefined') {
@@ -76,21 +93,20 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
 
     // Default to not waiting if we can't determine
     return false;
-  }, [result, latestHistoryBet, chosenNumber]);
+  }, [result, latestHistoryBet, chosenNumber, gameStatus]);
 
   // Add debug logging for VRF status
   useEffect(() => {
-    if (result) {
-      console.log('VRF status check:', {
-        resultExists: !!result,
-        vrfPending: result.vrfPending,
-        isPending: result.isPending,
-        rolledNumber: result.rolledNumber,
-        isCompleted: result.isCompleted,
-        isWaitingForVrf,
-      });
-    }
-  }, [result, isWaitingForVrf]);
+    console.log('VRF status check:', {
+      resultExists: !!result,
+      gameStatus,
+      vrfPending: result?.vrfPending,
+      isPending: result?.isPending,
+      rolledNumber: result?.rolledNumber,
+      isCompleted: result?.isCompleted,
+      isWaitingForVrf,
+    });
+  }, [result, isWaitingForVrf, gameStatus]);
 
   // Helper function to check if result matches the current bet values
   const isCurrentBetResult = (result, chosenNum, amount) => {
@@ -117,6 +133,18 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
 
   // Determine the best result to display
   const displayResult = useMemo(() => {
+    // If waiting for VRF based on contract state
+    if (isWaitingForVrf) {
+      return {
+        source: 'pending',
+        data: result || {
+          chosenNumber: gameStatus?.chosenNumber,
+          amount: gameStatus?.amount,
+          timestamp: gameStatus?.lastPlayTimestamp,
+        },
+      };
+    }
+
     // If we have a valid result with rolledNumber, use it
     if (
       result &&
@@ -148,14 +176,6 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
       };
     }
 
-    // If we're waiting for VRF, return the pending result
-    if (isWaitingForVrf) {
-      return {
-        source: 'pending',
-        data: result,
-      };
-    }
-
     // Default to history if available
     if (latestHistoryBet) {
       return {
@@ -166,7 +186,14 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
 
     // No valid result to display
     return null;
-  }, [result, latestHistoryBet, isWaitingForVrf, chosenNumber, betAmount]);
+  }, [
+    result,
+    latestHistoryBet,
+    isWaitingForVrf,
+    chosenNumber,
+    betAmount,
+    gameStatus,
+  ]);
 
   // Log the display result for debugging
   useEffect(() => {
@@ -260,7 +287,15 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
 
   // Show pending VRF result
   if (displayResult?.source === 'pending') {
-    const pendingBetAmount = betAmount || '0';
+    const pendingBetAmount = betAmount || gameStatus?.amount || '0';
+    // Use game status timestamp if available, or current time
+    const pendingStartTime =
+      result?.timestamp ||
+      gameStatus?.lastPlayTimestamp ||
+      Math.floor(Date.now() / 1000);
+    const currentTime = Math.floor(Date.now() / 1000);
+    const elapsedSeconds = currentTime - pendingStartTime;
+    const showExtendedInfo = elapsedSeconds > 10;
 
     return (
       <motion.div
@@ -278,16 +313,32 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
               animate={{ scale: [1, 1.2, 1] }}
               transition={{ repeat: Infinity, duration: 1.5 }}
             />
-            <span className="text-purple-600 font-medium">
-              Waiting for VRF...
+            <span
+              className={`${
+                showExtendedInfo ? 'text-purple-700' : 'text-purple-600'
+              } font-medium`}
+            >
+              {showExtendedInfo
+                ? 'Verification in progress...'
+                : 'Verifying your roll...'}
             </span>
           </div>
           <span className="text-secondary-600 text-sm text-center">
             Your bet of {formatAmount(pendingBetAmount)} GAMA is being processed
           </span>
           <span className="text-secondary-600 text-sm mt-1">
-            Chosen number: {chosenNumber || '-'}
+            Chosen number:{' '}
+            {displayResult.data.chosenNumber ||
+              chosenNumber ||
+              gameStatus?.chosenNumber ||
+              '-'}
           </span>
+          {showExtendedInfo && (
+            <span className="text-purple-700/80 text-xs mt-2 text-center bg-purple-100/50 px-2 py-1 rounded-full">
+              Taking longer than usual. You can check game history or recovery
+              options.
+            </span>
+          )}
         </div>
 
         {/* If we also have history, show it below */}

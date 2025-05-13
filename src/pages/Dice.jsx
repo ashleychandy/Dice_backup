@@ -21,6 +21,9 @@ import ApprovalGuide from '../components/dice/ApprovalGuide';
 import useGameLogic from '../hooks/useGameLogic';
 import { useGameStatus } from '../hooks/useGameStatus';
 
+// Import the pollingService to force a refresh when page loads
+import { usePollingService } from '../services/pollingService.jsx';
+
 import '../index.css';
 
 const WelcomeBanner = ({ onConnectClick }) => (
@@ -71,8 +74,31 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
   const [isVrfModalOpen, setIsVrfModalOpen] = useState(false);
   const { connectWallet, isWalletConnected } = useWallet();
 
-  // Get game status for VRF recovery
-  const { gameStatus, refetch: refetchGameStatus } = useGameStatus();
+  // Get game status for VRF recovery and use the refreshData function
+  const {
+    gameStatus,
+    refreshData,
+    isLoading: isStatusLoading,
+  } = usePollingService();
+
+  // Force refresh data when component mounts to ensure VRF state is current
+  useEffect(() => {
+    // Immediately refresh data when the component mounts
+    refreshData();
+
+    // Set up a periodic refresh every 10 seconds to keep the VRF state current
+    const refreshInterval = setInterval(() => {
+      if (
+        gameStatus?.isActive &&
+        gameStatus?.requestExists &&
+        !gameStatus?.requestProcessed
+      ) {
+        refreshData();
+      }
+    }, 10000);
+
+    return () => clearInterval(refreshInterval);
+  }, [refreshData, gameStatus]);
 
   // Determine if the VRF recovery button should be shown
   const showVrfButton =
@@ -80,7 +106,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
     (gameStatus?.recoveryEligible ||
       (gameStatus?.lastPlayTimestamp &&
         gameStatus?.requestExists &&
-        Math.floor(Date.now() / 1000) - gameStatus.lastPlayTimestamp > 120));
+        !gameStatus?.requestProcessed));
 
   // Create a global function to invalidate game history
   useEffect(() => {
@@ -371,17 +397,17 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                     onClick={handleApproveToken}
                     className={`w-full py-3 rounded-lg font-medium transition-all ${
                       isApproving
-                        ? 'bg-yellow-200 text-yellow-700 cursor-not-allowed'
-                        : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                        ? 'bg-purple-200/70 text-purple-700 cursor-not-allowed'
+                        : 'bg-purple-500/80 hover:bg-purple-600 text-white backdrop-blur-sm'
                     }`}
                   >
                     {isApproving ? (
                       <div className="flex items-center justify-center gap-2">
-                        <div className="w-5 h-5 border-2 border-yellow-700/30 border-t-yellow-700 rounded-full animate-spin"></div>
-                        Approving GAMA...
+                        <div className="w-5 h-5 border-2 border-purple-700/30 border-t-purple-700 rounded-full animate-spin"></div>
+                        Approving tokens...
                       </div>
                     ) : (
-                      'Approve GAMA for Betting'
+                      'Approve tokens for betting'
                     )}
                   </button>
                 </div>
@@ -406,16 +432,16 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                       <LoadingSpinner size="small" />
                       <span className="ml-2">
                         {gameState.isRolling
-                          ? 'Rolling Dice...'
-                          : 'Processing...'}
+                          ? 'Rolling dice...'
+                          : 'Processing your bet...'}
                       </span>
                     </span>
                   ) : hasNoTokens ? (
-                    'Insufficient Token Balance'
+                    'Not enough tokens for betting'
                   ) : needsApproval ? (
-                    'Approve Tokens First'
+                    'Approve tokens first'
                   ) : !chosenNumber ? (
-                    'Choose a Number'
+                    'Choose a number to bet on'
                   ) : (
                     <span className="flex items-center justify-center">
                       <svg
@@ -449,12 +475,12 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setIsVrfModalOpen(true)}
-                    className="h-14 mt-4 w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-medium rounded-lg transition-all shadow-lg flex items-center justify-center"
+                    className="h-14 mt-4 w-full bg-gradient-to-r from-purple-600/80 to-purple-700/80 hover:from-purple-700/90 hover:to-purple-800/90 text-white font-medium rounded-lg transition-all shadow-lg flex items-center justify-center backdrop-blur-sm"
                   >
                     <FontAwesomeIcon icon={faRandom} className="mr-2" />
                     {gameStatus?.recoveryEligible
-                      ? 'Recover Game'
-                      : 'VRF Status'}
+                      ? 'Recover your bet'
+                      : 'Check roll status'}
                   </motion.button>
                 )}
               </div>

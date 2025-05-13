@@ -2,6 +2,7 @@ import { ethers } from 'ethers';
 import { AnimatePresence, motion } from 'framer-motion';
 import React, { useRef, useState, useEffect } from 'react';
 import { useDiceNumber } from '../../hooks/useDiceNumber';
+import { usePollingService } from '../../services/pollingService.jsx';
 
 /**
  * Enhanced Dice Visualizer Component with improved animations, visual feedback, and error handling
@@ -12,7 +13,9 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
   const [errorMessage, setErrorMessage] = useState('');
   const prevResultRef = useRef(null);
   const vrfStartTimeRef = useRef(null);
-  const maxVrfDurationRef = useRef(null);
+
+  // Use polling service to get current game status
+  const { gameStatus } = usePollingService();
 
   // Use the custom hook to handle dice number state with error handling
   const {
@@ -25,7 +28,25 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     setProcessingVrf,
   } = useDiceNumber(result, chosenNumber, isRolling);
 
-  // Start a safety timer for VRF animation (max 30 seconds)
+  // Check contract state on component load to maintain VRF status
+  useEffect(() => {
+    // If there's an active game with a pending request, show VRF processing
+    if (
+      gameStatus?.isActive &&
+      gameStatus?.requestExists &&
+      !gameStatus?.requestProcessed
+    ) {
+      setProcessingVrf(true);
+
+      // Set the start time to the game's timestamp if available, or current time
+      if (!vrfStartTimeRef.current && gameStatus?.lastPlayTimestamp) {
+        const startTime = gameStatus.lastPlayTimestamp * 1000;
+        vrfStartTimeRef.current = startTime;
+      }
+    }
+  }, [gameStatus, setProcessingVrf]);
+
+  // Manage VRF processing state without timeout
   useEffect(() => {
     // Clear all existing timeouts to avoid race conditions
     const clearAllTimeouts = () => {
@@ -38,20 +59,6 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       clearAllTimeouts();
       setProcessingVrf(true);
       vrfStartTimeRef.current = Date.now();
-
-      // Set a safety timeout to clear the VRF processing state after 30 seconds
-      // This will automatically show a timeout message
-      const timeoutId = setTimeout(() => {
-        // Only clear if we're still processing (result not received)
-        if (
-          !result ||
-          (result && !result.requestFulfilled && !result.rolledNumber)
-        ) {
-          setProcessingVrf(false);
-        }
-      }, 30000);
-
-      timeoutRefs.current.push(timeoutId);
     }
 
     // If we receive a result, stop processing VRF
@@ -76,7 +83,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     };
   }, [isRolling, result, processingVrf, setProcessingVrf]);
 
-  // Show a timeout message if VRF processing takes too long
+  // Show elapsed time counter for VRF processing
   const vrfElapsed = vrfStartTimeRef.current
     ? Math.floor((Date.now() - vrfStartTimeRef.current) / 1000)
     : 0;
@@ -318,9 +325,8 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
 
   return (
     <div
-      className="dice-container"
-      role="img"
-      aria-label={`Dice showing number ${displayNumber || 1}`}
+      className="relative w-full h-full flex flex-col items-center justify-center"
+      style={{ perspective: '1000px' }}
     >
       {/* Main Dice */}
       <motion.div
@@ -376,27 +382,25 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
           )}
       </AnimatePresence>
 
-      {/* VRF Loading Indicator - Only show for a maximum of 10 seconds */}
-      {processingVrf && vrfElapsed <= 10 && (
+      {/* VRF Processing Indicator - No timeout, always show while processing */}
+      {processingVrf && (
         <motion.div
-          className="absolute top-2 left-2 right-2 text-sm px-3 py-2 rounded-full bg-purple-600 text-white flex items-center justify-center"
+          className={`absolute top-2 left-2 right-2 text-sm px-3 py-2 rounded-full ${
+            vrfElapsed > 20 ? 'bg-purple-700/80' : 'bg-purple-600/80'
+          } text-white flex items-center justify-center backdrop-blur-sm`}
           animate={{ opacity: [0.8, 1, 0.8] }}
           transition={{ repeat: Infinity, duration: 1.5 }}
         >
           <div className="mr-2 h-3 w-3 rounded-full bg-white animate-pulse"></div>
-          Waiting for VRF {vrfElapsed > 3 ? `(${vrfElapsed}s)` : ''}
-        </motion.div>
-      )}
-
-      {/* Timeout message after 10 seconds of VRF waiting */}
-      {processingVrf && vrfElapsed > 10 && (
-        <motion.div
-          className="absolute top-2 left-2 right-2 text-sm px-3 py-2 rounded-full bg-amber-600 text-white flex items-center justify-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          <div className="mr-2 h-3 w-3 rounded-full bg-white animate-pulse"></div>
-          VRF timeout - check history for result
+          {vrfElapsed > 20
+            ? 'Still verifying your roll...'
+            : 'Verifying your roll'}
+          {vrfElapsed > 3 ? ` (${vrfElapsed}s)` : ''}
+          {vrfElapsed > 10 && (
+            <span className="ml-1 text-xs">
+              - Check history or recovery options
+            </span>
+          )}
         </motion.div>
       )}
     </div>

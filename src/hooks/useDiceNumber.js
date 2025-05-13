@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useContractConstants } from './useContractConstants';
+import { usePollingService } from '../services/pollingService.jsx';
 
 /**
  * Custom hook to manage reactive dice number display
@@ -11,6 +12,7 @@ import { useContractConstants } from './useContractConstants';
  */
 export const useDiceNumber = (result, chosenNumber, isRolling) => {
   const { constants } = useContractConstants();
+  const { gameStatus } = usePollingService();
 
   // State for dice number management
   const [randomDiceNumber, setRandomDiceNumber] = useState(1);
@@ -20,6 +22,22 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
   const [showResultAnimation, setShowResultAnimation] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [processingVrf, setProcessingVrf] = useState(false);
+
+  // Initialize state from game status on component mount
+  useEffect(() => {
+    if (gameStatus && gameStatus.isActive) {
+      // If there's an active request that's not processed, we're waiting for VRF
+      if (gameStatus.requestExists && !gameStatus.requestProcessed) {
+        setProcessingVrf(true);
+      }
+
+      // If we have a chosen number from contract, update state
+      if (gameStatus.chosenNumber) {
+        // Store the chosen number as the last rolled number if we don't have a result yet
+        setLastRolledNumber(gameStatus.chosenNumber);
+      }
+    }
+  }, [gameStatus]);
 
   // Get random dice number within valid range
   const getRandomDiceNumber = useCallback(

@@ -76,6 +76,10 @@ export const PollingProvider = ({
       let gameStatus = null;
       if (gameStatusResult.status === 'fulfilled') {
         const status = gameStatusResult.value;
+
+        // For debugging purposes, log the raw status
+        console.log('Raw game status from contract:', status);
+
         gameStatus = {
           isActive: status.isActive,
           isWin: status.isWin,
@@ -89,7 +93,8 @@ export const PollingProvider = ({
           lastPlayTimestamp: Number(status.lastPlayTimestamp),
           requestExists: status.requestExists,
           requestProcessed: status.requestProcessed,
-          requestFulfilled: status.requestFulfilled,
+          // Derive requestFulfilled from requestProcessed which is what the contract returns
+          requestFulfilled: status.requestProcessed,
         };
 
         // Update active game status

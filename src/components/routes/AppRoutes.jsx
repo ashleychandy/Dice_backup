@@ -91,8 +91,13 @@ const AppRoutes = () => {
 
   // Function to check contracts and display appropriate warning
   const checkContracts = useCallback(() => {
-    if (!isWalletConnected && account) {
-      // Don't show warnings if wallet is intentionally not connected
+    // Don't show warnings if wallet is intentionally not connected
+    if (!isWalletConnected) {
+      return;
+    }
+
+    if (!account) {
+      // Don't show warnings if no account is available
       return;
     }
 

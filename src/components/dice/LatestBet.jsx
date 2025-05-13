@@ -2,10 +2,12 @@ import React, { useEffect, useMemo } from 'react';
 import { ethers } from 'ethers';
 import { motion } from 'framer-motion';
 import { usePollingService } from '../../services/pollingService.jsx';
+import { useWallet } from '../wallet/WalletProvider.jsx';
 
 const LatestBet = ({ result, chosenNumber, betAmount }) => {
   // Use the polling service to get bet history data
   const { betHistory: allBets, isLoading } = usePollingService();
+  const { account, isWalletConnected } = useWallet();
 
   // Get the latest completed bet from history
   const latestHistoryBet = useMemo(() => {
@@ -171,7 +173,39 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     console.log('Display result decision:', displayResult);
   }, [displayResult]);
 
-  // If no data is available, show a loading state
+  // Show welcome message for new users when no wallet is connected
+  if (!isWalletConnected || !account) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full bg-white rounded-xl border-2 border-secondary-200 p-4 shadow-lg"
+      >
+        <div className="text-center mb-2">
+          <span className="font-bold text-secondary-800">Latest Roll</span>
+        </div>
+        <div className="flex flex-col justify-center items-center py-4">
+          <img
+            src="/assets/dice-welcome.svg"
+            alt="Dice"
+            className="w-12 h-12 mb-3"
+            onError={e => {
+              e.target.src =
+                "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='10' fill='%23f0f0f0'/%3E%3Ccircle cx='25' cy='25' r='8' fill='%2322AD74'/%3E%3Ccircle cx='75' cy='25' r='8' fill='%2322AD74'/%3E%3Ccircle cx='25' cy='75' r='8' fill='%2322AD74'/%3E%3Ccircle cx='75' cy='75' r='8' fill='%2322AD74'/%3E%3Ccircle cx='50' cy='50' r='8' fill='%2322AD74'/%3E%3C/svg%3E";
+            }}
+          />
+          <span className="text-secondary-700 text-center">
+            Connect your wallet to start playing
+          </span>
+          <span className="text-secondary-500 text-sm mt-2">
+            Your recent rolls will appear here
+          </span>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // If no data is available but wallet is connected, show a loading state
   if (isLoading && !displayResult) {
     return (
       <motion.div
@@ -189,6 +223,36 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
             transition={{ repeat: Infinity, duration: 1.5 }}
           />
           <span className="text-secondary-600">Loading bet history...</span>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Show empty state for connected users with no history
+  if (!displayResult && !isLoading && isWalletConnected && account) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full bg-white rounded-xl border-2 border-secondary-200 p-4 shadow-lg"
+      >
+        <div className="text-center mb-2">
+          <span className="font-bold text-secondary-800">Latest Roll</span>
+        </div>
+        <div className="flex flex-col justify-center items-center py-4">
+          <img
+            src="/assets/dice-empty.svg"
+            alt="No bets"
+            className="w-12 h-12 mb-3"
+            onError={e => {
+              e.target.src =
+                "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='10' fill='%23f0f0f0'/%3E%3Ctext x='50' y='55' font-family='Arial' font-size='16' text-anchor='middle' fill='%23666'%3ENo Data%3C/text%3E%3C/svg%3E";
+            }}
+          />
+          <span className="text-secondary-600">No bet history available</span>
+          <span className="text-secondary-500 text-sm mt-2">
+            Place your first bet to start playing!
+          </span>
         </div>
       </motion.div>
     );

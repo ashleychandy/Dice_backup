@@ -1,9 +1,14 @@
 import { AnimatePresence } from 'framer-motion';
 import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHistory, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import {
+  faHistory,
+  faSpinner,
+  faInfoCircle,
+} from '@fortawesome/free-solid-svg-icons';
 import { useBetHistory } from '../../hooks/useBetHistory';
 import { useDiceContract } from '../../hooks/useDiceContract';
+import { useWallet } from '../wallet/WalletProvider';
 import EmptyState from './EmptyState';
 import GameHistoryItem from './GameHistoryItem';
 import GameHistoryLoader from './GameHistoryLoader';
@@ -73,12 +78,44 @@ const Tab = ({ label, active, onClick, icon }) => (
   </button>
 );
 
+// Welcome component for new users
+const WelcomeNewUser = () => (
+  <div className="bg-white rounded-lg border border-secondary-200 p-6 text-center">
+    <div className="flex flex-col items-center justify-center space-y-4">
+      <div className="bg-secondary-50 p-4 rounded-full inline-flex">
+        <FontAwesomeIcon
+          icon={faHistory}
+          className="text-3xl text-secondary-400"
+        />
+      </div>
+      <h3 className="text-xl font-semibold text-secondary-800">
+        Your Game History
+      </h3>
+      <p className="text-secondary-600 max-w-md">
+        Connect your wallet to start playing. Once you place bets, your game
+        history will appear here.
+      </p>
+      <div className="bg-secondary-50 p-3 rounded-lg text-secondary-700 text-sm flex items-start mt-2 max-w-md">
+        <FontAwesomeIcon
+          icon={faInfoCircle}
+          className="text-secondary-500 mr-2 mt-0.5"
+        />
+        <p className="text-left">
+          The dice game runs on XDC blockchain. Your bets are transparent,
+          verifiable, and fair, with provably random results.
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
 // Game History component with a more modern tab design
 const GameHistory = ({ account, onError }) => {
   const [filter, setFilter] = useState('all');
   const [viewMode, setViewMode] = useState('list');
   const { contract: diceContract, isLoading: isContractLoading } =
     useDiceContract();
+  const { isWalletConnected } = useWallet();
 
   // Use the bet history hook
   const {
@@ -129,6 +166,11 @@ const GameHistory = ({ account, onError }) => {
     return betHistory && betHistory.some(game => game.resultType === 'unknown');
   }, [betHistory]);
 
+  // For new users without a wallet connection, show a welcome message
+  if (!isWalletConnected || !account) {
+    return <WelcomeNewUser />;
+  }
+
   if (isContractLoading) {
     return <GameHistoryLoader />;
   }
@@ -151,7 +193,9 @@ const GameHistory = ({ account, onError }) => {
   }
 
   if (!filteredGames || !filteredGames.length) {
-    return <EmptyState message="No games found" />;
+    return (
+      <EmptyState message="No games found. Place your first bet to get started!" />
+    );
   }
 
   return (

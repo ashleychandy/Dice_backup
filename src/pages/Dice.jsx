@@ -14,6 +14,8 @@ import NumberSelector from '../components/dice/NumberSelector';
 import FilterButton from '../components/ui/FilterButton';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { VrfRecoveryModal } from '../components/vrf';
+import { useWallet } from '../components/wallet/WalletProvider.jsx';
+import ApprovalGuide from '../components/dice/ApprovalGuide';
 
 // Import custom hooks
 import useGameLogic from '../hooks/useGameLogic';
@@ -21,11 +23,53 @@ import { useGameStatus } from '../hooks/useGameStatus';
 
 import '../index.css';
 
+const WelcomeBanner = ({ onConnectClick }) => (
+  <div className="bg-gradient-to-r from-gaming-primary/10 to-gaming-primary-light/10 rounded-xl p-6 shadow-sm border border-gaming-primary/20 mb-8">
+    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+      <div>
+        <h2 className="text-2xl font-bold text-secondary-800 mb-2">
+          Welcome to XDC Dice Game!
+        </h2>
+        <p className="text-secondary-600 mb-4">
+          Choose a number, place your bet, and roll the dice for a chance to win
+          up to 6x your stake.
+        </p>
+        <ul className="list-disc list-inside text-sm text-secondary-600 mb-4 space-y-1">
+          <li>Connect your XDC wallet to start playing</li>
+          <li>Bet with GAMA tokens on your chosen number</li>
+          <li>Win instantly when the dice rolls your number</li>
+        </ul>
+      </div>
+      <div className="flex-shrink-0">
+        <button
+          onClick={onConnectClick}
+          className="px-6 py-3 bg-gaming-primary text-white rounded-lg shadow-md hover:bg-gaming-primary-dark transition-all duration-300 font-medium flex items-center gap-2"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2.22l.123.489.804.804A1 1 0 0113 18H7a1 1 0 01-.707-1.707l.804-.804L7.22 15H5a2 2 0 01-2-2V5zm5.771 7H5V5h10v7H8.771z"
+              clipRule="evenodd"
+            />
+          </svg>
+          Connect Wallet
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 const DicePage = ({ contracts, account, onError, addToast }) => {
   const [lastBetAmount, setLastBetAmount] = useState(null);
   const [lastBetDetails, setLastBetDetails] = useState(null);
   const queryClient = useQueryClient();
   const [isVrfModalOpen, setIsVrfModalOpen] = useState(false);
+  const { connectWallet, isWalletConnected } = useWallet();
 
   // Get game status for VRF recovery
   const { gameStatus, refetch: refetchGameStatus } = useGameStatus();
@@ -35,6 +79,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
     gameStatus?.isActive &&
     (gameStatus?.recoveryEligible ||
       (gameStatus?.lastPlayTimestamp &&
+        gameStatus?.requestExists &&
         Math.floor(Date.now() / 1000) - gameStatus.lastPlayTimestamp > 120));
 
   // Create a global function to invalidate game history
@@ -220,6 +265,11 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
           </p>
         </div>
 
+        {/* Show welcome banner only for users who haven't connected their wallet */}
+        {(!isWalletConnected || !account) && (
+          <WelcomeBanner onConnectClick={connectWallet} />
+        )}
+
         {balanceLoading && (
           <div className="bg-white p-4 rounded-lg border border-secondary-200 shadow-sm">
             <div className="flex items-center justify-center space-x-2">
@@ -299,53 +349,42 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
               </div>
 
               <div className="flex flex-col gap-4">
-                {needsApproval && (
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleApproveToken}
-                    disabled={gameState.isProcessing || isApproving}
-                    className="h-14 w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-medium rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {gameState.isProcessing || isApproving ? (
-                      <span className="flex items-center justify-center">
-                        <LoadingSpinner size="small" />
-                        <span className="ml-2">
-                          {isApproving
-                            ? 'Approval in Progress...'
-                            : 'Approving Tokens...'}
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="flex items-center justify-center">
-                        <svg
-                          className="w-5 h-5 mr-2"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                          ></path>
-                        </svg>
-                        Approve Tokens
-                      </span>
-                    )}
-                  </motion.button>
-                )}
+                {/* Add ApprovalGuide when approval is needed and wallet is connected */}
+                {isWalletConnected &&
+                  account &&
+                  needsApproval &&
+                  !hasNoTokens &&
+                  !isBetting &&
+                  !isApproving && (
+                    <ApprovalGuide
+                      onApproveClick={handleApproveToken}
+                      isApproving={isApproving}
+                    />
+                  )}
 
-                {/* Temporary backup approval button - hidden by default, can be shown with window.forceShowApprove() */}
-                <button
-                  onClick={handleApproveToken}
-                  disabled={gameState.isProcessing || isApproving}
-                  className="temp-approve-button hidden h-14 w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-medium rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                {/* Keep existing approval button but wrapped in a div that's hidden on mobile */}
+                <div
+                  className={`${needsApproval && !hasNoTokens && !isBetting && !isApproving ? '' : 'hidden'}`}
                 >
-                  Backup Approve Button (temporary)
-                </button>
+                  <button
+                    disabled={isApproving}
+                    onClick={handleApproveToken}
+                    className={`w-full py-3 rounded-lg font-medium transition-all ${
+                      isApproving
+                        ? 'bg-yellow-200 text-yellow-700 cursor-not-allowed'
+                        : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                    }`}
+                  >
+                    {isApproving ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-5 h-5 border-2 border-yellow-700/30 border-t-yellow-700 rounded-full animate-spin"></div>
+                        Approving GAMA...
+                      </div>
+                    ) : (
+                      'Approve GAMA for Betting'
+                    )}
+                  </button>
+                </div>
 
                 <motion.button
                   whileHover={{ scale: 1.02 }}

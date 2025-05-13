@@ -24,16 +24,17 @@ const GameStats = ({ account, onError, addToast }) => {
     error: statusError,
     refetch,
   } = useGameStatus();
-  const { recoverGame, isRecovering, recoveryError } = useGameRecovery({
-    onSuccess: () => {
-      addToast?.('Game recovered successfully!', 'success');
-      refetch();
-    },
-    onError: error => {
-      addToast?.('Failed to recover game: ' + error.message, 'error');
-      onError?.(error);
-    },
-  });
+  const { recoverGame, isRecovering, recoveryError, GAME_TIMEOUT } =
+    useGameRecovery({
+      onSuccess: () => {
+        addToast?.('Game recovered successfully!', 'success');
+        refetch();
+      },
+      onError: error => {
+        addToast?.('Failed to recover game: ' + error.message, 'error');
+        onError?.(error);
+      },
+    });
 
   // VRF request tracking
   const requestId =
@@ -86,7 +87,7 @@ const GameStats = ({ account, onError, addToast }) => {
 
   // Calculate recovery progress percentage
   let recoveryProgressPercentage = 0;
-  const recoveryTimeoutPeriod = 3600; // 1 hour in seconds
+  const recoveryTimeoutPeriod = GAME_TIMEOUT || 3600; // 1 hour in seconds
   if (recoveryTimeoutPeriod > 0 && activeGameTimer > 0) {
     recoveryProgressPercentage = Math.min(
       100,
@@ -127,6 +128,18 @@ const GameStats = ({ account, onError, addToast }) => {
             {recoveryError.message}
           </div>
         )}
+        {/* New recovery eligibility explanation */}
+        <div className="mt-2 text-xs text-gray-400 border-t border-gray-700 pt-2">
+          <p>Recovery becomes available when:</p>
+          <ul className="list-disc list-inside mt-1 space-y-1">
+            <li>Time since bet: 1 hour</li>
+            <li>Blocks since bet: 300 blocks</li>
+            <li>VRF Request exists</li>
+          </ul>
+          <p className="mt-1 italic">
+            Note: VRF request no longer needs to be processed for recovery
+          </p>
+        </div>
       </Card>
       <Card className="bg-gray-800/20 p-4 border border-gray-700">
         <div className="flex flex-col gap-2">
@@ -150,6 +163,23 @@ const GameStats = ({ account, onError, addToast }) => {
               }
             >
               {gameStatus?.recoveryEligible ? 'Yes' : 'No'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-white/80">VRF Request Exists:</span>
+            <span
+              className={
+                gameStatus?.requestExists ? 'text-green-500' : 'text-yellow-500'
+              }
+            >
+              {gameStatus?.requestExists ? 'Yes' : 'No'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-white/80">VRF Request Processed:</span>
+            <span className="text-gray-400">
+              {gameStatus?.requestProcessed ? 'Yes' : 'No'} (not required for
+              recovery)
             </span>
           </div>
           <div className="flex justify-between">
@@ -204,10 +234,13 @@ const GameStats = ({ account, onError, addToast }) => {
                     className={
                       requestInfo.gameStatus?.requestProcessed
                         ? 'text-green-500'
-                        : 'text-yellow-500'
+                        : 'text-gray-500'
                     }
                   >
                     {requestInfo.gameStatus?.requestProcessed ? 'Yes' : 'No'}
+                    <span className="text-xs ml-1 text-gray-400">
+                      (not required)
+                    </span>
                   </span>
                 </div>
                 <div className="flex justify-between">

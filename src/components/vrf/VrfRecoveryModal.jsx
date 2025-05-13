@@ -5,13 +5,29 @@ import { usePollingService } from '../../services/pollingService.jsx';
 
 const VrfRecoveryModal = ({ isOpen, onClose }) => {
   const { gameStatus, refreshData } = usePollingService();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
 
-  const { recoverGame, isRecovering, recoveryError } = useGameRecovery({
+  const {
+    recoverGame,
+    isRecovering,
+    recoveryError,
+    GAME_TIMEOUT,
+    BLOCK_THRESHOLD,
+  } = useGameRecovery({
     onSuccess: () => {
       refreshData();
       onClose();
     },
   });
+
+  // Function to handle manual refresh with visual indicator
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshData();
+    // Add a small delay to make the refresh indicator visible
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   // Timer for progress - only updates UI, doesn't poll data
   const [activeGameTimer, setActiveGameTimer] = useState(0);
@@ -43,7 +59,7 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
     return () => clearInterval(interval);
   }, [isOpen, gameStatus?.isActive, gameStatus?.lastPlayTimestamp]);
 
-  const recoveryTimeoutPeriod = 3600; // 1 hour in seconds
+  const recoveryTimeoutPeriod = GAME_TIMEOUT || 3600; // 1 hour in seconds
   let recoveryProgressPercentage = 0;
   if (recoveryTimeoutPeriod > 0 && activeGameTimer > 0) {
     recoveryProgressPercentage = Math.min(
@@ -90,8 +106,43 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
         >
           <div className="absolute -top-6 -right-6 w-20 h-20 bg-[#22AD74]/20 rounded-full blur-xl" />
           <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-[#22AD74]/10 rounded-full blur-xl" />
-          <div className="text-center mb-6 relative">
+          <div className="flex justify-between items-center mb-6 relative">
             <h2 className="text-2xl font-bold text-gray-900">VRF Recovery</h2>
+            <button
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-600 py-1 px-3 rounded-lg flex items-center"
+            >
+              {isRefreshing ? (
+                <span className="flex items-center">
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-600"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Refreshing
+                </span>
+              ) : (
+                <span>Refresh Data</span>
+              )}
+            </button>
+          </div>
+          <div className="text-center mb-6">
             <p className="text-gray-600 mt-2">
               {!gameStatus?.isActive
                 ? "You don't have any active game that needs recovery."
@@ -138,20 +189,91 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
 
                   <div>Bet Amount:</div>
                   <div className="font-medium">
-                    {gameStatus?.betAmount
-                      ? `${parseFloat(gameStatus.betAmount).toFixed(2)} Tokens`
+                    {gameStatus?.amount
+                      ? `${parseFloat(gameStatus.amount).toFixed(2)} Tokens`
                       : 'Unknown'}
                   </div>
 
                   <div>VRF Status:</div>
                   <div className="font-medium">
-                    {gameStatus?.requestFulfilled
+                    {gameStatus?.requestProcessed
                       ? 'Completed'
                       : gameStatus?.recoveryEligible
-                        ? 'Timed Out'
+                        ? 'Waiting for Recovery'
                         : 'Pending'}
                   </div>
+
+                  <div>Recovery Eligible:</div>
+                  <div className="font-medium">
+                    {gameStatus?.recoveryEligible ? 'Yes' : 'No'}
+                  </div>
                 </div>
+
+                <div className="mt-2 text-right">
+                  <button
+                    onClick={() => setShowDebug(!showDebug)}
+                    className="text-xs text-blue-500 hover:text-blue-700"
+                  >
+                    {showDebug ? 'Hide Debug Info' : 'Show Debug Info'}
+                  </button>
+                </div>
+
+                {showDebug && (
+                  <div className="mt-2 text-xs border-t pt-2 border-gray-200">
+                    <h4 className="font-medium mb-1">Contract Conditions:</h4>
+                    <div className="grid grid-cols-2 gap-1">
+                      <div>Request ID:</div>
+                      <div className="text-gray-700">
+                        {gameStatus?.requestId || 'None'}
+                      </div>
+
+                      <div>Request Exists:</div>
+                      <div
+                        className={
+                          gameStatus?.requestExists
+                            ? 'text-green-600'
+                            : 'text-red-600'
+                        }
+                      >
+                        {gameStatus?.requestExists ? 'Yes' : 'No'}
+                      </div>
+
+                      <div>Request Processed:</div>
+                      <div
+                        className={
+                          gameStatus?.requestProcessed
+                            ? 'text-green-600'
+                            : 'text-gray-600'
+                        }
+                      >
+                        {gameStatus?.requestProcessed ? 'Yes' : 'No'}
+                      </div>
+
+                      <div>Timestamp:</div>
+                      <div>
+                        {gameStatus?.lastPlayTimestamp
+                          ? new Date(
+                              gameStatus.lastPlayTimestamp * 1000
+                            ).toLocaleString()
+                          : 'Unknown'}
+                      </div>
+
+                      <div>Time Elapsed:</div>
+                      <div>
+                        {activeGameTimer ? `${activeGameTimer}s` : 'Unknown'}
+                      </div>
+
+                      <div>Time Required:</div>
+                      <div>{GAME_TIMEOUT || 3600}s (1 hour)</div>
+                    </div>
+                    <p className="mt-2 text-amber-600">
+                      <strong>Note:</strong> For recovery eligibility, the
+                      contract now requires: 1) Block threshold passed, 2) Time
+                      threshold passed, 3) VRF request exists (processing status
+                      is no longer required)
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>

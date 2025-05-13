@@ -5,6 +5,7 @@ import {
   faRandom,
   faHistory,
   faRecycle,
+  faCheckCircle,
 } from '@fortawesome/free-solid-svg-icons';
 import { usePollingService } from '../../services/pollingService.jsx';
 
@@ -15,8 +16,35 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
   const vrfStartTimeRef = useRef(null);
   const intervalRef = useRef(null);
 
-  // Calculate progress percentage (capped at 100% after 2 minutes)
-  const progressPercentage = Math.min(100, (vrfElapsed / 120) * 100);
+  // Define recovery timeout period in seconds (should match contract's GAME_TIMEOUT)
+  const RECOVERY_TIMEOUT = 3600; // 1 hour
+
+  // Check if recovery timeout has been reached
+  const isRecoveryTimeoutReached = vrfElapsed >= RECOVERY_TIMEOUT;
+
+  // Calculate progress percentage (capped at 100%)
+  const progressPercentage = Math.min(
+    100,
+    (vrfElapsed / RECOVERY_TIMEOUT) * 100
+  );
+
+  // Format elapsed time in a human-readable way
+  const formatElapsedTime = () => {
+    if (!vrfElapsed) return '0s';
+
+    // If past the recovery timeout, don't show raw time
+    if (isRecoveryTimeoutReached || gameStatus?.recoveryEligible) {
+      return 'Recovery ready';
+    }
+
+    const minutes = Math.floor(vrfElapsed / 60);
+    const seconds = vrfElapsed % 60;
+
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    }
+    return `${seconds}s`;
+  };
 
   // Determine if we should show the VRF status
   useEffect(() => {
@@ -67,9 +95,11 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
     };
   }, [shouldShow]);
 
-  // Get status message based on elapsed time
+  // Get status message based on elapsed time and recovery eligibility
   const getStatusMessage = () => {
-    if (vrfElapsed > 60) {
+    if (gameStatus?.recoveryEligible || isRecoveryTimeoutReached) {
+      return 'Your roll result can now be recovered';
+    } else if (vrfElapsed > 60) {
       return 'Still awaiting VRF verification...';
     } else if (vrfElapsed > 20) {
       return 'Verifying your roll (taking longer than usual)...';
@@ -80,7 +110,9 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
 
   // Determine color based on elapsed time
   const getStatusColor = () => {
-    if (vrfElapsed > 60) {
+    if (gameStatus?.recoveryEligible || isRecoveryTimeoutReached) {
+      return 'from-purple-600/90 to-purple-800/90';
+    } else if (vrfElapsed > 60) {
       return 'from-purple-800/90 to-purple-900/90';
     } else if (vrfElapsed > 20) {
       return 'from-purple-700/90 to-purple-800/90';
@@ -136,12 +168,16 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
                   }}
                   className="mr-2 text-white opacity-80"
                 >
-                  <FontAwesomeIcon icon={faRandom} />
+                  {gameStatus?.recoveryEligible || isRecoveryTimeoutReached ? (
+                    <FontAwesomeIcon icon={faCheckCircle} />
+                  ) : (
+                    <FontAwesomeIcon icon={faRandom} />
+                  )}
                 </motion.div>
                 <span className="font-medium">VRF Status</span>
               </div>
               <div className="text-xs text-white/80 bg-white/10 px-2 py-0.5 rounded-full">
-                {vrfElapsed}s
+                {formatElapsedTime()}
               </div>
             </div>
 
@@ -167,7 +203,9 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
             </div>
 
             {/* Action buttons - show after 10s */}
-            {vrfElapsed > 10 && (
+            {(vrfElapsed > 10 ||
+              gameStatus?.recoveryEligible ||
+              isRecoveryTimeoutReached) && (
               <div className="border-t border-white/10 mt-1">
                 <div className="grid grid-cols-2 divide-x divide-white/10">
                   <button
@@ -182,7 +220,9 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
                     className="py-2 text-xs text-white/90 hover:bg-white/10 transition-colors flex items-center justify-center"
                   >
                     <FontAwesomeIcon icon={faRecycle} className="mr-1" />
-                    Recovery Options
+                    {gameStatus?.recoveryEligible || isRecoveryTimeoutReached
+                      ? 'Recover Now'
+                      : 'Recovery Options'}
                   </button>
                 </div>
               </div>

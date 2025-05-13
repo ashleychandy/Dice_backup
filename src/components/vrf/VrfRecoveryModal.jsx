@@ -2,11 +2,15 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameRecovery } from '../../hooks/useGameRecovery';
 import { usePollingService } from '../../services/pollingService.jsx';
+import { ethers } from 'ethers';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCopy } from '@fortawesome/free-solid-svg-icons';
 
 const VrfRecoveryModal = ({ isOpen, onClose }) => {
   const { gameStatus, refreshData } = usePollingService();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
   const {
     recoverGame,
@@ -84,6 +88,45 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  // Format time elapsed in a friendly way (hh:mm:ss)
+  const formatTimeElapsed = seconds => {
+    if (!seconds) return 'Unknown';
+
+    // If recovery is eligible, don't show raw time
+    if (gameStatus?.recoveryEligible) {
+      return 'Ready for recovery';
+    }
+
+    // Format as hours:minutes:seconds
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${secs}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s`;
+    } else {
+      return `${secs}s`;
+    }
+  };
+
+  // Function to copy the request ID to clipboard
+  const copyRequestId = () => {
+    if (gameStatus?.requestId) {
+      navigator.clipboard.writeText(gameStatus.requestId);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    }
+  };
+
+  // Function to format a long request ID for display
+  const formatRequestId = id => {
+    if (!id) return 'None';
+    if (id.length <= 14) return id;
+    return `${id.slice(0, 6)}...${id.slice(-6)}`;
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -92,7 +135,7 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex items-center justify-center isolation-auto"
+        className="fixed inset-0 z-[100] flex items-center justify-center isolation-auto overflow-hidden"
       >
         {/* Fixed overlay to prevent clicks on the betting board */}
         <div
@@ -104,7 +147,7 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="relative z-[110] bg-white/90 backdrop-blur-md rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl isolate"
+          className="relative z-[110] bg-white/90 backdrop-blur-md rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl isolate max-h-[80vh] overflow-auto"
           onClick={e => e.stopPropagation()}
         >
           <div className="absolute -top-6 -right-6 w-20 h-20 bg-purple-500/20 rounded-full blur-xl" />
@@ -163,8 +206,9 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
                 <div className="flex justify-between text-xs mb-1">
                   <span className="text-secondary-400">Recovery progress:</span>
                   <span className="text-secondary-400">
-                    {gameStatus?.recoveryEligible
-                      ? 'Ready to recover'
+                    {gameStatus?.recoveryEligible ||
+                    activeGameTimer >= recoveryTimeoutPeriod
+                      ? 'Recover now'
                       : formatTimeRemaining()
                         ? `Time remaining: ${formatTimeRemaining()}`
                         : `${Math.floor(recoveryProgressPercentage)}%`}
@@ -191,7 +235,7 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
                   <div>Bet Amount:</div>
                   <div className="font-medium">
                     {gameStatus?.amount
-                      ? `${parseFloat(gameStatus.amount).toFixed(2)} Tokens`
+                      ? `${Number(ethers.formatEther(gameStatus.amount)).toFixed(2)} Tokens`
                       : 'Unknown'}
                   </div>
 
@@ -226,8 +270,21 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
                     <h4 className="font-medium mb-1">Technical Details:</h4>
                     <div className="grid grid-cols-2 gap-1">
                       <div>Request ID:</div>
-                      <div className="text-gray-700">
-                        {gameStatus?.requestId || 'None'}
+                      <div className="text-gray-700 flex items-center">
+                        <span className="truncate">
+                          {formatRequestId(gameStatus?.requestId)}
+                        </span>
+                        {gameStatus?.requestId && (
+                          <button
+                            onClick={copyRequestId}
+                            className="ml-1 text-purple-600 hover:text-purple-800"
+                            title={
+                              isCopied ? 'Copied!' : 'Copy full request ID'
+                            }
+                          >
+                            <FontAwesomeIcon icon={faCopy} />
+                          </button>
+                        )}
                       </div>
 
                       <div>Request Exists:</div>
@@ -262,9 +319,7 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
                       </div>
 
                       <div>Time Elapsed:</div>
-                      <div>
-                        {activeGameTimer ? `${activeGameTimer}s` : 'Unknown'}
-                      </div>
+                      <div>{formatTimeElapsed(activeGameTimer)}</div>
 
                       <div>Time Required:</div>
                       <div>{GAME_TIMEOUT || 3600}s (1 hour)</div>
@@ -291,7 +346,12 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
               <button
                 className="px-4 py-2 rounded bg-purple-600/80 text-white hover:bg-purple-700 disabled:bg-gray-400/80"
                 onClick={recoverGame}
-                disabled={!gameStatus?.recoveryEligible || isRecovering}
+                disabled={
+                  !(
+                    gameStatus?.recoveryEligible ||
+                    activeGameTimer >= recoveryTimeoutPeriod
+                  ) || isRecovering
+                }
               >
                 {isRecovering ? 'Recovering...' : 'Recover Bet'}
               </button>

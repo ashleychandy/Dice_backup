@@ -140,7 +140,16 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       className={`${size} dice-dot`}
       initial={{ scale: 0 }}
       animate={{ scale: 1 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+      transition={{
+        type: 'spring',
+        stiffness: 250,
+        damping: 15,
+        duration: 0.3,
+      }}
+      style={{
+        backgroundColor: 'white',
+        boxShadow: '0 0 3px rgba(0,0,0,0.2)',
+      }}
     />
   );
 
@@ -153,98 +162,98 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     const dotConfigurations = {
       1: (
         <div className="absolute inset-0 flex items-center justify-center p-6">
-          {renderDot('w-10 h-10')}
+          {renderDot('w-12 h-12')}
         </div>
       ),
       2: (
         <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 p-6 gap-2">
           <div className="flex items-start justify-start">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
           <div></div>
           <div></div>
           <div className="flex items-end justify-end">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
         </div>
       ),
       3: (
         <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 p-6 gap-1">
           <div className="flex items-start justify-start">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
           <div></div>
           <div></div>
           <div></div>
           <div className="flex items-center justify-center">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
           <div></div>
           <div></div>
           <div></div>
           <div className="flex items-end justify-end">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
         </div>
       ),
       4: (
         <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 p-6 gap-4">
           <div className="flex items-start justify-start">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
           <div className="flex items-start justify-end">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
           <div className="flex items-end justify-start">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
           <div className="flex items-end justify-end">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
         </div>
       ),
       5: (
         <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 p-6 gap-2">
           <div className="flex items-start justify-start">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
           <div></div>
           <div className="flex items-start justify-end">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
           <div></div>
           <div className="flex items-center justify-center">
-            {renderDot('w-7 h-7')}
+            {renderDot('w-9 h-9')}
           </div>
           <div></div>
           <div className="flex items-end justify-start">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
           <div></div>
           <div className="flex items-end justify-end">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
         </div>
       ),
       6: (
         <div className="absolute inset-0 grid grid-cols-2 grid-rows-3 p-6 gap-3">
           <div className="flex items-start justify-start">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
           <div className="flex items-start justify-end">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
           <div className="flex items-center justify-start">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
           <div className="flex items-center justify-end">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
           <div className="flex items-end justify-start">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
           <div className="flex items-end justify-end">
-            {renderDot('w-6 h-6')}
+            {renderDot('w-8 h-8')}
           </div>
         </div>
       ),
@@ -253,15 +262,16 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     return dotConfigurations[safeNumber] || dotConfigurations[1];
   };
 
-  // Rolling animation variants
+  // Rolling animation variants - even slower motion for better visibility
   const rollingVariants = {
     rolling: {
-      rotate: [0, 360],
-      scale: [1, 0.9, 1],
+      rotate: [-5, 5, -3, 3, 0],
+      scale: [1, 0.97, 1.02, 0.98, 1],
       transition: {
-        duration: 0.8,
+        duration: 4, // Even slower animation
         repeat: Infinity,
-        ease: 'linear',
+        ease: 'easeInOut',
+        repeatType: 'mirror',
       },
     },
     static: {
@@ -271,6 +281,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
         type: 'spring',
         stiffness: 200,
         damping: 20,
+        duration: 0.3,
       },
     },
   };
@@ -333,9 +344,24 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
         className="dice-face"
         variants={rollingVariants}
         animate={shouldRoll ? 'rolling' : 'static'}
+        data-rolling={shouldRoll ? 'true' : 'false'}
       >
         {renderDiceFace(displayNumber)}
       </motion.div>
+
+      {/* Shadow */}
+      <motion.div
+        className="w-28 h-5 rounded-full bg-black/15 mt-4 blur-sm"
+        animate={{
+          scale: shouldRoll ? [0.95, 1.05, 0.95] : 1,
+          opacity: shouldRoll ? 0.5 : 0.3,
+        }}
+        transition={{
+          repeat: shouldRoll ? Infinity : 0,
+          duration: shouldRoll ? 4 : 0.3, // Match the dice animation duration
+          repeatType: 'mirror',
+        }}
+      />
 
       {/* Confetti Animation */}
       {showConfetti && <div className="absolute inset-0 pointer-events-none" />}

@@ -70,7 +70,7 @@ struct UserData {
 
 /**
  * @title Dice
- * @dev Provably fair dice game using Chainlink VRF for randomness
+ * @dev Provably fair dice game using Plugin VRF for randomness
  */
 contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
     // ============ Events ============
@@ -138,7 +138,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
      * @notice Contract constructor
      * @param _gamaTokenAddress Address of the token contract
      * @param vrfCoordinator Address of the VRF coordinator
-     * @param subscriptionId Chainlink VRF subscription ID
+     * @param subscriptionId Plugin VRF subscription ID
      * @param keyHash VRF key hash for the network
      * @param _callbackGasLimit Gas limit for VRF callback
      * @param _requestConfirmations Number of confirmations for VRF request

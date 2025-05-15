@@ -1,7 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import React, { useCallback, useEffect, useState } from 'react';
-import { faRandom, faDice, faCubes } from '@fortawesome/free-solid-svg-icons';
+import {
+  faRandom,
+  faDice,
+  faCubes,
+  faChartLine,
+} from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 // Import components
@@ -11,7 +16,6 @@ import DiceVisualizer from '../components/dice/DiceVisualizer';
 import LatestBet from '../components/dice/LatestBet';
 import GameHistory from '../components/dice/GameHistory';
 import NumberSelector from '../components/dice/NumberSelector';
-import FilterButton from '../components/ui/FilterButton';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { VrfRecoveryModal } from '../components/vrf';
 import { useWallet } from '../components/wallet/WalletProvider.jsx';
@@ -19,7 +23,6 @@ import ApprovalGuide from '../components/dice/ApprovalGuide';
 
 // Import custom hooks
 import useGameLogic from '../hooks/useGameLogic';
-import { useGameStatus } from '../hooks/useGameStatus';
 
 // Import the pollingService to force a refresh when page loads
 import { usePollingService } from '../services/pollingService.jsx';
@@ -119,7 +122,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
   const {
     gameStatus,
     refreshData,
-    isLoading: isStatusLoading,
+    isLoading: _isStatusLoading,
   } = usePollingService();
 
   // Force refresh data when component mounts to ensure VRF state is current
@@ -593,48 +596,185 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
           />
         </motion.div>
 
-        {/* Game rules and odds */}
+        {/* Game rules and odds - Enhanced & Modernized */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.6 }}
-          className="bg-white backdrop-blur-md rounded-xl border border-secondary-200 p-6 shadow-xl"
+          className="bg-white/90 backdrop-blur-md rounded-xl border border-[#22AD74]/20 p-8 shadow-xl relative overflow-hidden"
         >
-          <h2 className="text-2xl font-bold mb-4 text-secondary-800">
+          {/* Decorative elements */}
+          <div className="absolute -top-16 -right-16 w-40 h-40 bg-[#22AD74]/10 rounded-full opacity-30 blur-2xl"></div>
+          <div className="absolute -bottom-20 -left-20 w-52 h-52 bg-[#22AD74]/10 rounded-full opacity-30 blur-3xl"></div>
+
+          <h2 className="text-2xl font-bold mb-6 text-[#22AD74] bg-clip-text text-transparent bg-gradient-to-r from-[#22AD74] to-[#22AD74]/70">
             Game Rules & Odds
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-xl font-semibold mb-2 text-gaming-primary">
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* How to Play */}
+            <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-[#22AD74]/10 p-6 shadow-sm transition-all hover:shadow-md">
+              <div className="w-12 h-12 rounded-full bg-[#22AD74]/10 flex items-center justify-center mb-4">
+                <FontAwesomeIcon
+                  icon={faDice}
+                  className="text-[#22AD74] text-xl"
+                />
+              </div>
+              <h3 className="text-xl font-semibold mb-3 text-[#22AD74]">
                 How to Play
               </h3>
-              <ul className="list-disc list-inside space-y-2 text-secondary-700">
-                <li>Choose a number between 1 and 6</li>
-                <li>Enter your bet amount</li>
-                <li>Click &quot;Roll Dice&quot; to play</li>
-                <li>
-                  If the dice rolls your number, you win 6x your bet amount
+              <ul className="space-y-3 text-gray-700">
+                <li className="flex items-start gap-2">
+                  <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
+                    1
+                  </div>
+                  <span>Choose a number between 1 and 6</span>
                 </li>
-                <li>
-                  The game uses on-chain randomness for fair and transparent
-                  results
+                <li className="flex items-start gap-2">
+                  <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
+                    2
+                  </div>
+                  <span>Enter your bet amount in GAMA tokens</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
+                    3
+                  </div>
+                  <span>Click &quot;Roll Dice&quot; to place your bet</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
+                    4
+                  </div>
+                  <span>Wait for the blockchain verification</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
+                    5
+                  </div>
+                  <span>If the dice rolls your number, you win instantly!</span>
                 </li>
               </ul>
             </div>
-            <div>
-              <h3 className="text-xl font-semibold mb-2 text-gaming-primary">
+
+            {/* Odds & Payouts */}
+            <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-[#22AD74]/10 p-6 shadow-sm transition-all hover:shadow-md">
+              <div className="w-12 h-12 rounded-full bg-[#22AD74]/10 flex items-center justify-center mb-4">
+                <FontAwesomeIcon
+                  icon={faChartLine}
+                  className="text-[#22AD74] text-xl"
+                />
+              </div>
+              <h3 className="text-xl font-semibold mb-3 text-[#22AD74]">
                 Odds & Payouts
               </h3>
-              <div className="space-y-2 text-secondary-700">
+              <div className="space-y-3 text-gray-700">
+                <p className="flex justify-between border-b border-gray-100 pb-2">
+                  <span>Win Probability:</span>
+                  <span className="font-semibold">16.67%</span>
+                </p>
+                <p className="flex justify-between border-b border-gray-100 pb-2">
+                  <span>Payout Multiplier:</span>
+                  <span className="font-semibold text-[#22AD74]">6x</span>
+                </p>
+                <p className="flex justify-between border-b border-gray-100 pb-2">
+                  <span>House Edge:</span>
+                  <span className="font-semibold">0%</span>
+                </p>
+                <div className="pt-3">
+                  <p className="text-sm text-gray-600">
+                    For each number, you have a 1-in-6 chance of winning. When
+                    you win, you receive 6x your bet amount giving the game a 0%
+                    house edge.
+                  </p>
+                  <p className="text-xs text-[#22AD74] italic mt-2">
+                    Note: Blockchain transaction fees apply to all bets
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Blockchain Verification */}
+            <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-[#22AD74]/10 p-6 shadow-sm transition-all hover:shadow-md">
+              <div className="w-12 h-12 rounded-full bg-[#22AD74]/10 flex items-center justify-center mb-4">
+                <FontAwesomeIcon
+                  icon={faRandom}
+                  className="text-[#22AD74] text-xl"
+                />
+              </div>
+              <h3 className="text-xl font-semibold mb-3 text-[#22AD74]">
+                Verifiable Fairness
+              </h3>
+              <div className="space-y-3 text-gray-700">
                 <p>
-                  For each number, you have a 1 in 6 chance of winning (16.67%).
+                  GAMA Dice uses{' '}
+                  <span className="font-medium">
+                    Plugin&apos;s Verifiable Random Function (VRF)
+                  </span>{' '}
+                  to ensure complete fairness and transparency.
+                </p>
+                <div className="bg-[#22AD74]/5 rounded-lg p-3 text-sm">
+                  <p className="font-medium mb-1">How VRF works:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-gray-600">
+                    <li>Your bet generates a random number request</li>
+                    <li>
+                      Plugin VRF provides cryptographically secure randomness
+                    </li>
+                    <li>
+                      The dice result is determined transparently on-chain
+                    </li>
+                  </ol>
+                </div>
+                <p className="text-sm mt-2">
+                  In rare cases where VRF confirmation takes longer than usual,
+                  the recovery option becomes available after 1 hour, allowing
+                  you to recover your bet amount safely.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 p-5 bg-[#22AD74]/5 rounded-xl border border-[#22AD74]/10">
+            <h4 className="font-semibold text-[#22AD74] mb-3 flex items-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              Important Game Information
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
+              <div>
+                <p className="mb-2">
+                  <span className="font-medium">Minimum Bet:</span> 1 GAMA token
+                </p>
+                <p className="mb-2">
+                  <span className="font-medium">Maximum Bet:</span> 1,000 GAMA
+                  tokens
                 </p>
                 <p>
-                  Winning rolls pay 6x your bet amount, giving the game a 0%
-                  house edge.
+                  <span className="font-medium">Maximum Win:</span> 6,000 GAMA
+                  tokens
                 </p>
-                <p className="text-sm text-secondary-500 italic">
-                  Note: Blockchain transaction fees apply to all bets.
+              </div>
+              <div>
+                <p className="mb-2">
+                  <span className="font-medium">Game History:</span> View your
+                  past bets and results in the Game History section
+                </p>
+                <p>
+                  <span className="font-medium">Recovery Window:</span> Bets
+                  that aren&apos;t verified within 1 hour can be refunded
+                  through the recovery option
                 </p>
               </div>
             </div>

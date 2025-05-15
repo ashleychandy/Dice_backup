@@ -59,6 +59,14 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
       return true;
     }
 
+    // If the result indicates a completed game with a roll number, we're not waiting
+    if (
+      gameStatus?.isCompleted ||
+      (result && result.rolledNumber >= 1 && result.rolledNumber <= 6)
+    ) {
+      return false;
+    }
+
     // If no result at all, we're not waiting
     if (!result) return false;
 
@@ -133,6 +141,25 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
 
   // Determine the best result to display
   const displayResult = useMemo(() => {
+    // If no active game in contract, don't show pending status
+    if (!gameStatus?.isActive && latestHistoryBet) {
+      return {
+        source: 'history',
+        data: latestHistoryBet,
+      };
+    }
+
+    // First check if latest history bet matches our current bet - this takes highest priority
+    if (
+      latestHistoryBet &&
+      isCurrentBetResult(latestHistoryBet, chosenNumber, betAmount)
+    ) {
+      return {
+        source: 'history',
+        data: latestHistoryBet,
+      };
+    }
+
     // If waiting for VRF based on contract state
     if (isWaitingForVrf) {
       return {
@@ -154,17 +181,6 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
       return {
         source: 'current',
         data: result,
-      };
-    }
-
-    // If we have a history bet that matches current bet parameters, use it
-    if (
-      latestHistoryBet &&
-      isCurrentBetResult(latestHistoryBet, chosenNumber, betAmount)
-    ) {
-      return {
-        source: 'history',
-        data: latestHistoryBet,
       };
     }
 

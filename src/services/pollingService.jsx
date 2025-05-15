@@ -29,91 +29,135 @@ export const PollingProvider = ({
     ? activeGameInterval
     : inactiveInterval;
 
-  // Fetch all relevant data in a single batch
+  // Fetch data from blockchain
   const fetchData = async () => {
     if (!diceContract || !account) {
-      setGameData(prev => ({
-        ...prev,
-        isLoading: false,
-      }));
       return;
     }
 
-    // Set loading state for initial fetch
-    if (gameData.lastUpdated === null) {
-      setGameData(prev => ({ ...prev, isLoading: true }));
-    }
+    // Update isLoading state
+    setGameData(prev => ({ ...prev, isLoading: true }));
 
     try {
-      // Start all requests concurrently
-      const promises = [diceContract.getGameStatus(account)];
+      console.log('DEBUG - Starting fetchData:', {
+        hasContract: !!diceContract,
+        account,
+        contractMethods: Object.keys(diceContract).filter(
+          key => typeof diceContract[key] === 'function'
+        ),
+      });
 
-      // Add bet history request if the method exists
-      if (
-        diceContract.getBetHistory &&
-        typeof diceContract.getBetHistory === 'function'
-      ) {
-        promises.push(diceContract.getBetHistory(account));
-      } else {
-        promises.push(Promise.resolve([]));
-      }
+      // Check which methods exist on the contract
+      const hasGetGameStatus = typeof diceContract.getGameStatus === 'function';
+      const hasGetBetHistory = typeof diceContract.getBetHistory === 'function';
+      const hasGetContractStats =
+        typeof diceContract.getContractStats === 'function';
 
-      // Add contract stats request if the method exists
-      if (
-        diceContract.getContractStats &&
-        typeof diceContract.getContractStats === 'function'
-      ) {
-        promises.push(diceContract.getContractStats());
+      console.log('DEBUG - Available contract methods:', {
+        hasGetGameStatus,
+        hasGetBetHistory,
+        hasGetContractStats,
+      });
+
+      // Define promises based on available methods
+      let promises = [];
+      let promiseTypes = [];
+
+      // 1. Game status
+      if (hasGetGameStatus) {
+        promises.push(
+          diceContract.getGameStatus(account).catch(error => {
+            console.error('Error fetching game status:', error);
+            return null;
+          })
+        );
+        promiseTypes.push('gameStatus');
       } else {
         promises.push(Promise.resolve(null));
+        promiseTypes.push('gameStatus');
+      }
+
+      // 2. Bet history
+      if (hasGetBetHistory) {
+        promises.push(
+          diceContract.getBetHistory(account).catch(error => {
+            console.error('Error fetching bet history:', error);
+            return [];
+          })
+        );
+        promiseTypes.push('betHistory');
+      } else {
+        promises.push(Promise.resolve([]));
+        promiseTypes.push('betHistory');
+      }
+
+      // 3. Contract stats (only if method exists)
+      if (hasGetContractStats) {
+        promises.push(
+          diceContract.getContractStats().catch(error => {
+            console.error('Error fetching contract stats:', error);
+            return null;
+          })
+        );
+        promiseTypes.push('contractStats');
       }
 
       // Wait for all promises to resolve
-      const [gameStatusResult, betHistoryResult, contractStatsResult] =
-        await Promise.allSettled(promises);
+      const results = await Promise.allSettled(promises);
 
-      // Process game status
-      let gameStatus = null;
-      if (gameStatusResult.status === 'fulfilled') {
-        const status = gameStatusResult.value;
+      console.log('DEBUG - Fetch results:', {
+        results: results.map((r, i) => ({
+          type: promiseTypes[i],
+          status: r.status,
+          hasValue: r.status === 'fulfilled' && r.value !== null,
+        })),
+      });
 
-        // For debugging purposes, log the raw status
-        console.log('Raw game status from contract:', status);
-
-        gameStatus = {
-          isActive: status.isActive,
-          isWin: status.isWin,
-          isCompleted: status.isCompleted,
-          chosenNumber: Number(status.chosenNumber),
-          amount: status.amount.toString(),
-          result: Number(status.result),
-          payout: status.payout.toString(),
-          requestId: status.requestId.toString(),
-          recoveryEligible: status.recoveryEligible,
-          lastPlayTimestamp: Number(status.lastPlayTimestamp),
-          requestExists: status.requestExists,
-          requestProcessed: status.requestProcessed,
-          // Derive requestFulfilled from requestProcessed which is what the contract returns
-          requestFulfilled: status.requestProcessed,
-        };
-
-        // Update active game status
-        setHasActiveGame(status.isActive);
-      }
-
-      // Process bet history
+      // Extract results
+      let gameStatus = {};
       let betHistory = [];
-      if (betHistoryResult.status === 'fulfilled') {
-        betHistory = processBetHistory(betHistoryResult.value);
-      }
-
-      // Process contract stats
       let contractStats = null;
-      if (
-        contractStatsResult.status === 'fulfilled' &&
-        contractStatsResult.value
-      ) {
-        contractStats = contractStatsResult.value;
+
+      // Process results by checking the type we stored
+      results.forEach((result, index) => {
+        const type = promiseTypes[index];
+
+        if (result.status === 'fulfilled') {
+          if (type === 'gameStatus' && result.value) {
+            const status = result.value;
+
+            // For debugging purposes, log the raw status
+            console.log('Raw game status from contract:', status);
+
+            gameStatus = {
+              isActive: status.isActive,
+              isWin: status.isWin,
+              isCompleted: status.isCompleted,
+              chosenNumber: Number(status.chosenNumber),
+              amount: status.amount.toString(),
+              result: Number(status.result),
+              payout: status.payout.toString(),
+              requestId: status.requestId.toString(),
+              recoveryEligible: status.recoveryEligible,
+              lastPlayTimestamp: Number(status.lastPlayTimestamp),
+              requestExists: status.requestExists,
+              requestProcessed: status.requestProcessed,
+              // Derive requestFulfilled from requestProcessed which is what the contract returns
+              requestFulfilled: status.requestProcessed,
+            };
+
+            // Don't set hasActiveGame here - we'll do it after all data is processed
+          } else if (type === 'betHistory') {
+            betHistory = processBetHistory(result.value);
+          } else if (type === 'contractStats') {
+            contractStats = result.value;
+          }
+        }
+      });
+
+      // Update active game status together with other state updates to prevent infinite loops
+      if (gameStatus?.isActive !== undefined) {
+        setHasActiveGame(gameStatus.isActive);
       }
 
       // Update state with all data
@@ -138,12 +182,19 @@ export const PollingProvider = ({
 
   // Process bet history data
   const processBetHistory = bets => {
+    console.log('DEBUG - Processing bet history:', {
+      receivedData: !!bets,
+      isArray: Array.isArray(bets),
+      length: bets?.length || 0,
+      rawData: bets,
+    });
+
     if (!bets || !Array.isArray(bets)) return [];
 
     const RESULT_FORCE_STOPPED = 254;
     const RESULT_RECOVERED = 255;
 
-    return bets
+    const processedBets = bets
       .map(bet => {
         try {
           const rolledNumber = Number(bet.rolledNumber);
@@ -182,6 +233,13 @@ export const PollingProvider = ({
       })
       .filter(Boolean)
       .sort((a, b) => b.timestamp - a.timestamp);
+
+    console.log('DEBUG - Processed bet history:', {
+      processedLength: processedBets.length,
+      processedData: processedBets,
+    });
+
+    return processedBets;
   };
 
   // Set up polling interval

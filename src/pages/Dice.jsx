@@ -417,8 +417,10 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                   whileTap={{ scale: 0.98 }}
                   onClick={handlePlaceBetWithTracking}
                   disabled={
-                    gameState.isProcessing ||
-                    gameState.isRolling ||
+                    (gameState.isProcessing && !gameState.lastResult) ||
+                    (gameState.isRolling &&
+                      gameStatus?.isActive &&
+                      !gameStatus?.isCompleted) ||
                     isApproving ||
                     isBetting ||
                     !chosenNumber ||
@@ -427,11 +429,16 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                   }
                   className="h-14 w-full bg-gradient-to-r from-gaming-primary to-gaming-accent hover:from-gaming-primary/90 hover:to-gaming-accent/90 font-medium rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {gameState.isProcessing || gameState.isRolling ? (
+                  {(gameState.isProcessing && !gameState.lastResult) ||
+                  (gameState.isRolling &&
+                    gameStatus?.isActive &&
+                    !gameStatus?.isCompleted) ? (
                     <span className="flex items-center justify-center">
                       <LoadingSpinner size="small" />
                       <span className="ml-2">
-                        {gameState.isRolling
+                        {gameState.isRolling &&
+                        gameStatus?.isActive &&
+                        !gameStatus?.isCompleted
                           ? 'Rolling dice...'
                           : 'Processing your bet...'}
                       </span>

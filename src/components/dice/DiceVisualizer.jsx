@@ -14,6 +14,9 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
   const prevResultRef = useRef(null);
   const vrfStartTimeRef = useRef(null);
 
+  // Manage dice rolling state directly
+  const [shouldRollDice, setShouldRollDice] = useState(false);
+
   // Use polling service to get current game status
   const { gameStatus } = usePollingService();
 
@@ -28,6 +31,68 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     setProcessingVrf,
   } = useDiceNumber(result, chosenNumber, isRolling);
 
+  // Direct control of dice rolling
+  useEffect(() => {
+    console.log('Dice state update:', {
+      isRolling,
+      processingVrf,
+      hasResult: !!result,
+      resultProcessed: gameStatus?.requestProcessed,
+      resultDetails: result ? JSON.stringify(result) : 'none',
+    });
+
+    // Start rolling
+    if (isRolling && !result) {
+      console.log('Starting dice roll');
+      setShouldRollDice(true);
+      setProcessingVrf(true);
+    }
+
+    // Stop rolling only when we have a conclusive result
+    if (
+      result &&
+      ((result.rolledNumber >= 1 && result.rolledNumber <= 6) ||
+        result.requestFulfilled === true ||
+        result.vrfComplete === true)
+    ) {
+      console.log('Stopping dice roll - have conclusive result', result);
+      setShouldRollDice(false);
+      setProcessingVrf(false);
+    }
+    // For pending VRF results, keep processing state active
+    else if (result && result.vrfPending) {
+      console.log('Processing VRF - keep animation state');
+      setShouldRollDice(true);
+      setProcessingVrf(true);
+    }
+
+    // Stop rolling when blockchain says request is processed
+    if (gameStatus?.requestProcessed) {
+      console.log('Stopping dice roll - request processed by blockchain');
+      setShouldRollDice(false);
+      setProcessingVrf(false);
+    }
+  }, [isRolling, processingVrf, result, gameStatus, setProcessingVrf]);
+
+  // Maximum animation duration of 10 seconds (reduced from 15)
+  useEffect(() => {
+    let maxDurationTimer;
+    if (shouldRollDice) {
+      // Force stop the dice roll after 10 seconds maximum
+      maxDurationTimer = setTimeout(() => {
+        console.log('Maximum dice roll duration reached (10 seconds)');
+        setShouldRollDice(false);
+        setProcessingVrf(false);
+      }, 10000);
+    }
+
+    return () => {
+      if (maxDurationTimer) {
+        clearTimeout(maxDurationTimer);
+      }
+    };
+  }, [shouldRollDice, setProcessingVrf]);
+
   // Check contract state on component load to maintain VRF status
   useEffect(() => {
     // If there's an active game with a pending request, show VRF processing
@@ -37,51 +102,19 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       !gameStatus?.requestProcessed
     ) {
       setProcessingVrf(true);
+      setShouldRollDice(true);
 
       // Set the start time to the game's timestamp if available, or current time
       if (!vrfStartTimeRef.current && gameStatus?.lastPlayTimestamp) {
         const startTime = gameStatus.lastPlayTimestamp * 1000;
         vrfStartTimeRef.current = startTime;
       }
+    } else if (gameStatus?.requestProcessed) {
+      // If blockchain says request is processed, stop processing and rolling
+      setProcessingVrf(false);
+      setShouldRollDice(false);
     }
   }, [gameStatus, setProcessingVrf]);
-
-  // Manage VRF processing state without timeout
-  useEffect(() => {
-    // Clear all existing timeouts to avoid race conditions
-    const clearAllTimeouts = () => {
-      timeoutRefs.current.forEach(clearTimeout);
-      timeoutRefs.current = [];
-    };
-
-    // If the component starts rolling, start processing VRF
-    if (isRolling && !processingVrf) {
-      clearAllTimeouts();
-      setProcessingVrf(true);
-      vrfStartTimeRef.current = Date.now();
-    }
-
-    // If we receive a result, stop processing VRF
-    if (
-      result &&
-      (result.requestFulfilled || result.rolledNumber !== undefined)
-    ) {
-      clearAllTimeouts();
-
-      // Give a slight delay before clearing the VRF processing state
-      // This allows animations to complete
-      const timeoutId = setTimeout(() => {
-        setProcessingVrf(false);
-      }, 1000);
-
-      timeoutRefs.current.push(timeoutId);
-    }
-
-    // Cleanup function to clear all timeouts when unmounting
-    return () => {
-      clearAllTimeouts();
-    };
-  }, [isRolling, result, processingVrf, setProcessingVrf]);
 
   // Show elapsed time counter for VRF processing
   const vrfElapsed = vrfStartTimeRef.current
@@ -95,6 +128,8 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       JSON.stringify(result) !== JSON.stringify(prevResultRef.current)
     ) {
       prevResultRef.current = result;
+      // When we get a new result, stop rolling
+      setShouldRollDice(false);
     }
   }, [result]);
 
@@ -269,9 +304,10 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       scale: [1, 0.97, 1.02, 0.98, 1],
       transition: {
         duration: 4, // Even slower animation
-        repeat: Infinity,
+        repeat: 3, // 4 seconds x 3 repeats = 12 seconds (plus a small buffer)
         ease: 'easeInOut',
         repeatType: 'mirror',
+        maxDuration: 15, // Maximum duration of 15 seconds
       },
     },
     static: {
@@ -307,21 +343,6 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     },
   };
 
-  // Check if there's a valid result to display
-  const _hasValidResult =
-    result && result.rolledNumber >= 1 && result.rolledNumber <= 6;
-
-  // Determine if the dice should be rolling - fixed logic to properly stop on valid results
-  const shouldRoll =
-    (isRolling || processingVrf) &&
-    !(
-      result &&
-      (result.requestFulfilled ||
-        (result.rolledNumber !== undefined &&
-          result.rolledNumber >= 1 &&
-          result.rolledNumber <= 6))
-    );
-
   // Fallback UI for error state
   if (hasError) {
     return (
@@ -343,8 +364,8 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       <motion.div
         className="dice-face"
         variants={rollingVariants}
-        animate={shouldRoll ? 'rolling' : 'static'}
-        data-rolling={shouldRoll ? 'true' : 'false'}
+        animate={shouldRollDice ? 'rolling' : 'static'}
+        data-rolling={shouldRollDice ? 'true' : 'false'}
       >
         {renderDiceFace(displayNumber)}
       </motion.div>
@@ -353,13 +374,14 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       <motion.div
         className="w-28 h-5 rounded-full bg-black/15 mt-4 blur-sm"
         animate={{
-          scale: shouldRoll ? [0.95, 1.05, 0.95] : 1,
-          opacity: shouldRoll ? 0.5 : 0.3,
+          scale: shouldRollDice ? [0.95, 1.05, 0.95] : 1,
+          opacity: shouldRollDice ? 0.5 : 0.3,
         }}
         transition={{
-          repeat: shouldRoll ? Infinity : 0,
-          duration: shouldRoll ? 4 : 0.3, // Match the dice animation duration
+          repeat: shouldRollDice ? 3 : 0, // Match the dice animation repeat count
+          duration: shouldRollDice ? 4 : 0.3, // Match the dice animation duration
           repeatType: 'mirror',
+          maxDuration: 15, // Maximum duration of 15 seconds
         }}
       />
 
@@ -407,30 +429,6 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
             </motion.div>
           )}
       </AnimatePresence>
-
-      {/* VRF Processing Indicator - COMMENTED OUT SINCE WE NOW HAVE A GLOBAL NOTIFICATION */}
-      {/* 
-      {processingVrf && (
-        <motion.div
-          className={`absolute top-2 left-2 right-2 text-sm px-3 py-2 rounded-full ${
-            vrfElapsed > 20 ? 'bg-purple-700/80' : 'bg-purple-600/80'
-          } text-white flex items-center justify-center backdrop-blur-sm`}
-          animate={{ opacity: [0.8, 1, 0.8] }}
-          transition={{ repeat: Infinity, duration: 1.5 }}
-        >
-          <div className="mr-2 h-3 w-3 rounded-full bg-white animate-pulse"></div>
-          {vrfElapsed > 20
-            ? 'Still verifying your roll...'
-            : 'Verifying your roll'}
-          {vrfElapsed > 3 ? ` (${vrfElapsed}s)` : ''}
-          {vrfElapsed > 10 && (
-            <span className="ml-1 text-xs">
-              - Check history or recovery options
-            </span>
-          )}
-        </motion.div>
-      )}
-      */}
     </div>
   );
 };

@@ -15,6 +15,9 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
   const [vrfElapsed, setVrfElapsed] = useState(0);
   const vrfStartTimeRef = useRef(null);
   const intervalRef = useRef(null);
+  const [resultJustReceived, setResultJustReceived] = useState(false);
+  const timerRef = useRef(null);
+  const prevGameStatusRef = useRef(null);
 
   // Define recovery timeout period in seconds (should match contract's GAME_TIMEOUT)
   const RECOVERY_TIMEOUT = 3600; // 1 hour
@@ -30,6 +33,7 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
 
   // Format elapsed time in a human-readable way
   const formatElapsedTime = () => {
+    if (resultJustReceived) return 'Complete';
     if (!vrfElapsed) return '0s';
 
     // If past the recovery timeout, don't show raw time
@@ -46,14 +50,49 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
     return `${seconds}s`;
   };
 
-  // Determine if we should show the VRF status
+  // Debug logging to track VRF status changes
   useEffect(() => {
+    console.log('VRF Status popup debug:', {
+      gameStatusActive: gameStatus?.isActive,
+      requestExists: gameStatus?.requestExists,
+      requestProcessed: gameStatus?.requestProcessed,
+      shouldShow,
+      resultJustReceived,
+      hasTimestamp: !!gameStatus?.lastPlayTimestamp,
+    });
+  }, [gameStatus, shouldShow, resultJustReceived]);
+
+  // Handle VRF status changes
+  useEffect(() => {
+    // Check if the game status actually changed to avoid unnecessary updates
+    const statusChanged =
+      !prevGameStatusRef.current ||
+      prevGameStatusRef.current.isActive !== gameStatus?.isActive ||
+      prevGameStatusRef.current.requestProcessed !==
+        gameStatus?.requestProcessed;
+
+    // Update previous status reference
+    prevGameStatusRef.current = gameStatus;
+
+    if (!statusChanged) return;
+
+    // Clear any existing timer to avoid conflicts
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    console.log('VRF status changed:', gameStatus);
+
+    // CASE 1: Active game with pending VRF verification
     if (
       gameStatus?.isActive &&
       gameStatus?.requestExists &&
       !gameStatus?.requestProcessed
     ) {
+      console.log('VRF: Active verification in progress');
       setShouldShow(true);
+      setResultJustReceived(false);
 
       // Set start time if not already set
       if (!vrfStartTimeRef.current && gameStatus?.lastPlayTimestamp) {
@@ -61,22 +100,43 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
       } else if (!vrfStartTimeRef.current) {
         vrfStartTimeRef.current = Date.now();
       }
-    } else {
-      // If VRF is complete, keep showing for 3 more seconds
-      if (shouldShow) {
-        const timer = setTimeout(() => {
-          setShouldShow(false);
-          vrfStartTimeRef.current = null;
-        }, 3000);
-
-        return () => clearTimeout(timer);
-      }
     }
+    // CASE 2: Active game but VRF verification just completed
+    else if (
+      gameStatus?.isActive &&
+      gameStatus?.requestProcessed &&
+      shouldShow
+    ) {
+      console.log('VRF: Verification completed, showing success');
+      setResultJustReceived(true);
+
+      // Show success state for 3 seconds, then hide
+      timerRef.current = setTimeout(() => {
+        console.log('VRF: Hiding after success timer');
+        setShouldShow(false);
+        setResultJustReceived(false);
+        vrfStartTimeRef.current = null;
+        timerRef.current = null;
+      }, 3000);
+    }
+    // CASE 3: No active game or explicit reset
+    else if (!gameStatus?.isActive) {
+      console.log('VRF: No active game, hiding popup');
+      setShouldShow(false);
+      setResultJustReceived(false);
+      vrfStartTimeRef.current = null;
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
   }, [gameStatus, shouldShow]);
 
   // Update elapsed time counter
   useEffect(() => {
-    if (shouldShow && vrfStartTimeRef.current) {
+    if (shouldShow && vrfStartTimeRef.current && !resultJustReceived) {
       // Initial calculation
       setVrfElapsed(Math.floor((Date.now() - vrfStartTimeRef.current) / 1000));
 
@@ -93,11 +153,13 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [shouldShow]);
+  }, [shouldShow, resultJustReceived]);
 
   // Get status message based on elapsed time and recovery eligibility
   const getStatusMessage = () => {
-    if (gameStatus?.recoveryEligible || isRecoveryTimeoutReached) {
+    if (resultJustReceived) {
+      return 'Roll result has arrived!';
+    } else if (gameStatus?.recoveryEligible || isRecoveryTimeoutReached) {
       return 'Your roll result can now be recovered';
     } else if (vrfElapsed > 60) {
       return 'Still awaiting VRF verification...';
@@ -110,7 +172,9 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
 
   // Determine color based on elapsed time
   const getStatusColor = () => {
-    if (gameStatus?.recoveryEligible || isRecoveryTimeoutReached) {
+    if (resultJustReceived) {
+      return 'from-green-500/90 to-green-600/90';
+    } else if (gameStatus?.recoveryEligible || isRecoveryTimeoutReached) {
       return 'from-purple-600/90 to-purple-800/90';
     } else if (vrfElapsed > 60) {
       return 'from-purple-800/90 to-purple-900/90';
@@ -155,20 +219,22 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
               <div className="flex items-center text-white">
                 <motion.div
                   animate={{
-                    rotate: [0, 360],
-                    scale: [1, 1.2, 1],
+                    rotate: resultJustReceived ? 0 : [0, 360],
+                    scale: resultJustReceived ? 1.2 : [1, 1.2, 1],
                   }}
                   transition={{
                     rotate: { duration: 5, repeat: Infinity, ease: 'linear' },
                     scale: {
-                      duration: 2,
-                      repeat: Infinity,
+                      duration: resultJustReceived ? 0.5 : 2,
+                      repeat: resultJustReceived ? 0 : Infinity,
                       repeatType: 'reverse',
                     },
                   }}
                   className="mr-2 text-white opacity-80"
                 >
-                  {gameStatus?.recoveryEligible || isRecoveryTimeoutReached ? (
+                  {resultJustReceived ||
+                  gameStatus?.recoveryEligible ||
+                  isRecoveryTimeoutReached ? (
                     <FontAwesomeIcon icon={faCheckCircle} />
                   ) : (
                     <FontAwesomeIcon icon={faRandom} />
@@ -186,7 +252,9 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
               <motion.div
                 className="h-full bg-white"
                 initial={{ width: '0%' }}
-                animate={{ width: `${progressPercentage}%` }}
+                animate={{
+                  width: resultJustReceived ? '100%' : `${progressPercentage}%`,
+                }}
                 transition={{ type: 'tween', duration: 0.5 }}
               />
             </div>
@@ -202,10 +270,11 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
               </div>
             </div>
 
-            {/* Action buttons - show after 10s */}
+            {/* Action buttons - show after 10s or when result received */}
             {(vrfElapsed > 10 ||
               gameStatus?.recoveryEligible ||
-              isRecoveryTimeoutReached) && (
+              isRecoveryTimeoutReached ||
+              resultJustReceived) && (
               <div className="border-t border-white/10 mt-1">
                 <div className="grid grid-cols-2 divide-x divide-white/10">
                   <button
@@ -215,15 +284,26 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
                     <FontAwesomeIcon icon={faHistory} className="mr-1" />
                     View History
                   </button>
-                  <button
-                    onClick={onOpenRecovery}
-                    className="py-2 text-xs text-white/90 hover:bg-white/10 transition-colors flex items-center justify-center"
-                  >
-                    <FontAwesomeIcon icon={faRecycle} className="mr-1" />
-                    {gameStatus?.recoveryEligible || isRecoveryTimeoutReached
-                      ? 'Recover Now'
-                      : 'Recovery Options'}
-                  </button>
+                  {!resultJustReceived && (
+                    <button
+                      onClick={onOpenRecovery}
+                      className="py-2 text-xs text-white/90 hover:bg-white/10 transition-colors flex items-center justify-center"
+                    >
+                      <FontAwesomeIcon icon={faRecycle} className="mr-1" />
+                      {gameStatus?.recoveryEligible || isRecoveryTimeoutReached
+                        ? 'Recover Now'
+                        : 'Recovery Options'}
+                    </button>
+                  )}
+                  {resultJustReceived && (
+                    <button
+                      onClick={scrollToHistory}
+                      className="py-2 text-xs text-white/90 hover:bg-white/10 transition-colors flex items-center justify-center"
+                    >
+                      <FontAwesomeIcon icon={faCheckCircle} className="mr-1" />
+                      See Results
+                    </button>
+                  )}
                 </div>
               </div>
             )}

@@ -52,17 +52,33 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
   // Update random dice number when rolling
   useEffect(() => {
     let intervalId;
+    let timeoutId;
+
     if (isRolling && !rolledNumber) {
       // Create a rolling effect by changing the number rapidly
       intervalId = setInterval(() => {
         setRandomDiceNumber(getRandomDiceNumber());
       }, 150); // Change number every 150ms for a realistic rolling effect
+
+      // Automatically stop rolling after 15 seconds
+      timeoutId = setTimeout(() => {
+        if (intervalId) {
+          clearInterval(intervalId);
+        }
+        // If we still don't have a result after 15 seconds, use the last random number
+        if (!rolledNumber) {
+          setProcessingVrf(false);
+        }
+      }, 15000); // 15 seconds maximum
     }
 
-    // Clean up interval
+    // Clean up interval and timeout
     return () => {
       if (intervalId) {
         clearInterval(intervalId);
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
     };
   }, [isRolling, rolledNumber, getRandomDiceNumber]);
@@ -93,6 +109,19 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
       // Validate the result number is not NaN
       if (isNaN(resultNumber)) {
         resultNumber = null;
+      }
+
+      // Only stop VRF processing when we have a conclusive result
+      // (valid rolledNumber or explicitly marked as fulfilled)
+      if (
+        (resultNumber !== null && resultNumber >= 1 && resultNumber <= 6) ||
+        isRequestFulfilled
+      ) {
+        setProcessingVrf(false);
+      }
+      // Don't stop VRF if result explicitly indicates it's pending VRF
+      else if (result.vrfPending) {
+        setProcessingVrf(true);
       }
 
       // Only update the rolled number if we have a valid result or fulfilled request

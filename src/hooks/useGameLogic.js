@@ -668,14 +668,15 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           clearTimeout();
           pendingTxRef.current = null;
           operationInProgress.current = false;
+
+          // Reset processing state to allow new bets
           setProcessingState(false);
 
-          // Handle rolling state
-          if (!document.hidden) {
-            const lastResult = queryClient.getQueryData(['lastResult']);
-            if (lastResult && !lastResult.vrfPending) {
-              setRollingState(false);
-            }
+          // Only reset rolling state if we don't have a VRF-pending result
+          // This allows VRF popups and latest bet info to continue displaying
+          const currentResult = queryClient.getQueryData(['lastResult']);
+          if (!currentResult || !currentResult.vrfPending) {
+            setRollingState(false);
           }
         }
       });

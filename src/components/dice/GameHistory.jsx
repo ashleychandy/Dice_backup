@@ -7,6 +7,8 @@ import {
   faCheckCircle,
   faTimesCircle,
   faDice,
+  faChartLine,
+  faTrophy,
 } from '@fortawesome/free-solid-svg-icons';
 import { useBetHistory } from '../../hooks/useBetHistory';
 import { useDiceContract } from '../../hooks/useDiceContract';
@@ -38,7 +40,7 @@ const Pagination = ({
         ${
           !hasPreviousPage
             ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-            : 'bg-white hover:bg-purple-50 text-secondary-700 hover:text-purple-700 border border-gray-200 hover:border-purple-200 shadow-sm hover:shadow'
+            : 'bg-white hover:bg-[#22AD74]/5 text-secondary-700 hover:text-[#22AD74] border border-gray-200 hover:border-[#22AD74]/20 shadow-sm hover:shadow'
         }
       `}
     >
@@ -58,7 +60,7 @@ const Pagination = ({
         ${
           !hasNextPage
             ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-            : 'bg-white hover:bg-purple-50 text-secondary-700 hover:text-purple-700 border border-gray-200 hover:border-purple-200 shadow-sm hover:shadow'
+            : 'bg-white hover:bg-[#22AD74]/5 text-secondary-700 hover:text-[#22AD74] border border-gray-200 hover:border-[#22AD74]/20 shadow-sm hover:shadow'
         }
       `}
     >
@@ -76,7 +78,7 @@ const Tab = ({ label, active, onClick, icon, count, pending }) => (
     className={`px-4 py-2.5 rounded-xl text-sm font-medium relative transition-all flex items-center gap-2
       ${
         active
-          ? 'bg-purple-100 text-purple-700 border border-purple-200 shadow-sm'
+          ? 'bg-[#22AD74]/10 text-[#22AD74] border border-[#22AD74]/20 shadow-sm'
           : 'bg-white text-secondary-600 hover:bg-gray-50 border border-gray-200 hover:border-gray-300'
       }
     `}
@@ -94,7 +96,7 @@ const Tab = ({ label, active, onClick, icon, count, pending }) => (
         animate={{ scale: 1 }}
         className={`
           ml-1 px-1.5 py-0.5 text-xs rounded-full
-          ${active ? 'bg-purple-200 text-purple-800' : 'bg-gray-200 text-gray-700'}
+          ${active ? 'bg-[#22AD74]/20 text-[#22AD74]' : 'bg-gray-200 text-gray-700'}
         `}
       >
         {count}
@@ -103,42 +105,70 @@ const Tab = ({ label, active, onClick, icon, count, pending }) => (
   </motion.button>
 );
 
-// Welcome component with enhanced styling
+// Modern welcome component with GAMA branding
 const WelcomeNewUser = () => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-    className="bg-gradient-to-br from-purple-50 to-indigo-100 rounded-2xl p-6 shadow-lg border border-purple-200 text-center relative overflow-hidden"
+    className="bg-gradient-to-br from-[#22AD74]/10 to-[#22AD74]/5 rounded-2xl p-8 shadow-lg border border-[#22AD74]/20 text-center relative overflow-hidden backdrop-blur-md"
   >
-    <div className="absolute -top-16 -right-16 w-40 h-40 bg-purple-200 rounded-full opacity-30 blur-2xl"></div>
-    <div className="absolute -bottom-20 -left-20 w-52 h-52 bg-indigo-200 rounded-full opacity-30 blur-3xl"></div>
+    {/* Decorative elements */}
+    <div className="absolute -top-16 -right-16 w-40 h-40 bg-[#22AD74]/15 rounded-full opacity-30 blur-2xl"></div>
+    <div className="absolute -bottom-20 -left-20 w-52 h-52 bg-[#22AD74]/10 rounded-full opacity-30 blur-3xl"></div>
+    <div className="absolute top-1/3 left-1/4 w-24 h-24 bg-[#22AD74]/10 rounded-full opacity-20 blur-xl"></div>
 
     <div className="relative z-10">
       <motion.div
         initial={{ scale: 0 }}
         animate={{ scale: 1, rotate: [0, 10, 0, -10, 0] }}
         transition={{ type: 'spring', delay: 0.1, duration: 1 }}
-        className="w-20 h-20 bg-white/80 backdrop-blur rounded-full flex items-center justify-center mx-auto mb-5 shadow-md"
+        className="w-24 h-24 bg-white/70 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-6 shadow-md border border-[#22AD74]/20"
       >
-        <FontAwesomeIcon icon={faDice} className="text-purple-500 text-4xl" />
+        <FontAwesomeIcon icon={faDice} className="text-[#22AD74] text-4xl" />
       </motion.div>
 
-      <h3 className="text-2xl font-bold text-purple-800 mb-3">
-        Welcome to Dice Game
-      </h3>
-      <p className="text-purple-700 mb-6 max-w-md mx-auto">
-        Connect your wallet to start rolling the dice and tracking your game
-        history. Your bets and wins will appear here.
-      </p>
+      <h3 className="text-2xl font-bold text-[#22AD74] mb-3">Game History</h3>
 
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-medium shadow-md hover:shadow-lg transition-all"
-      >
-        Connect Wallet
-      </motion.button>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 max-w-2xl mx-auto">
+        <div className="bg-white/60 p-4 rounded-xl shadow-sm border border-[#22AD74]/10 backdrop-blur-sm">
+          <FontAwesomeIcon
+            icon={faChartLine}
+            className="text-[#22AD74] text-xl mb-2"
+          />
+          <h4 className="text-gray-800 font-medium">Track Progress</h4>
+          <p className="text-sm text-gray-600">
+            Monitor your wins, losses and game statistics
+          </p>
+        </div>
+
+        <div className="bg-white/60 p-4 rounded-xl shadow-sm border border-[#22AD74]/10 backdrop-blur-sm">
+          <FontAwesomeIcon
+            icon={faTrophy}
+            className="text-[#22AD74] text-xl mb-2"
+          />
+          <h4 className="text-gray-800 font-medium">View Achievements</h4>
+          <p className="text-sm text-gray-600">
+            See your biggest wins and betting streaks
+          </p>
+        </div>
+
+        <div className="bg-white/60 p-4 rounded-xl shadow-sm border border-[#22AD74]/10 backdrop-blur-sm">
+          <FontAwesomeIcon
+            icon={faHistory}
+            className="text-[#22AD74] text-xl mb-2"
+          />
+          <h4 className="text-gray-800 font-medium">Recent Activity</h4>
+          <p className="text-sm text-gray-600">
+            Access your complete gaming history
+          </p>
+        </div>
+      </div>
+
+      <p className="text-gray-700 max-w-md mx-auto">
+        Your game history will appear here once you connect your wallet and
+        start playing.
+      </p>
     </div>
   </motion.div>
 );
@@ -460,7 +490,7 @@ const GameHistory = ({ account, onError }) => {
             console.log('Manual refresh triggered');
             forceRefresh();
           }}
-          className="px-4 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-xl font-medium flex items-center gap-2 border border-purple-200"
+          className="px-4 py-2 bg-[#22AD74]/10 hover:bg-[#22AD74]/20 text-[#22AD74] rounded-xl font-medium flex items-center gap-2 border border-[#22AD74]/20"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

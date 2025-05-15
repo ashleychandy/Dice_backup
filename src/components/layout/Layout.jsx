@@ -5,6 +5,9 @@ import { useWallet } from '../wallet/WalletProvider';
 import { useNetwork } from '../../contexts/NetworkContext';
 import { VrfStatusGlobal, VrfRecoveryModal } from '../vrf';
 
+// Import the background image
+import gamaBg from '../../assets/gama-bg.jpg';
+
 const Layout = ({ children, showNetworkWarning = true }) => {
   const { account, chainId } = useWallet();
   const { currentNetwork } = useNetwork();
@@ -22,15 +25,20 @@ const Layout = ({ children, showNetworkWarning = true }) => {
   };
 
   return (
-    <div className="min-h-screen relative bg-white">
-      {/* Pure white background with no image or overlay */}
+    <div className="min-h-screen relative">
+      {/* Background image covering the entire page */}
+      <div
+        className="fixed top-0 left-0 w-full h-full bg-cover bg-center z-0"
+        style={{ backgroundImage: `url(${gamaBg})` }}
+      />
 
-      <div className="relative z-10 flex flex-col">
+      <div className="relative z-10 flex flex-col min-h-screen">
         {showNetworkWarning && isUnsupportedNetwork && <NetworkWarning />}
 
         <Navbar account={account} chainId={chainId} />
 
-        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Content area with transparent background */}
+        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow">
           {children}
         </main>
 

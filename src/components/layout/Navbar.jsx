@@ -10,6 +10,7 @@ const Navbar = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   const handleConnectWallet = async () => {
     setIsConnecting(true);
@@ -34,8 +35,32 @@ const Navbar = () => {
     };
   }, []);
 
+  // Handle scroll events to change navbar style
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollPosition = window.scrollY;
+      if (scrollPosition > 50) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    // Initial check
+    handleScroll();
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  const navbarClasses = isScrolled
+    ? 'px-6 border-b border-[#22AD74]/20 bg-white sticky top-0 z-50 shadow-md w-full transition-all duration-300'
+    : 'px-6 sticky top-0 z-50 w-full bg-transparent transition-all duration-300';
+
   return (
-    <header className="px-6 border-b border-[#22AD74]/20 bg-white sticky top-0 z-50 shadow-sm w-full">
+    <header className={navbarClasses}>
       <div className="max-w-7xl mx-auto flex justify-between items-center h-16">
         <div className="flex items-center">
           <a
@@ -49,7 +74,13 @@ const Navbar = () => {
               alt="GAMA Logo"
               className="h-8 sm:h-9 group-hover:scale-105 transition-transform duration-300"
             />
-            <span className="text-xl sm:text-2xl font-bold text-[#22AD74] bg-gradient-to-r from-[#22AD74] to-[#22AD74]/70 text-transparent bg-clip-text group-hover:to-[#22AD74] transition-all duration-300">
+            <span
+              className={`text-xl sm:text-2xl font-bold ${
+                isScrolled
+                  ? 'text-[#22AD74] bg-gradient-to-r from-[#22AD74] to-[#22AD74]/70'
+                  : 'text-white'
+              } text-transparent bg-clip-text group-hover:to-[#22AD74] transition-all duration-300`}
+            >
               Dice
             </span>
           </a>
@@ -63,29 +94,41 @@ const Navbar = () => {
                 '_blank'
               )
             }
-            className="text-gray-600 hover:text-[#22AD74] transition-all duration-300 flex items-center gap-2 font-medium hover:-translate-y-0.5"
+            className={`${
+              isScrolled ? 'text-gray-600' : 'text-white'
+            } hover:text-[#22AD74] transition-all duration-300 flex items-center gap-2 font-medium hover:-translate-y-0.5`}
           >
             Buy GAMA
           </button>
 
-          <div className="h-4 w-px bg-gray-200"></div>
+          <div
+            className={`h-4 w-px ${isScrolled ? 'bg-gray-200' : 'bg-white/30'}`}
+          ></div>
 
           <a
             href="https://gamacoin.ai/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-gray-600 hover:text-[#22AD74] transition-all duration-300 flex items-center gap-2 font-medium hover:-translate-y-0.5"
+            className={`${
+              isScrolled ? 'text-gray-600' : 'text-white'
+            } hover:text-[#22AD74] transition-all duration-300 flex items-center gap-2 font-medium hover:-translate-y-0.5`}
           >
             Home
           </a>
 
-          <div className="h-4 w-px bg-gray-200"></div>
+          <div
+            className={`h-4 w-px ${isScrolled ? 'bg-gray-200' : 'bg-white/30'}`}
+          ></div>
 
           {account ? (
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="px-4 py-2 rounded-lg text-sm bg-[#22AD74]/5 border border-[#22AD74]/20 hover:bg-[#22AD74]/10 transition-colors flex items-center gap-2"
+                className={`px-4 py-2 rounded-lg text-sm ${
+                  isScrolled
+                    ? 'bg-[#22AD74]/5 border border-[#22AD74]/20'
+                    : 'bg-black/20 backdrop-blur-sm border border-white/20'
+                } hover:bg-[#22AD74]/10 transition-colors flex items-center gap-2`}
               >
                 <div
                   className="w-2.5 h-2.5 rounded-full mr-1"
@@ -93,11 +136,13 @@ const Navbar = () => {
                     backgroundColor: currentNetwork?.color || '#22AD74',
                   }}
                 ></div>
-                <span className="text-gray-900">
+                <span className={isScrolled ? 'text-gray-900' : 'text-white'}>
                   {account.slice(0, 6)}...{account.slice(-4)}
                 </span>
                 <svg
-                  className={`w-4 h-4 text-gray-600 transition-transform duration-200 ${
+                  className={`w-4 h-4 ${
+                    isScrolled ? 'text-gray-600' : 'text-white/80'
+                  } transition-transform duration-200 ${
                     dropdownOpen ? 'rotate-180' : ''
                   }`}
                   fill="none"
@@ -163,7 +208,13 @@ const Navbar = () => {
           ) : (
             <button
               onClick={handleConnectWallet}
-              className="px-6 py-2 rounded-lg bg-[#22AD74] text-white border border-[#22AD74]/20 hover:bg-[#22AD74]/90 transition-all duration-300 flex items-center gap-2"
+              className={`px-6 py-2 rounded-lg ${
+                isScrolled
+                  ? 'bg-[#22AD74] text-white'
+                  : 'bg-white text-[#22AD74] backdrop-blur-sm'
+              } border ${
+                isScrolled ? 'border-[#22AD74]/20' : 'border-white/20'
+              } hover:bg-opacity-90 transition-all duration-300 flex items-center gap-2`}
               disabled={isConnecting}
             >
               {isConnecting ? (

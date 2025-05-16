@@ -13,12 +13,20 @@ import {
   faTimesCircle,
   faSync,
   faHourglassHalf,
+  faShieldAlt,
+  faUndo,
 } from '@fortawesome/free-solid-svg-icons';
 import { formatEther } from 'ethers';
 
 // Helper function to get result type
 const getResultType = game => {
-  if (game.resultType === 'normal') {
+  // First check for special cases (recovered or force-stopped)
+  // This ensures they take priority over other states
+  if (game.resultType === 'recovered' || game.rolledNumber === 255) {
+    return 'RECOVERED';
+  } else if (game.resultType === 'force_stopped' || game.rolledNumber === 254) {
+    return 'STOPPED';
+  } else if (game.resultType === 'normal') {
     const rolledNumber = Number(game.rolledNumber);
     const chosenNumber = Number(game.chosenNumber);
     if (rolledNumber === chosenNumber) {
@@ -31,11 +39,8 @@ const getResultType = game => {
     !game.requestFulfilled
   ) {
     return 'PENDING';
-  } else if (game.resultType === 'force_stopped' || game.rolledNumber === 254) {
-    return 'STOPPED';
-  } else if (game.resultType === 'recovered' || game.rolledNumber === 255) {
-    return 'RECOVERED';
   }
+
   return 'UNKNOWN';
 };
 
@@ -155,6 +160,36 @@ const formatAmount = amount => {
   }
 };
 
+// Get display text for the result status
+const getStatusText = resultType => {
+  switch (resultType) {
+    case 'WIN':
+      return 'Won';
+    case 'LOSS':
+      return 'Lost';
+    case 'PENDING':
+      return 'Verifying';
+    case 'STOPPED':
+      return 'Force Stopped';
+    case 'RECOVERED':
+      return 'Recovered';
+    default:
+      return 'Unknown';
+  }
+};
+
+// Get descriptive text for special result types
+const getSpecialResultDescription = (resultType, payout) => {
+  switch (resultType) {
+    case 'RECOVERED':
+      return `Automatically refunded ${formatAmount(payout)} GAMA due to network delays`;
+    case 'STOPPED':
+      return `Manually stopped by admin, refunded ${formatAmount(payout)} GAMA`;
+    default:
+      return '';
+  }
+};
+
 const GameHistoryItem = ({ game, index, compact = false }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -171,6 +206,7 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
 
   const rolledNumber = Number(game.rolledNumber);
   const chosenNumber = Number(game.chosenNumber);
+  const isSpecial = resultType === 'RECOVERED' || resultType === 'STOPPED';
 
   // Safe amount formatting
   const betAmount = formatEther(
@@ -178,7 +214,9 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
   );
   const formattedBetAmount = formatAmount(betAmount);
   const payout = formatEther(BigInt(game.payout?.toString() || '0').toString());
-  const formattedPayout = resultType === 'WIN' ? formatAmount(payout) : '0';
+  // For recovered/stopped games, show refunded amount as payout
+  const formattedPayout =
+    isSpecial || resultType === 'WIN' ? formatAmount(payout) : '0';
   const formattedDate = getFormattedDate(game.timestamp);
 
   if (compact) {
@@ -237,10 +275,11 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
 
           {/* Rolled Number Display */}
           <div className="flex items-center justify-between flex-grow mb-3 relative z-10">
+            {/* For pending bets, show loading animation */}
             {resultType === 'PENDING' ? (
               <div className="flex flex-col">
                 <div className="text-purple-700 text-sm font-medium">
-                  Verifying roll...
+                  Waiting for VRF verification...
                 </div>
                 <div className="mt-1 flex space-x-1">
                   <motion.div
@@ -286,7 +325,40 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
                   />
                 </div>
               </div>
+            ) : isSpecial ? (
+              // For special cases (recovered, stopped)
+              <div className="flex items-center gap-3">
+                <motion.div
+                  initial={{ scale: 0.8 }}
+                  animate={{ scale: 1 }}
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm
+                    ${
+                      resultType === 'RECOVERED'
+                        ? 'bg-indigo-200 text-indigo-800'
+                        : 'bg-amber-200 text-amber-800'
+                    }`}
+                >
+                  <FontAwesomeIcon
+                    icon={resultType === 'RECOVERED' ? faSync : faHourglassHalf}
+                    className="text-xl"
+                  />
+                </motion.div>
+                <motion.div
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.3, type: 'spring' }}
+                  className="flex flex-col items-start"
+                >
+                  <div className={`text-xs ${resultStyles} font-medium`}>
+                    {resultType === 'RECOVERED' ? 'Auto Refund' : 'Admin Stop'}
+                  </div>
+                  <div className={`${resultStyles} text-sm font-bold`}>
+                    Refunded
+                  </div>
+                </motion.div>
+              </div>
             ) : (
+              // Normal win/loss case
               <div className="flex items-center gap-3">
                 <motion.div
                   initial={{ scale: 0.8, rotate: -10 }}
@@ -324,15 +396,24 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
               </div>
             )}
 
-            {resultType === 'WIN' && (
+            {(resultType === 'WIN' || isSpecial) && (
               <motion.div
                 initial={{ scale: 0 }}
-                animate={{ scale: 1, rotate: [0, 10, 0, -10, 0] }}
+                animate={{
+                  scale: 1,
+                  rotate: [0, isSpecial ? 0 : 10, 0, isSpecial ? 0 : -10, 0],
+                }}
                 transition={{
                   scale: { delay: 0.1, duration: 0.4 },
                   rotate: { delay: 0.4, duration: 0.6 },
                 }}
-                className="bg-green-600 text-white text-xs font-bold px-2 py-1 rounded-lg shadow-sm flex items-center gap-1"
+                className={`${
+                  resultType === 'WIN'
+                    ? 'bg-green-600 text-white'
+                    : resultType === 'RECOVERED'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-amber-600 text-white'
+                } text-xs font-bold px-2 py-1 rounded-lg shadow-sm flex items-center gap-1`}
               >
                 <span>+{formattedPayout}</span>
               </motion.div>
@@ -409,7 +490,29 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
                   />
                 </motion.div>
                 <div className="text-xs text-purple-700 font-medium mt-1">
-                  Verifying
+                  Waiting for VRF
+                </div>
+              </div>
+            ) : isSpecial ? (
+              <div className="flex flex-col items-center">
+                <motion.div
+                  initial={{ scale: 0.8 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                  className={`w-16 h-16 flex items-center justify-center rounded-xl shadow-sm
+                    ${
+                      resultType === 'RECOVERED'
+                        ? 'bg-indigo-200 text-indigo-800'
+                        : 'bg-amber-200 text-amber-800'
+                    }`}
+                >
+                  <FontAwesomeIcon
+                    icon={resultType === 'RECOVERED' ? faSync : faHourglassHalf}
+                    className="text-3xl"
+                  />
+                </motion.div>
+                <div className="text-xs text-secondary-600 font-medium mt-1">
+                  {resultType === 'RECOVERED' ? 'Recovered' : 'Stopped'}
                 </div>
               </div>
             ) : (
@@ -448,127 +551,173 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
                 <FontAwesomeIcon icon={faClock} className="w-3 h-3" />
                 {formattedDate}
               </div>
-              <div className="flex items-center gap-2 text-xs text-secondary-600 mt-1">
-                <FontAwesomeIcon icon={faCoins} className="w-3 h-3" />
-                <span className="font-medium">{formattedBetAmount} GAMA</span>
-              </div>
+
+              {isSpecial && (
+                <div className={`text-sm mt-1 ${resultStyles}`}>
+                  {getSpecialResultDescription(resultType, payout)}
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="text-right flex flex-col items-end gap-2">
+          <div className="flex flex-col items-end gap-2">
             <div
-              className={`
-              font-bold px-3 py-1.5 rounded-full text-sm flex items-center gap-1.5
-              ${cardStyles.badge}
-            `}
+              className={`px-3 py-1 rounded-xl ${cardStyles.badge} flex items-center gap-1.5`}
             >
-              <FontAwesomeIcon icon={resultIcon} className="w-3 h-3" />
-              {resultType}
+              {resultType === 'PENDING' && (
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: 'linear',
+                  }}
+                  className="w-4 h-4"
+                >
+                  <FontAwesomeIcon
+                    icon={resultIcon}
+                    className={`${cardStyles.icon}`}
+                  />
+                </motion.div>
+              )}
+              {resultType !== 'PENDING' && (
+                <FontAwesomeIcon
+                  icon={resultIcon}
+                  className={`${cardStyles.icon}`}
+                />
+              )}
+              <span className={`font-medium text-sm ${resultStyles}`}>
+                {getStatusText(resultType)}
+              </span>
             </div>
 
-            {resultType === 'WIN' && (
-              <motion.div
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="font-bold text-green-600 bg-green-100 px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 mt-2"
-              >
-                <span>+{formattedPayout} GAMA</span>
-              </motion.div>
+            <div className="flex items-center gap-1 text-secondary-700">
+              <FontAwesomeIcon icon={faCoins} className="w-3 h-3" />
+              <span className="font-medium">{formattedBetAmount}</span>
+            </div>
+
+            {isSpecial && (
+              <div className={`text-sm font-medium ${resultStyles}`}>
+                + {formattedPayout} GAMA
+              </div>
             )}
 
-            <div className="mt-auto pt-2">
-              <FontAwesomeIcon
-                icon={expanded ? faChevronUp : faChevronDown}
-                className="text-secondary-400 cursor-pointer"
-              />
-            </div>
+            {resultType === 'WIN' && (
+              <div className="text-sm font-medium text-green-700">
+                + {formattedPayout} GAMA
+              </div>
+            )}
           </div>
         </div>
 
-        <AnimatePresence>
-          {expanded && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-              className="mt-4 border-t border-white/40 pt-4 relative z-10"
-            >
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white/60 backdrop-blur-sm rounded-lg p-3 shadow-sm">
-                  <div className="text-xs font-medium text-secondary-500 mb-1">
-                    Transaction Details
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-xs text-secondary-600">
-                        Bet Amount:
-                      </span>
-                      <span className="text-xs font-medium text-secondary-800">
-                        {formattedBetAmount} GAMA
-                      </span>
+        <div className="flex justify-center mt-2">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex items-center justify-center text-xs text-secondary-500 bg-white/50 px-2 py-1 rounded-lg border border-secondary-200 shadow-sm"
+          >
+            {expanded ? (
+              <>
+                <FontAwesomeIcon icon={faChevronUp} className="w-3 h-3 mr-1" />
+                Show Less
+              </>
+            ) : (
+              <>
+                <FontAwesomeIcon
+                  icon={faChevronDown}
+                  className="w-3 h-3 mr-1"
+                />
+                Show Details
+              </>
+            )}
+          </motion.button>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="overflow-hidden"
+          >
+            <div className="px-5 pb-5 pt-0">
+              <div className="h-px w-full bg-white/40 my-2"></div>
+
+              <div className="flex flex-col gap-4 relative z-10">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-secondary-100">
+                    <div className="text-xs text-secondary-500 mb-1">
+                      Bet Amount
                     </div>
-                    {resultType === 'WIN' && (
-                      <div className="flex justify-between">
-                        <span className="text-xs text-secondary-600">
-                          Payout:
-                        </span>
-                        <span className="text-xs font-medium text-green-600">
-                          +{formattedPayout} GAMA
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-xs text-secondary-600">
-                        Result:
-                      </span>
-                      <span className={`text-xs font-medium ${resultStyles}`}>
-                        {resultType}
-                      </span>
+                    <div className="font-bold text-secondary-700 flex items-center">
+                      {formattedBetAmount}{' '}
+                      <span className="ml-1 text-xs font-medium">GAMA</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-secondary-100">
+                    <div className="text-xs text-secondary-500 mb-1">
+                      {isSpecial
+                        ? 'Refunded'
+                        : resultType === 'WIN'
+                          ? 'Payout'
+                          : 'Result'}
+                    </div>
+                    <div
+                      className={`font-bold flex items-center ${
+                        isSpecial
+                          ? resultType === 'RECOVERED'
+                            ? 'text-indigo-600'
+                            : 'text-amber-600'
+                          : resultType === 'WIN'
+                            ? 'text-green-600'
+                            : 'text-red-600'
+                      }`}
+                    >
+                      {isSpecial || resultType === 'WIN' ? (
+                        <>
+                          <span className="mr-1">+</span>
+                          {formattedPayout}{' '}
+                          <span className="ml-1 text-xs font-medium">GAMA</span>
+                        </>
+                      ) : (
+                        'No Win'
+                      )}
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white/60 backdrop-blur-sm rounded-lg p-3 shadow-sm">
-                  <div className="text-xs font-medium text-secondary-500 mb-1">
-                    Dice Details
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-xs text-secondary-600">
-                        Chosen Number:
-                      </span>
-                      <span className="text-xs font-medium text-secondary-800">
-                        {chosenNumber}
-                      </span>
+                <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-secondary-100">
+                  <div className="text-xs text-secondary-500 mb-1">Status</div>
+                  <div className="flex justify-between items-center">
+                    <div className="font-medium text-secondary-700 flex items-center">
+                      <FontAwesomeIcon
+                        icon={resultIcon}
+                        className={`${resultStyles} mr-2`}
+                      />
+                      {resultType === 'PENDING'
+                        ? 'Waiting for Chainlink VRF random number verification'
+                        : isSpecial
+                          ? getSpecialResultDescription(resultType, payout)
+                          : resultType === 'WIN'
+                            ? 'You matched the rolled number!'
+                            : 'Better luck next time!'}
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-xs text-secondary-600">
-                        Rolled Number:
-                      </span>
-                      <span className="text-xs font-medium text-secondary-800">
-                        {rolledNumber >= 1 && rolledNumber <= 6
-                          ? rolledNumber
-                          : 'Pending'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-xs text-secondary-600">
-                        Timestamp:
-                      </span>
-                      <span className="text-xs font-medium text-secondary-800">
-                        {game.timestamp
-                          ? new Date(game.timestamp * 1000).toLocaleString()
-                          : 'Unknown'}
-                      </span>
+                    <div
+                      className={`px-2 py-1 rounded-full ${cardStyles.badge} text-xs font-medium ${resultStyles}`}
+                    >
+                      {getStatusText(resultType)}
                     </div>
                   </div>
                 </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

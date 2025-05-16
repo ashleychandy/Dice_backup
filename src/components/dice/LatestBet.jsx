@@ -4,7 +4,12 @@ import { motion } from 'framer-motion';
 import { usePollingService } from '../../services/pollingService.jsx';
 import { useWallet } from '../wallet/WalletProvider.jsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faDice, faTrophy } from '@fortawesome/free-solid-svg-icons';
+import {
+  faDice,
+  faTrophy,
+  faRandom,
+  faSync,
+} from '@fortawesome/free-solid-svg-icons';
 
 const LatestBet = ({ result, chosenNumber, betAmount }) => {
   // Use the polling service to get bet history data and game status
@@ -87,6 +92,44 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     return isActive && requestExists && !requestFulfilled;
   }, [gameStatus, isNewUser]);
 
+  // Check if the current game or latest bet is recovered or force stopped
+  const isSpecialResult = useMemo(() => {
+    // Check if the latest history bet has a special result type
+    if (latestHistoryBet && latestHistoryBet.resultType) {
+      return (
+        latestHistoryBet.resultType === 'recovered' ||
+        latestHistoryBet.resultType === 'force_stopped'
+      );
+    }
+
+    // Check if the result has a special rolledNumber value
+    if (result && result.rolledNumber !== undefined) {
+      const rolledNum = Number(result.rolledNumber);
+      return rolledNum === 254 || rolledNum === 255; // RESULT_FORCE_STOPPED or RESULT_RECOVERED
+    }
+
+    return false;
+  }, [latestHistoryBet, result]);
+
+  // Get the special result type if applicable
+  const specialResultType = useMemo(() => {
+    if (!isSpecialResult) return null;
+
+    // Check latest history bet
+    if (latestHistoryBet && latestHistoryBet.resultType) {
+      return latestHistoryBet.resultType;
+    }
+
+    // Check result
+    if (result && result.rolledNumber !== undefined) {
+      const rolledNum = Number(result.rolledNumber);
+      if (rolledNum === 254) return 'force_stopped';
+      if (rolledNum === 255) return 'recovered';
+    }
+
+    return null;
+  }, [isSpecialResult, latestHistoryBet, result]);
+
   // Helper function to check if result matches the current bet values
   const isCurrentBetResult = (result, chosenNum, amount) => {
     if (!result || !chosenNum || !amount) return false;
@@ -115,6 +158,24 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     // For new users, return null to show welcome message
     if (isNewUser) {
       return null;
+    }
+
+    // For special results like RECOVERED or FORCE_STOPPED, prioritize them
+    if (isSpecialResult) {
+      if (latestHistoryBet) {
+        return {
+          source: 'special',
+          data: latestHistoryBet,
+          type: specialResultType,
+        };
+      }
+      if (result) {
+        return {
+          source: 'special',
+          data: result,
+          type: specialResultType,
+        };
+      }
     }
 
     // If no active game in contract, don't show pending status
@@ -186,6 +247,8 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     betAmount,
     gameStatus,
     isNewUser,
+    isSpecialResult,
+    specialResultType,
   ]);
 
   // Log the display result for debugging
@@ -257,6 +320,113 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
             Connect your wallet to play
           </span>
         </div>
+      </motion.div>
+    );
+  }
+
+  // Display special result (recovered or force stopped)
+  if (displayResult?.source === 'special') {
+    const data = displayResult.data;
+    const isRecovered = displayResult.type === 'recovered';
+    const isForceStopped = displayResult.type === 'force_stopped';
+    const refundAmount = data.amount || '0';
+
+    // Determine color scheme based on type
+    const colorScheme = isRecovered ? 'indigo' : 'amber';
+    const icon = isRecovered ? faSync : faRandom;
+    const title = isRecovered ? 'Game Recovered' : 'Game Force Stopped';
+    const description = isRecovered
+      ? 'Your bet has been refunded due to network delays'
+      : 'Your bet was forced to stop by an administrator';
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full bg-white rounded-xl border-2 border-secondary-200 p-4 shadow-lg relative overflow-hidden"
+      >
+        {/* Custom background color based on type */}
+        <div
+          className={`absolute -top-10 -right-10 w-24 h-24 bg-${colorScheme}-500/20 rounded-full blur-xl`}
+        />
+        <div
+          className={`absolute -bottom-12 -left-12 w-28 h-28 bg-${colorScheme}-500/10 rounded-full blur-xl`}
+        />
+
+        <div className="text-center mb-3">
+          <span className="font-bold text-secondary-800 text-lg">
+            Latest Roll
+          </span>
+        </div>
+
+        {/* Status Card */}
+        <div className="flex flex-col items-center relative z-10 my-1">
+          <div
+            className={`w-full mb-4 bg-gradient-to-br from-${colorScheme}-50 to-${colorScheme}-100 rounded-xl p-3 border border-${colorScheme}-200 relative overflow-hidden`}
+          >
+            <div className="absolute inset-0 bg-white/40" />
+            <div className="relative z-10">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 relative">
+                    <motion.div
+                      className={`absolute inset-0 rounded-full bg-${colorScheme}-100`}
+                      animate={{ scale: [1, 1.15, 1] }}
+                      transition={{ repeat: 0, duration: 2 }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <FontAwesomeIcon
+                        icon={icon}
+                        className={`text-${colorScheme}-700 text-2xl`}
+                      />
+                    </div>
+                  </div>
+                  <div className="ml-3">
+                    <div
+                      className={`text-sm font-medium text-${colorScheme}-700`}
+                    >
+                      {title}
+                    </div>
+                    <div className={`text-xs text-${colorScheme}-600`}>
+                      Chosen number: {data.chosenNumber || 'Unknown'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full bg-white rounded-lg p-3 border border-secondary-200 text-sm">
+            <div className="text-center mb-3">
+              <div className="text-secondary-600 text-sm mb-1">
+                {description}
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="font-medium text-secondary-700">
+                  Refund Amount
+                </div>
+                <div className="text-xl font-bold text-secondary-800">
+                  {formatAmount(refundAmount)} GAMA
+                </div>
+              </div>
+            </div>
+
+            <div
+              className={`px-3 py-2 rounded-lg bg-${colorScheme}-50 border border-${colorScheme}-100 text-${colorScheme}-700 text-sm text-center`}
+            >
+              {isRecovered
+                ? 'Your bet has been automatically refunded'
+                : 'This game has been manually stopped by an administrator'}
+            </div>
+          </div>
+        </div>
+
+        {/* Timestamp if available */}
+        {data.timestamp && (
+          <div className="mt-3 text-xs text-secondary-500 text-right relative z-10">
+            {new Date(data.timestamp * 1000).toLocaleString()}
+          </div>
+        )}
       </motion.div>
     );
   }
@@ -362,7 +532,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
                   </div>
                   <div className="ml-3">
                     <div className="text-sm font-medium text-purple-700">
-                      Waiting for result
+                      Waiting for Random Number
                     </div>
                     <div className="text-xs text-purple-600">
                       Chosen number:{' '}
@@ -425,8 +595,8 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
                     d="M13 10V3L4 14h7v7l9-11h-7z"
                   />
                 </svg>
-                <span className="text-xs">
-                  Verifying randomness using Chainlink VRF
+                <span className="text-xs font-medium">
+                  Getting secure random number from Chainlink VRF
                 </span>
               </motion.div>
             </div>
@@ -466,16 +636,37 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
               <div className="flex justify-between items-center">
                 <div className="flex items-center">
                   <div className="w-8 h-8 rounded-full bg-secondary-200 flex items-center justify-center mr-2 font-bold text-secondary-700">
-                    {latestHistoryBet.rolledNumber}
+                    {latestHistoryBet.rolledNumber >= 1 &&
+                    latestHistoryBet.rolledNumber <= 6
+                      ? latestHistoryBet.rolledNumber
+                      : latestHistoryBet.resultType === 'recovered'
+                        ? 'R'
+                        : latestHistoryBet.resultType === 'force_stopped'
+                          ? 'F'
+                          : '?'}
                   </div>
                   <div>
-                    <div className="text-xs text-secondary-600">Rolled</div>
+                    <div className="text-xs text-secondary-600">
+                      {latestHistoryBet.resultType === 'recovered'
+                        ? 'Recovered'
+                        : latestHistoryBet.resultType === 'force_stopped'
+                          ? 'Stopped'
+                          : 'Rolled'}
+                    </div>
                   </div>
                 </div>
                 <div>
                   {latestHistoryBet.isWin ? (
                     <span className="text-gaming-success text-sm font-medium px-2 py-1 bg-gaming-success/10 rounded-full">
                       Won
+                    </span>
+                  ) : latestHistoryBet.resultType === 'recovered' ? (
+                    <span className="text-indigo-600 text-sm font-medium px-2 py-1 bg-indigo-100/50 rounded-full">
+                      Refunded
+                    </span>
+                  ) : latestHistoryBet.resultType === 'force_stopped' ? (
+                    <span className="text-amber-600 text-sm font-medium px-2 py-1 bg-amber-100/50 rounded-full">
+                      Refunded
                     </span>
                   ) : (
                     <span className="text-gaming-error text-sm font-medium px-2 py-1 bg-gaming-error/10 rounded-full">

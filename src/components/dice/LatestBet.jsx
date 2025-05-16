@@ -3,17 +3,25 @@ import { ethers } from 'ethers';
 import { motion } from 'framer-motion';
 import { usePollingService } from '../../services/pollingService.jsx';
 import { useWallet } from '../wallet/WalletProvider.jsx';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faDice, faTrophy } from '@fortawesome/free-solid-svg-icons';
 
 const LatestBet = ({ result, chosenNumber, betAmount }) => {
   // Use the polling service to get bet history data and game status
-  const { betHistory: allBets, isLoading, gameStatus } = usePollingService();
+  const {
+    betHistory: allBets,
+    isLoading,
+    gameStatus,
+    isNewUser,
+  } = usePollingService();
   const { account, isWalletConnected } = useWallet();
 
-  // Get the latest completed bet from history
+  // Get the latest completed bet from history - only if not a new user
   const latestHistoryBet = useMemo(() => {
-    if (!allBets || allBets.length === 0) return null;
+    // Skip processing for new users
+    if (isNewUser || !allBets || allBets.length === 0) return null;
     return allBets[0]; // First item is the most recent bet
-  }, [allBets]);
+  }, [allBets, isNewUser]);
 
   // Add debugging logs to help diagnose issues
   useEffect(() => {
@@ -23,8 +31,16 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
       betAmount: betAmount ? betAmount.toString() : null,
       latestHistoryBet,
       gameStatus,
+      isNewUser,
     });
-  }, [result, chosenNumber, betAmount, latestHistoryBet, gameStatus]);
+  }, [
+    result,
+    chosenNumber,
+    betAmount,
+    latestHistoryBet,
+    gameStatus,
+    isNewUser,
+  ]);
 
   // Add detailed debugging for props
   useEffect(() => {
@@ -35,8 +51,9 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
       betAmount: betAmount ? betAmount.toString() : null,
       latestHistoryBet: latestHistoryBet ? { ...latestHistoryBet } : null,
       latestHistoryKeys: latestHistoryBet ? Object.keys(latestHistoryBet) : [],
+      isNewUser,
     });
-  }, [result, chosenNumber, betAmount, latestHistoryBet]);
+  }, [result, chosenNumber, betAmount, latestHistoryBet, isNewUser]);
 
   const formatAmount = amount => {
     if (!amount || amount === '0') return '0';
@@ -50,71 +67,25 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
 
   // Check if we're waiting for VRF
   const isWaitingForVrf = useMemo(() => {
-    // First check contract state - this is the source of truth
-    if (
-      gameStatus?.isActive &&
-      gameStatus?.requestExists &&
-      !gameStatus?.requestProcessed
-    ) {
-      return true;
-    }
+    // If new user, they're not waiting for VRF
+    if (isNewUser) return false;
 
-    // If the result indicates a completed game with a roll number, we're not waiting
-    if (
-      gameStatus?.isCompleted ||
-      (result && result.rolledNumber >= 1 && result.rolledNumber <= 6)
-    ) {
-      return false;
-    }
+    if (!gameStatus) return false;
 
-    // If no result at all, we're not waiting
-    if (!result) return false;
+    // Active game + request exists = waiting for VRF
+    const isActive = gameStatus.isActive;
+    const requestExists = gameStatus.requestExists;
+    const requestFulfilled = gameStatus.requestFulfilled;
 
-    // Check if we have an explicit VRF pending flag
-    if (result.vrfPending) return true;
-
-    // Check if the result is pending and we're expecting verification
-    if (
-      (result.isPending || result.pendingVerification) &&
-      !result.rolledNumber
-    )
-      return true;
-
-    // If the result indicates a request is in progress but not fulfilled
-    if (result.requestId && !result.requestFulfilled) return true;
-
-    // Check if we have a completed result
-    if (result.rolledNumber && typeof result.rolledNumber !== 'undefined') {
-      // If we have a valid rolled number, we're not waiting
-      return false;
-    }
-
-    // Check if we have a result in history that matches this bet
-    if (
-      latestHistoryBet &&
-      latestHistoryBet.chosenNumber === chosenNumber &&
-      latestHistoryBet.rolledNumber
-    ) {
-      // We have a result for this bet in history, so we're not waiting
-      return false;
-    }
-
-    // Default to not waiting if we can't determine
-    return false;
-  }, [result, latestHistoryBet, chosenNumber, gameStatus]);
-
-  // Add debug logging for VRF status
-  useEffect(() => {
     console.log('VRF status check:', {
-      resultExists: !!result,
-      gameStatus,
-      vrfPending: result?.vrfPending,
-      isPending: result?.isPending,
-      rolledNumber: result?.rolledNumber,
-      isCompleted: result?.isCompleted,
-      isWaitingForVrf,
+      isActive,
+      requestExists,
+      requestFulfilled,
     });
-  }, [result, isWaitingForVrf, gameStatus]);
+
+    // Waiting for VRF if the game is active and the request exists but isn't fulfilled
+    return isActive && requestExists && !requestFulfilled;
+  }, [gameStatus, isNewUser]);
 
   // Helper function to check if result matches the current bet values
   const isCurrentBetResult = (result, chosenNum, amount) => {
@@ -141,6 +112,11 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
 
   // Determine the best result to display
   const displayResult = useMemo(() => {
+    // For new users, return null to show welcome message
+    if (isNewUser) {
+      return null;
+    }
+
     // If no active game in contract, don't show pending status
     if (!gameStatus?.isActive && latestHistoryBet) {
       return {
@@ -209,12 +185,61 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     chosenNumber,
     betAmount,
     gameStatus,
+    isNewUser,
   ]);
 
   // Log the display result for debugging
   useEffect(() => {
     console.log('Display result decision:', displayResult);
   }, [displayResult]);
+
+  // Show welcome message for new users
+  if (isNewUser) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full bg-white rounded-xl border-2 border-[#22AD74]/20 p-4 shadow-lg relative overflow-hidden"
+      >
+        {/* Decorative elements */}
+        <div className="absolute -top-10 -right-10 w-24 h-24 bg-[#22AD74]/10 rounded-full blur-xl" />
+        <div className="absolute -bottom-12 -left-12 w-28 h-28 bg-[#22AD74]/5 rounded-full blur-xl" />
+
+        <div className="text-center mb-3 relative z-10">
+          <span className="font-bold text-secondary-800 text-lg">
+            Latest Roll
+          </span>
+        </div>
+
+        <div className="relative z-10 flex flex-col items-center justify-center py-3">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1, rotate: [0, 10, 0] }}
+            transition={{ type: 'spring', damping: 10, stiffness: 100 }}
+            className="w-16 h-16 bg-[#22AD74]/10 rounded-full flex items-center justify-center mb-3"
+          >
+            <FontAwesomeIcon
+              icon={faDice}
+              className="text-[#22AD74] text-3xl"
+            />
+          </motion.div>
+
+          <div className="text-center">
+            <h3 className="font-medium text-secondary-700 mb-1">
+              Place Your First Bet
+            </h3>
+            <p className="text-secondary-500 text-sm mb-3">
+              Your roll results will appear here
+            </p>
+            <div className="inline-block bg-[#22AD74]/10 text-[#22AD74] text-xs font-medium px-3 py-1 rounded-full">
+              <FontAwesomeIcon icon={faTrophy} className="mr-1" />
+              <span>Ready to play!</span>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
 
   // Show welcome message for new users when no wallet is connected
   if (!isWalletConnected || !account) {
@@ -228,27 +253,14 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
           <span className="font-bold text-secondary-800">Latest Roll</span>
         </div>
         <div className="flex flex-col justify-center items-center py-4">
-          <img
-            src="/assets/dice-welcome.svg"
-            alt="Dice"
-            className="w-12 h-12 mb-3"
-            onError={e => {
-              e.target.src =
-                "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='10' fill='%23f0f0f0'/%3E%3Ccircle cx='25' cy='25' r='8' fill='%2322AD74'/%3E%3Ccircle cx='75' cy='25' r='8' fill='%2322AD74'/%3E%3Ccircle cx='25' cy='75' r='8' fill='%2322AD74'/%3E%3Ccircle cx='75' cy='75' r='8' fill='%2322AD74'/%3E%3Ccircle cx='50' cy='50' r='8' fill='%2322AD74'/%3E%3C/svg%3E";
-            }}
-          />
-          <span className="text-secondary-700 text-center">
-            Connect your wallet to start playing
-          </span>
-          <span className="text-secondary-500 text-sm mt-2">
-            Your recent rolls will appear here
+          <span className="text-secondary-600">
+            Connect your wallet to play
           </span>
         </div>
       </motion.div>
     );
   }
 
-  // If no data is available but wallet is connected, show a loading state
   if (isLoading && !displayResult) {
     return (
       <motion.div
@@ -330,82 +342,104 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
         </div>
 
         {/* VRF Status Card */}
-        <div className="flex flex-col justify-center items-center py-4 relative z-10">
-          <div className="flex items-center mb-3 bg-purple-100/70 px-4 py-2 rounded-xl w-full justify-center">
-            <div className="relative mr-3">
-              <motion.div
-                className="w-5 h-5 rounded-full bg-purple-600 absolute"
-                animate={{ scale: [1, 1.5, 1], opacity: [1, 0.7, 1] }}
-                transition={{ repeat: Infinity, duration: 1.8 }}
-              />
-              <motion.div
-                className="w-5 h-5 rounded-full bg-purple-500 absolute"
-                animate={{ scale: [1.2, 1.7, 1.2], opacity: [0.7, 0.2, 0.7] }}
-                transition={{ repeat: Infinity, duration: 1.8, delay: 0.2 }}
-              />
-              <div className="w-5 h-5 rounded-full bg-purple-700 relative z-10" />
+        <div className="flex flex-col items-center relative z-10 my-1">
+          <div className="w-full mb-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-3 border border-purple-200 relative overflow-hidden">
+            <div className="absolute inset-0 bg-white/40" />
+            <div className="relative z-10">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 relative">
+                    <motion.div
+                      className="absolute inset-0 rounded-full bg-purple-100"
+                      animate={{ scale: [1, 1.15, 1] }}
+                      transition={{ repeat: Infinity, duration: 2 }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-2xl font-bold text-purple-700">
+                        {chosenNumber || gameStatus?.chosenNumber || '?'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="ml-3">
+                    <div className="text-sm font-medium text-purple-700">
+                      Waiting for result
+                    </div>
+                    <div className="text-xs text-purple-600">
+                      Chosen number:{' '}
+                      {chosenNumber || gameStatus?.chosenNumber || 'Unknown'}
+                    </div>
+                  </div>
+                </div>
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 3,
+                    ease: 'linear',
+                  }}
+                >
+                  <svg
+                    className="w-6 h-6 text-purple-500"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                </motion.div>
+              </div>
             </div>
-            <span
-              className={`${showExtendedInfo ? 'text-purple-800' : 'text-purple-700'} font-medium`}
-            >
-              {showExtendedInfo
-                ? 'Verification in progress...'
-                : 'Verifying your roll...'}
-            </span>
           </div>
 
-          <div className="flex flex-col w-full mt-2 space-y-2">
-            <div className="flex justify-between items-center p-2 rounded-lg bg-secondary-50">
-              <span className="text-secondary-700 font-medium">
-                Bet Amount:
-              </span>
-              <span className="font-bold text-secondary-800">
+          <div className="w-full bg-white rounded-lg p-3 border border-secondary-200 text-sm">
+            <div className="text-center mb-1">
+              <div className="font-medium text-secondary-700">Bet Amount</div>
+              <div className="text-xl font-bold text-secondary-800 mb-1">
                 {formatAmount(pendingBetAmount)} GAMA
-              </span>
+              </div>
             </div>
 
-            <div className="flex justify-between items-center p-2 rounded-lg bg-secondary-50">
-              <span className="text-secondary-700 font-medium">
-                Chosen Number:
-              </span>
-              <span className="font-bold text-secondary-800">
-                {displayResult.data.chosenNumber ||
-                  chosenNumber ||
-                  gameStatus?.chosenNumber ||
-                  '-'}
-              </span>
-            </div>
-          </div>
-
-          {showExtendedInfo && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex items-center mt-4 text-purple-700 text-sm px-3 py-2 rounded-xl bg-purple-100/80 shadow-sm border border-purple-200 w-full"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-2 flex-shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+            <div className="flex items-center justify-center mt-1">
+              <motion.div
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ repeat: Infinity, duration: 1.5 }}
+                className="flex items-center text-purple-600"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <span>
-                Taking longer than usual. You can check game history or recovery
-                options.
-              </span>
-            </motion.div>
-          )}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 mr-1"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+                <span className="text-xs">
+                  Verifying randomness using Chainlink VRF
+                </span>
+              </motion.div>
+            </div>
+
+            {showExtendedInfo && (
+              <div className="mt-2 pt-2 border-t border-secondary-100 text-center text-xs text-secondary-500">
+                <div>Taking longer than usual...</div>
+                <div className="mt-1">Waiting for {elapsedSeconds} seconds</div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* History Section with improved styling */}
         {latestHistoryBet && (
           <div className="mt-4 pt-4 border-t border-secondary-200">
             <div className="flex items-center mb-2">
@@ -483,14 +517,9 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
         animate={{ opacity: 1, y: 0 }}
         className="w-full bg-white rounded-xl border-2 border-secondary-200 p-4 shadow-lg relative overflow-hidden"
       >
-        {/* Background effects */}
+        {/* Background gradient effect */}
         <div
-          className={`absolute inset-0 bg-gradient-to-br ${resultBgGradient} opacity-60`}
-        />
-
-        {/* Decorative elements */}
-        <div
-          className={`absolute top-0 right-0 w-20 h-20 rounded-bl-full ${isWin ? 'bg-gaming-success/10' : 'bg-gaming-error/10'}`}
+          className={`absolute inset-0 bg-gradient-to-br ${resultBgGradient} opacity-50`}
         />
 
         <div className="text-center mb-3 relative z-10">
@@ -499,25 +528,39 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
           </span>
         </div>
 
-        {/* Result Display */}
-        <div className="flex justify-between items-center relative z-10 mb-4">
-          <div className="flex items-center">
-            <motion.div
-              initial={{ scale: 0.5, rotate: -10 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-              className={`w-12 h-12 rounded-xl ${isWin ? 'bg-gaming-success/20' : 'bg-gaming-error/20'} flex items-center justify-center mr-3`}
-            >
-              <span className="text-2xl font-bold">{rolledNum}</span>
-            </motion.div>
-            <div>
-              <div className="text-sm text-secondary-600">Rolled Number</div>
-              <div className="text-xs text-secondary-500">
-                Chosen: {chosenNum}
-              </div>
+        <div className="flex items-center justify-center space-x-8 my-4 relative z-10">
+          {/* Chosen Number */}
+          <div className="text-center">
+            <div className="text-xs text-secondary-600 mb-1">You Chose</div>
+            <div className="w-14 h-14 rounded-lg bg-white shadow-md border border-secondary-200 flex items-center justify-center">
+              <span className="text-2xl font-bold text-secondary-800">
+                {chosenNum}
+              </span>
             </div>
           </div>
 
+          {/* Result Number */}
+          <div className="text-center">
+            <div className="text-xs text-secondary-600 mb-1">Rolled</div>
+            <div
+              className={`w-14 h-14 rounded-lg ${
+                isWin
+                  ? 'bg-gaming-success/20 border-gaming-success/30'
+                  : 'bg-gaming-error/20 border-gaming-error/30'
+              } shadow-md border flex items-center justify-center`}
+            >
+              <span
+                className={`text-2xl font-bold ${
+                  isWin ? 'text-gaming-success' : 'text-gaming-error'
+                }`}
+              >
+                {rolledNum}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-center my-3 relative z-10">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}

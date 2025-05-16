@@ -9,6 +9,8 @@ import {
   faDice,
   faChartLine,
   faTrophy,
+  faWallet,
+  faPlayCircle,
 } from '@fortawesome/free-solid-svg-icons';
 import { useBetHistory } from '../../hooks/useBetHistory';
 import { useDiceContract } from '../../hooks/useDiceContract';
@@ -17,6 +19,7 @@ import EmptyState from './EmptyState';
 import GameHistoryItem from './GameHistoryItem';
 import GameHistoryLoader from './GameHistoryLoader';
 import GameHistoryError from '../error/GameHistoryError';
+import { usePollingService } from '../../services/pollingService.jsx';
 
 // Minimalist pagination component with animations
 const Pagination = ({
@@ -165,10 +168,24 @@ const WelcomeNewUser = () => (
         </div>
       </div>
 
-      <p className="text-gray-700 max-w-md mx-auto">
-        Your game history will appear here once you connect your wallet and
-        start playing.
-      </p>
+      <div className="mt-8 max-w-md mx-auto text-center">
+        <div className="flex flex-col items-center space-y-6">
+          <div className="bg-[#22AD74]/10 p-5 rounded-xl border border-[#22AD74]/20 w-full">
+            <FontAwesomeIcon
+              icon={faPlayCircle}
+              className="text-[#22AD74] text-2xl mb-3"
+            />
+            <h4 className="text-gray-800 font-medium mb-1">Ready to Begin?</h4>
+            <p className="text-sm text-gray-600 mb-4">
+              Place your first bet to start tracking your game history
+            </p>
+            <div className="flex items-center justify-center space-x-1 text-sm text-[#22AD74]">
+              <FontAwesomeIcon icon={faWallet} className="text-[#22AD74]" />
+              <span>Wallet connected and ready</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </motion.div>
 );
@@ -178,6 +195,9 @@ const GameHistory = ({ account, onError }) => {
   const { contract: diceContract, isLoading: isContractLoading } =
     useDiceContract();
   const { isWalletConnected } = useWallet();
+
+  // Get isNewUser state from polling service
+  const { isNewUser } = usePollingService();
 
   // Use the bet history hook
   const {
@@ -208,8 +228,9 @@ const GameHistory = ({ account, onError }) => {
       isLoading,
       account,
       contract: !!diceContract,
+      isNewUser,
     });
-  }, [betHistory, isLoading, account, diceContract]);
+  }, [betHistory, isLoading, account, diceContract, isNewUser]);
 
   // Handle any errors
   React.useEffect(() => {
@@ -324,8 +345,13 @@ const GameHistory = ({ account, onError }) => {
   const showEmptyState =
     !isDataLoading && (!displayBets || displayBets.length === 0);
 
-  // For new users without a wallet connection, show a welcome message
+  // For new users without a wallet connection or those who haven't placed bets yet, show a welcome message
   if (!isWalletConnected || !account) {
+    return <WelcomeNewUser />;
+  }
+
+  // Show welcome message for users who have connected their wallet but haven't placed any bets
+  if (isWalletConnected && account && isNewUser) {
     return <WelcomeNewUser />;
   }
 

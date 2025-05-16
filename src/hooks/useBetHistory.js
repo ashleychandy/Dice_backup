@@ -15,6 +15,7 @@ export const useBetHistory = ({
     isLoading,
     error,
     refreshData,
+    isNewUser, // Get the isNewUser flag from polling service
   } = usePollingService();
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -24,8 +25,9 @@ export const useBetHistory = ({
       hasData: !!allBets && allBets.length > 0,
       allBetsLength: allBets?.length || 0,
       allBetsData: allBets,
+      isNewUser,
     });
-  }, [allBets]);
+  }, [allBets, isNewUser]);
 
   // Add debugging for the contract
   useEffect(() => {
@@ -42,6 +44,11 @@ export const useBetHistory = ({
 
   // Get the current page of bet history
   const betHistory = useMemo(() => {
+    // For new users, return empty array without any processing
+    if (isNewUser) {
+      return [];
+    }
+
     // Calculate pagination
     if (!allBets || !Array.isArray(allBets)) {
       console.log('DEBUG - allBets is empty or not an array in useBetHistory');
@@ -62,12 +69,13 @@ export const useBetHistory = ({
     });
 
     return paginatedBets;
-  }, [allBets, currentPage, pageSize]);
+  }, [allBets, currentPage, pageSize, isNewUser]);
 
   // Calculate total pages
   const totalPages = useMemo(() => {
+    if (isNewUser) return 1; // For new users, always return 1 page
     return Math.ceil((allBets?.length || 0) / pageSize) || 1; // Ensure at least 1 page
-  }, [allBets, pageSize]);
+  }, [allBets, pageSize, isNewUser]);
 
   const goToPage = page => {
     if (page >= 1 && page <= totalPages) {
@@ -80,6 +88,12 @@ export const useBetHistory = ({
 
   // Direct fetch function in case polling service fails
   const directFetch = async () => {
+    // Skip direct fetch for new users
+    if (isNewUser) {
+      console.log('Skipping direct fetch for new user');
+      return;
+    }
+
     console.log('Attempting direct fetch of bet history from contract');
     if (!diceContract || typeof diceContract.getBetHistory !== 'function') {
       console.error(
@@ -106,7 +120,13 @@ export const useBetHistory = ({
     goToNextPage,
     goToPreviousPage,
     goToPage,
+    isNewUser, // Include isNewUser in the return object
     refetch: () => {
+      // Skip refreshing for new users unless explicitly forced
+      if (isNewUser) {
+        console.log('Skipping bet history refresh for new user');
+        return;
+      }
       console.log('Refreshing bet history data');
       refreshData();
       return directFetch();

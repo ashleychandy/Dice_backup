@@ -19,6 +19,7 @@ export const PollingProvider = ({
     isLoading: true,
     lastUpdated: null,
     error: null,
+    isNewUser: true, // Add new state to track if user is new
   });
 
   // Add state to track if there's an active game
@@ -77,8 +78,10 @@ export const PollingProvider = ({
         promiseTypes.push('gameStatus');
       }
 
-      // 2. Bet history
-      if (hasGetBetHistory) {
+      // 2. Bet history - Only fetch if user has placed bets before or there's an active game
+      // For new users without any bets yet, we'll skip this call to save resources
+      const { isNewUser } = gameData;
+      if (hasGetBetHistory && (!isNewUser || hasActiveGame)) {
         promises.push(
           diceContract.getBetHistory(account).catch(error => {
             console.error('Error fetching bet history:', error);
@@ -117,6 +120,7 @@ export const PollingProvider = ({
       let gameStatus = {};
       let betHistory = [];
       let contractStats = null;
+      let userHasPlacedBets = false;
 
       // Process results by checking the type we stored
       results.forEach((result, index) => {
@@ -146,9 +150,17 @@ export const PollingProvider = ({
               requestFulfilled: status.requestProcessed,
             };
 
-            // Don't set hasActiveGame here - we'll do it after all data is processed
+            // Check if user has placed bets before based on lastPlayTimestamp
+            if (status.lastPlayTimestamp > 0) {
+              userHasPlacedBets = true;
+            }
           } else if (type === 'betHistory') {
             betHistory = processBetHistory(result.value);
+
+            // If we got any bet history, user is not new
+            if (betHistory && betHistory.length > 0) {
+              userHasPlacedBets = true;
+            }
           } else if (type === 'contractStats') {
             contractStats = result.value;
           }
@@ -168,6 +180,7 @@ export const PollingProvider = ({
         isLoading: false,
         lastUpdated: Date.now(),
         error: null,
+        isNewUser: !userHasPlacedBets, // Update new user state
       });
     } catch (error) {
       console.error('Error in polling service:', error);
@@ -242,17 +255,26 @@ export const PollingProvider = ({
     return processedBets;
   };
 
-  // Set up polling interval
+  // Set up polling interval - Only poll if user has placed bets or has an active game
   useEffect(() => {
-    // Initial fetch
+    // Initial fetch (we'll always do one fetch to determine if user is new)
     fetchData();
 
-    // Set up polling interval
-    const intervalId = setInterval(fetchData, currentPollingInterval);
+    // Only set up polling if user has placed bets or has an active game
+    if (!gameData.isNewUser || hasActiveGame) {
+      const intervalId = setInterval(fetchData, currentPollingInterval);
+      return () => clearInterval(intervalId);
+    }
 
-    // Clean up on unmount
-    return () => clearInterval(intervalId);
-  }, [diceContract, account, currentPollingInterval]);
+    // If new user and no active game, don't set up polling
+    return undefined;
+  }, [
+    diceContract,
+    account,
+    currentPollingInterval,
+    gameData.isNewUser,
+    hasActiveGame,
+  ]);
 
   // Create a manual refresh function
   const refreshData = () => {
@@ -266,6 +288,7 @@ export const PollingProvider = ({
     gameStatus: gameData.gameStatus,
     betHistory: gameData.betHistory,
     contractStats: gameData.contractStats,
+    isNewUser: gameData.isNewUser,
 
     // Status indicators
     isLoading: gameData.isLoading,

@@ -285,44 +285,9 @@ const GameHistory = ({ account, onError }) => {
 
   // Create fallback data if no bets are available
   const sampleBets = React.useMemo(() => {
-    // Return some sample data when we have no real data
-    if (betHistory && betHistory.length > 0) return null;
-
-    console.log('Using sample bet data since no real data is available');
-
-    return [
-      {
-        timestamp: Math.floor(Date.now() / 1000) - 100,
-        chosenNumber: 4,
-        rolledNumber: 4,
-        amount: '10000000000000000',
-        payout: '60000000000000000',
-        isWin: true,
-        resultType: 'normal',
-        status: 'Won',
-      },
-      {
-        timestamp: Math.floor(Date.now() / 1000) - 300,
-        chosenNumber: 2,
-        rolledNumber: 5,
-        amount: '5000000000000000',
-        payout: '0',
-        isWin: false,
-        resultType: 'normal',
-        status: 'Lost',
-      },
-      {
-        timestamp: Math.floor(Date.now() / 1000) - 500,
-        chosenNumber: 3,
-        rolledNumber: 0,
-        amount: '15000000000000000',
-        payout: '0',
-        isWin: false,
-        resultType: 'unknown',
-        status: 'Unknown',
-      },
-    ];
-  }, [betHistory]);
+    // Return empty array instead of sample data
+    return [];
+  }, []);
 
   // Check if contract is available and has the necessary methods
   const contractHasRequiredMethods = React.useMemo(() => {
@@ -342,26 +307,15 @@ const GameHistory = ({ account, onError }) => {
     return hasGetBetHistory;
   }, [diceContract]);
 
-  // Prioritize showing sample data if we have no real data
+  // We no longer use sample data
   const shouldUseSampleData = React.useMemo(() => {
-    return (
-      sampleBets &&
-      (!betHistory ||
-        betHistory.length === 0 ||
-        !contractHasRequiredMethods ||
-        error)
-    );
-  }, [sampleBets, betHistory, contractHasRequiredMethods, error]);
+    return false; // Always return false to never use sample data
+  }, []);
 
-  // Update displayBets to use sample data when appropriate
+  // Update displayBets to never use sample data
   const displayBets = React.useMemo(() => {
-    if (shouldUseSampleData) {
-      console.log('Using sample bet data');
-      return sampleBets;
-    } else {
-      return filteredGames;
-    }
-  }, [shouldUseSampleData, sampleBets, filteredGames]);
+    return filteredGames;
+  }, [filteredGames]);
 
   // Define isDataLoading here so it's available throughout the component
   const isDataLoading = isLoading && (!betHistory || betHistory.length === 0);
@@ -390,12 +344,10 @@ const GameHistory = ({ account, onError }) => {
 
   if (!contractHasRequiredMethods) {
     console.warn(
-      'Dice contract is missing required methods - using sample data'
+      'Dice contract is missing required methods to fetch bet history'
     );
-    // Don't show an error, just use sample data
   } else if (error) {
     console.error('Error loading bet history:', error);
-    // Don't return the error component, just log it and continue with sample data
   }
 
   if (showEmptyState) {
@@ -450,7 +402,7 @@ const GameHistory = ({ account, onError }) => {
     );
   }
 
-  if (isDataLoading && !shouldUseSampleData) {
+  if (isDataLoading) {
     return <GameHistoryLoader />;
   }
 

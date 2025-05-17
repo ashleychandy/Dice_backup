@@ -144,14 +144,16 @@ const formatAmount = amount => {
     if (isNaN(value)) return '0';
 
     if (value >= 1000) {
-      return `${(value / 1000).toFixed(1)}K`;
+      return `${Math.floor(value / 1000)}K`;
     }
 
-    if (value < 0.01) {
-      return '<0.01';
+    // For values less than 1, return 0
+    if (value < 1) {
+      return '0';
     }
 
-    return value.toFixed(2);
+    // Return only whole numbers
+    return Math.floor(value).toString();
   } catch (error) {
     console.error('Error formatting amount:', error);
     return '0';

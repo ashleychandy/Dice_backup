@@ -294,7 +294,7 @@ export const WalletProvider = ({ children }) => {
 
       return {
         balance,
-        formatted: parseFloat(formatted).toFixed(6),
+        formatted: Math.floor(parseFloat(formatted)).toString(),
         raw: balance,
       };
     } catch (error) {
@@ -317,7 +317,7 @@ export const WalletProvider = ({ children }) => {
 
       return {
         balance,
-        formatted: parseFloat(formatted).toFixed(6),
+        formatted: Math.floor(parseFloat(formatted)).toString(),
         raw: balance,
       };
     } catch (error) {

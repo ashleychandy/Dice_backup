@@ -86,22 +86,20 @@ const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
 
     // For large numbers, use K/M/B notation
     if (floatValue >= 1_000_000_000) {
-      return `${(floatValue / 1_000_000_000).toFixed(2)}B`;
+      return `${Math.floor(floatValue / 1_000_000_000)}B`;
     } else if (floatValue >= 1_000_000) {
-      return `${(floatValue / 1_000_000).toFixed(2)}M`;
+      return `${Math.floor(floatValue / 1_000_000)}M`;
     } else if (floatValue >= 1_000) {
-      return `${(floatValue / 1_000).toFixed(2)}K`;
+      return `${Math.floor(floatValue / 1_000)}K`;
     }
 
-    // For small numbers, show more precision
-    if (floatValue < 0.0001 && floatValue > 0) {
-      return '<0.0001';
+    // For small numbers, just show 0
+    if (floatValue < 1) {
+      return '0';
     }
 
-    return floatValue.toLocaleString(undefined, {
-      maximumFractionDigits: 4,
-      minimumFractionDigits: floatValue < 1 ? 4 : 0,
-    });
+    // Return only whole numbers
+    return Math.floor(floatValue).toLocaleString();
   };
 
   const formattedBalance = formatBalance(safeFormatEther(userBalance || 0));

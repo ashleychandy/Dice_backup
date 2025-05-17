@@ -63,7 +63,8 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
   const formatAmount = amount => {
     if (!amount || amount === '0') return '0';
     try {
-      return ethers.formatEther(amount.toString()).slice(0, 6);
+      // Get only the whole number part
+      return ethers.formatEther(amount.toString()).split('.')[0];
     } catch (e) {
       console.error('Error formatting amount:', e);
       return '0';

@@ -197,7 +197,7 @@ const GameHistory = ({ account, onError }) => {
   const { isWalletConnected } = useWallet();
 
   // Get isNewUser state from polling service
-  const { isNewUser } = usePollingService();
+  const { isNewUser, gameStatus } = usePollingService();
 
   // Use the bet history hook
   const {
@@ -279,10 +279,47 @@ const GameHistory = ({ account, onError }) => {
 
   // Calculate counts for tabs
   const pendingGamesCount = React.useMemo(() => {
-    return betHistory
+    // Count pending games from bet history
+    const pendingCount = betHistory
       ? betHistory.filter(game => game.resultType === 'unknown').length
       : 0;
-  }, [betHistory]);
+
+    // Add active game if it exists and it's not already in the history
+    const hasActiveGame = gameStatus?.isActive && gameStatus?.chosenNumber;
+
+    // Only increment if there's an active game and it's not already counted in bet history
+    if (hasActiveGame) {
+      // Check if we already have this game in history to avoid double counting
+      const isAlreadyCounted = betHistory
+        ? betHistory.some(
+            game =>
+              game.resultType === 'unknown' &&
+              Number(game.timestamp) ===
+                Number(gameStatus.lastPlayTimestamp || 0) &&
+              Number(game.chosenNumber) === Number(gameStatus.chosenNumber) &&
+              game.amount === gameStatus.amount?.toString()
+          )
+        : false;
+
+      return pendingCount + (isAlreadyCounted ? 0 : 1);
+    }
+
+    return pendingCount;
+  }, [betHistory, gameStatus]);
+
+  // Add debugging for active game and pending count - moved after pendingGamesCount declaration
+  useEffect(() => {
+    console.log('DEBUG - Active Game Status:', {
+      hasActiveGame: gameStatus?.isActive,
+      chosenNumber: gameStatus?.chosenNumber,
+      amount: gameStatus?.amount?.toString(),
+      lastPlayTimestamp: gameStatus?.lastPlayTimestamp,
+      pendingGamesCount,
+      pendingGamesInHistory: betHistory
+        ? betHistory.filter(game => game.resultType === 'unknown').length
+        : 0,
+    });
+  }, [gameStatus, pendingGamesCount, betHistory]);
 
   const winGamesCount = React.useMemo(() => {
     return betHistory
@@ -333,10 +370,62 @@ const GameHistory = ({ account, onError }) => {
     return false; // Always return false to never use sample data
   }, []);
 
-  // Update displayBets to never use sample data
+  // Update displayBets to include active game
   const displayBets = React.useMemo(() => {
-    return filteredGames;
-  }, [filteredGames]);
+    // Start with the filtered games
+    let games = [...filteredGames];
+
+    // If there's an active game from gameStatus, add it to the list
+    if (gameStatus?.isActive && gameStatus?.chosenNumber) {
+      // Create a history item for the active game
+      const activeBet = {
+        timestamp: Number(
+          gameStatus.lastPlayTimestamp || Math.floor(Date.now() / 1000)
+        ),
+        chosenNumber: Number(gameStatus.chosenNumber),
+        rolledNumber: 0, // No result yet
+        amount: gameStatus.amount?.toString() || '0',
+        payout: '0', // No payout yet
+        resultType: 'unknown',
+        status: 'Pending',
+        isPending: true,
+        // Add a flag to identify this as the active game
+        isActiveGame: true,
+      };
+
+      // Check if this game should be included based on current filter
+      const shouldInclude =
+        filter === 'all' ||
+        (filter === 'pending' && activeBet.resultType === 'unknown');
+
+      // Only add if it should be included by the filter
+      if (shouldInclude) {
+        // Check if we already have this game in history
+        // This prevents duplicate entries when the game is both active and in history
+        const isDuplicate = games.some(
+          game =>
+            game.timestamp === activeBet.timestamp &&
+            game.chosenNumber === activeBet.chosenNumber &&
+            game.amount === activeBet.amount
+        );
+
+        if (!isDuplicate) {
+          // Add to the beginning of the array
+          games.unshift(activeBet);
+        }
+      }
+    }
+
+    // Add debug logging
+    console.log('DEBUG - Display Bets:', {
+      hasActiveGame: gameStatus?.isActive,
+      activeGameAdded: games.length > filteredGames.length,
+      totalGames: games.length,
+      games,
+    });
+
+    return games;
+  }, [filteredGames, gameStatus, filter]);
 
   // Define isDataLoading here so it's available throughout the component
   const isDataLoading = isLoading && (!betHistory || betHistory.length === 0);

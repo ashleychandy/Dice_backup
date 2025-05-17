@@ -13,8 +13,6 @@ import {
   faTimesCircle,
   faSync,
   faHourglassHalf,
-  faShieldAlt,
-  faUndo,
 } from '@fortawesome/free-solid-svg-icons';
 import { formatEther } from 'ethers';
 
@@ -223,16 +221,50 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
+        animate={{
+          opacity: 1,
+          scale: 1,
+          boxShadow: game.isActiveGame
+            ? [
+                '0 0 0 2px rgba(168, 85, 247, 0.4)',
+                '0 0 0 4px rgba(168, 85, 247, 0.2)',
+                '0 0 0 2px rgba(168, 85, 247, 0.4)',
+              ]
+            : undefined,
+        }}
         whileHover={{
           scale: 1.03,
           boxShadow:
             '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
         }}
-        transition={{ delay: index * 0.03, duration: 0.2 }}
-        className={`rounded-xl border ${cardStyles.background} ${cardStyles.shadow} overflow-hidden hover:shadow-lg transition-all h-full`}
+        transition={{
+          delay: index * 0.03,
+          duration: 0.2,
+          boxShadow: {
+            duration: 1.5,
+            repeat: game.isActiveGame ? Infinity : 0,
+            repeatType: 'reverse',
+          },
+        }}
+        className={`rounded-xl border ${cardStyles.background} ${cardStyles.shadow} overflow-hidden hover:shadow-lg transition-all h-full ${game.isActiveGame ? 'border-purple-500' : ''}`}
       >
         <div className="p-4 h-full flex flex-col relative">
+          {/* Active game badge */}
+          {game.isActiveGame && (
+            <div className="absolute top-0 right-0 p-1">
+              <span className="inline-flex items-center px-2 py-1 text-xs font-medium leading-none text-purple-700 bg-purple-100 rounded-full">
+                <motion.span
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className="mr-1"
+                >
+                  <FontAwesomeIcon icon={faSync} className="h-3 w-3" />
+                </motion.span>
+                Active
+              </span>
+            </div>
+          )}
+
           {/* Decorative circles for visual appeal */}
           <div className="absolute -top-6 -right-6 w-16 h-16 rounded-full bg-white/20 blur-sm"></div>
           <div className="absolute -bottom-8 -left-8 w-20 h-20 rounded-full bg-white/30 blur-sm"></div>
@@ -279,7 +311,9 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
             {resultType === 'PENDING' ? (
               <div className="flex flex-col">
                 <div className="text-purple-700 text-sm font-medium">
-                  Waiting for VRF verification...
+                  {game.isActiveGame
+                    ? 'Processing bet...'
+                    : 'Waiting for VRF verification...'}
                 </div>
                 <div className="mt-1 flex space-x-1">
                   <motion.div

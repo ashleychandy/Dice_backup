@@ -662,16 +662,10 @@ export const WalletProvider = ({ children }) => {
       if (window.ethereum && typeof window.ethereum.on === 'function') {
         console.log('Setting up ethereum provider listeners');
         window.ethereum.on('chainChanged', handleChainChanged);
-        // Fallback for older implementations
-        window.ethereum.on('networkChanged', handleChainChanged);
 
         return () => {
           if (typeof window.ethereum.removeListener === 'function') {
             window.ethereum.removeListener('chainChanged', handleChainChanged);
-            window.ethereum.removeListener(
-              'networkChanged',
-              handleChainChanged
-            );
           }
         };
       }

@@ -734,7 +734,7 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
                         className={`${resultStyles} mr-2`}
                       />
                       {resultType === 'PENDING'
-                        ? 'Waiting for Chainlink VRF random number verification'
+                        ? 'Waiting for Plugin VRF random number verification'
                         : isSpecial
                           ? getSpecialResultDescription(resultType, payout)
                           : resultType === 'WIN'

@@ -565,7 +565,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
                   />
                 </svg>
                 <span className="text-xs font-medium">
-                  Getting secure random number from Chainlink VRF
+                  Getting secure random number from Plugin VRF
                 </span>
               </motion.div>
             </div>

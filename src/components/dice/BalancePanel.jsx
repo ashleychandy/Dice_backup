@@ -12,7 +12,6 @@ const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
     try {
       return ethers.formatEther(value.toString());
     } catch (error) {
-      // Error handling without console logging
       return '0';
     }
   };

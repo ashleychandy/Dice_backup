@@ -628,7 +628,6 @@ export const useWalletImplementation = queryClient => {
         if (queryClient && state.account) {
           queryClient.invalidateQueries(['balance', state.account]);
           queryClient.invalidateQueries(['gameHistory', state.account]);
-          console.log('Invalidated queries after contract reinitialization');
         }
 
         addToast('Network changed successfully', 'success');

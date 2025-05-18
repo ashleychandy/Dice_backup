@@ -30,13 +30,9 @@ export const useGameRecovery = ({ onSuccess, onError } = {}) => {
         throw new Error('Wallet not connected or contract not initialized');
       }
 
-      try {
-        const tx = await diceContract.recoverOwnStuckGame();
-        const receipt = await tx.wait();
-        return receipt;
-      } catch (error) {
-        throw error;
-      }
+      const tx = await diceContract.recoverOwnStuckGame();
+      const receipt = await tx.wait();
+      return receipt;
     },
     onSuccess: data => {
       addToast({
@@ -81,13 +77,9 @@ export const useGameRecovery = ({ onSuccess, onError } = {}) => {
         throw new Error('Player address required');
       }
 
-      try {
-        const tx = await diceContract.forceStopGame(playerAddress);
-        const receipt = await tx.wait();
-        return receipt;
-      } catch (error) {
-        throw error;
-      }
+      const tx = await diceContract.forceStopGame(playerAddress);
+      const receipt = await tx.wait();
+      return receipt;
     },
     onSuccess: (data, variables) => {
       addToast({

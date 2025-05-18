@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion';
 import React, { useCallback, useEffect, useState } from 'react';
-import { formatTokenAmount, parseTokenAmount } from '../../utils/formatting';
+import { formatTokenAmount, _parseTokenAmount } from '../../utils/formatting';
 import Input from '../ui/Input';
-import { ethers } from 'ethers';
+import { ethers as _ethers } from 'ethers';
 
 const QuickButton = ({ onClick, disabled, children, active = false }) => (
   <motion.button
@@ -57,6 +57,7 @@ const BetInput = ({
         }
       }
     } catch (err) {
+      /* Silently handle formatting errors */
     }
   }, [value, displayValue]);
 
@@ -217,6 +218,7 @@ const BetInput = ({
         setError('');
       }
     } catch (err) {
+      /* Silently handle calculation errors */
     }
   };
 
@@ -252,6 +254,7 @@ const BetInput = ({
         setError('');
       }
     } catch (err) {
+      /* Silently handle calculation errors */
     }
   };
 
@@ -283,6 +286,7 @@ const BetInput = ({
         onRepeatLastBet();
       }
     } catch (err) {
+      /* Silently handle calculation errors */
     }
   };
 

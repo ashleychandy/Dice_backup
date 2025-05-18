@@ -127,9 +127,7 @@ export const WalletProvider = ({ children }) => {
     if (!walletState.account && !isAutoConnecting) {
       attemptAutoConnect();
     }
-  }, [walletState.connectWallet]);
-
- 
+  }, [walletState.connectWallet, walletState.account, isAutoConnecting]);
 
   // Check RPC endpoints health
   const checkEndpointsHealth = useCallback(async () => {
@@ -300,11 +298,11 @@ export const WalletProvider = ({ children }) => {
     } catch (error) {
       addToast('Error disconnecting wallet', 'error');
     }
-  }, [walletState.handleLogout, addToast]);
+  }, [walletState.handleLogout, addToast, walletState]);
 
   // Enhanced error handler that shows meaningful messages
   const handleErrorWithToast = useCallback(
-    (error, context = '') => {
+    (error, _context = '') => {
       // CORS-related errors
       if (error?.message && error.message.includes('CORS')) {
         addToast(
@@ -634,6 +632,7 @@ export const WalletProvider = ({ children }) => {
     walletState.chainId,
     getNetworkForChainId,
     addToast,
+    walletState,
   ]);
 
   return (

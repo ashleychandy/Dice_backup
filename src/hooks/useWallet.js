@@ -1,11 +1,4 @@
-import {
-  useReducer,
-  useEffect,
-  useCallback,
-  useRef,
-  useContext,
-  useMemo,
-} from 'react';
+import { useReducer, useEffect, useCallback, useRef } from 'react';
 import { ethers } from 'ethers';
 
 // Utils and constants
@@ -381,7 +374,12 @@ export const useWalletImplementation = queryClient => {
               type: walletActionTypes.SET_CONTRACTS,
               payload: contracts,
             });
-          } else {
+          } else if (mounted) {
+            // If contracts failed to initialize, update loading state
+            dispatch({
+              type: walletActionTypes.SET_LOADING_STATE,
+              payload: { provider: false, contracts: false },
+            });
           }
         } else if (mounted) {
           dispatch({
@@ -432,7 +430,7 @@ export const useWalletImplementation = queryClient => {
     walletProvider.on('chainChanged', handleChainChanged);
 
     // Listen for wallet disconnection event
-    const handleDisconnect = error => {
+    const handleDisconnect = _error => {
       // Reset state on disconnection
       dispatch({ type: walletActionTypes.RESET_STATE });
       addToast('Wallet disconnected', 'info');
@@ -655,15 +653,15 @@ export const useWalletImplementation = queryClient => {
   );
 
   return {
-      ...state,
+    ...state,
     isConnecting,
-      isWalletConnected,
-      isNetworkSupported,
-      connectWallet,
-      handleLogout,
-      handleError,
+    isWalletConnected,
+    isNetworkSupported,
+    connectWallet,
+    handleLogout,
+    handleError,
     handleSwitchNetwork,
-      reinitializeWithChainId,
+    reinitializeWithChainId,
   };
 };
 

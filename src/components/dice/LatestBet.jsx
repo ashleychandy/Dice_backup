@@ -30,6 +30,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
 
   // Add debugging logs to help diagnose issues
   useEffect(() => {
+    // No debug logs needed at this time
   }, [
     result,
     chosenNumber,
@@ -38,7 +39,6 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     gameStatus,
     isNewUser,
   ]);
-
 
   const formatAmount = amount => {
     if (!amount || amount === '0') return '0';
@@ -121,6 +121,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
       // Compare only the first few digits to avoid precision issues
       amountMatch = resultAmount.substring(0, 5) === betAmount.substring(0, 5);
     } catch (e) {
+      // Silently handle comparison errors
     }
 
     return chosenMatch && amountMatch;
@@ -224,7 +225,6 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     specialResultType,
   ]);
 
-  
   // Show welcome message for new users
   if (isNewUser) {
     return (
@@ -297,7 +297,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
   if (displayResult?.source === 'special') {
     const data = displayResult.data;
     const isRecovered = displayResult.type === 'recovered';
-    const isForceStopped = displayResult.type === 'force_stopped';
+    const _isForceStopped = displayResult.type === 'force_stopped';
     const refundAmount = data.amount || '0';
 
     // Determine color scheme based on type

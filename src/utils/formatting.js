@@ -53,7 +53,7 @@ export const formatTokenAmount = (value, decimals = 0) => {
  * @param {String} input - Input string representing amount (whole numbers only)
  * @returns {BigInt} Amount in wei
  */
-export const parseTokenAmount = input => {
+export const _parseTokenAmount = input => {
   if (!input || input === '') return BigInt(0);
 
   try {

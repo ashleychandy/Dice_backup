@@ -53,7 +53,7 @@ export const useContractState = () => {
     retry: 1, // Only retry once
     refetchInterval: 5000, // Refetch data every 5 seconds
     refetchIntervalInBackground: true, // Continue refetching even when tab is not in focus
-    onError: error => {
+    onError: _error => {
       // Don't show toast for this error as it might be frequent
     },
   });
@@ -130,6 +130,8 @@ export const useContractState = () => {
   useEffect(() => {
     if (!contract) return;
 
+    let cleanupFunction = () => {}; // Define default cleanup
+
     try {
       const handlePaused = account => {
         queryClient.invalidateQueries(['contractState']);
@@ -158,7 +160,7 @@ export const useContractState = () => {
         // Silent error for event listeners setup
       }
 
-      return () => {
+      cleanupFunction = () => {
         try {
           contract.removeAllListeners('Paused');
           contract.removeAllListeners('Unpaused');
@@ -168,8 +170,10 @@ export const useContractState = () => {
         }
       };
     } catch (error) {
-      return () => {}; // Empty cleanup function
+      // Error in setup - cleanupFunction remains as empty function
     }
+
+    return cleanupFunction;
   }, [contract, queryClient, addToast]);
 
   return {

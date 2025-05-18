@@ -228,9 +228,15 @@ const GameHistory = ({ account, onError }) => {
     }
   }, [error, onError]);
 
-  // Reset to page 1 when changing filters
+  // Reset to page 1 when changing filters - with proper dependencies
+  const filterRef = React.useRef(filter);
+
   useEffect(() => {
-    goToPage(1);
+    // Only reset page if filter actually changes
+    if (filterRef.current !== filter) {
+      filterRef.current = filter;
+      goToPage(1);
+    }
   }, [filter, goToPage]);
 
   // Filter games based on selected filter
@@ -306,7 +312,7 @@ const GameHistory = ({ account, onError }) => {
   }, [betHistory]);
 
   // Create fallback data if no bets are available
-  const sampleBets = useMemo(() => {
+  const _sampleBets = useMemo(() => {
     // Return empty array instead of sample data
     return [];
   }, []);
@@ -315,14 +321,14 @@ const GameHistory = ({ account, onError }) => {
   const contractHasRequiredMethods = useMemo(() => {
     if (!diceContract) return false;
 
-    const hasGetGameStatus = typeof diceContract.getGameStatus === 'function';
+    const _hasGetGameStatus = typeof diceContract.getGameStatus === 'function';
     const hasGetBetHistory = typeof diceContract.getBetHistory === 'function';
 
     return hasGetBetHistory;
   }, [diceContract]);
 
   // We no longer use sample data
-  const shouldUseSampleData = useMemo(() => {
+  const _shouldUseSampleData = useMemo(() => {
     return false; // Always return false to never use sample data
   }, []);
 

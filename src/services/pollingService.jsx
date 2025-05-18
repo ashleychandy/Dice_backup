@@ -1,4 +1,11 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+} from 'react';
 
 // Create a context to share polling data
 export const PollingContext = createContext(null);
@@ -7,7 +14,7 @@ export const PollingProvider = ({
   children,
   diceContract,
   account,
-  defaultInterval = 5000,
+  _defaultInterval = 5000, // Prefix with underscore to indicate it's not used
   activeGameInterval = 2000, // Poll more frequently during active games
   inactiveInterval = 10000, // Poll less frequently when idle
 }) => {
@@ -25,14 +32,29 @@ export const PollingProvider = ({
   // Add state to track if there's an active game
   const [hasActiveGame, setHasActiveGame] = useState(false);
 
+  // Use refs for values we need to access in effects but don't want to cause re-renders
+  const isNewUserRef = useRef(gameData.isNewUser);
+  const diceContractRef = useRef(diceContract);
+  const accountRef = useRef(account);
+
+  // Update refs when dependencies change
+  useEffect(() => {
+    isNewUserRef.current = gameData.isNewUser;
+    diceContractRef.current = diceContract;
+    accountRef.current = account;
+  }, [gameData.isNewUser, diceContract, account]);
+
   // Determine current polling interval based on game state
   const currentPollingInterval = hasActiveGame
     ? activeGameInterval
     : inactiveInterval;
 
   // Fetch data from blockchain
-  const fetchData = async () => {
-    if (!diceContract || !account) {
+  const fetchData = useCallback(async () => {
+    const currentContract = diceContractRef.current;
+    const currentAccount = accountRef.current;
+
+    if (!currentContract || !currentAccount) {
       return;
     }
 
@@ -41,10 +63,12 @@ export const PollingProvider = ({
 
     try {
       // Check which methods exist on the contract
-      const hasGetGameStatus = typeof diceContract.getGameStatus === 'function';
-      const hasGetBetHistory = typeof diceContract.getBetHistory === 'function';
+      const hasGetGameStatus =
+        typeof currentContract.getGameStatus === 'function';
+      const hasGetBetHistory =
+        typeof currentContract.getBetHistory === 'function';
       const hasGetContractStats =
-        typeof diceContract.getContractStats === 'function';
+        typeof currentContract.getContractStats === 'function';
 
       // Define promises based on available methods
       let promises = [];
@@ -53,7 +77,7 @@ export const PollingProvider = ({
       // 1. Game status
       if (hasGetGameStatus) {
         promises.push(
-          diceContract.getGameStatus(account).catch(error => {
+          currentContract.getGameStatus(currentAccount).catch(_error => {
             // Handle error silently
             return null;
           })
@@ -66,10 +90,10 @@ export const PollingProvider = ({
 
       // 2. Bet history - Only fetch if user has placed bets before or there's an active game
       // For new users without any bets yet, we'll skip this call to save resources
-      const { isNewUser } = gameData;
-      if (hasGetBetHistory && (!isNewUser || hasActiveGame)) {
+      const currentIsNewUser = isNewUserRef.current;
+      if (hasGetBetHistory && (!currentIsNewUser || hasActiveGame)) {
         promises.push(
-          diceContract.getBetHistory(account).catch(error => {
+          currentContract.getBetHistory(currentAccount).catch(_error => {
             // Handle error silently
             return [];
           })
@@ -83,7 +107,7 @@ export const PollingProvider = ({
       // 3. Contract stats (only if method exists)
       if (hasGetContractStats) {
         promises.push(
-          diceContract.getContractStats().catch(error => {
+          currentContract.getContractStats().catch(_error => {
             // Handle error silently
             return null;
           })
@@ -142,12 +166,7 @@ export const PollingProvider = ({
         }
       });
 
-      // Update active game status together with other state updates to prevent infinite loops
-      if (gameStatus?.isActive !== undefined) {
-        setHasActiveGame(gameStatus.isActive);
-      }
-
-      // Update state with all data
+      // Update state with all data in a single setState call to avoid multiple re-renders
       setGameData({
         gameStatus,
         betHistory,
@@ -157,6 +176,11 @@ export const PollingProvider = ({
         error: null,
         isNewUser: !userHasPlacedBets, // Update new user state
       });
+
+      // Update active game status after state update to avoid circular dependencies
+      if (gameStatus?.isActive !== undefined) {
+        setHasActiveGame(gameStatus.isActive);
+      }
     } catch (error) {
       setGameData(prev => ({
         ...prev,
@@ -165,7 +189,7 @@ export const PollingProvider = ({
         lastUpdated: Date.now(),
       }));
     }
-  };
+  }, [hasActiveGame]); // Only depend on hasActiveGame, use refs for other values
 
   // Process bet history data
   const processBetHistory = bets => {
@@ -222,26 +246,19 @@ export const PollingProvider = ({
     fetchData();
 
     // Only set up polling if user has placed bets or has an active game
-    if (!gameData.isNewUser || hasActiveGame) {
+    if (!isNewUserRef.current || hasActiveGame) {
       const intervalId = setInterval(fetchData, currentPollingInterval);
       return () => clearInterval(intervalId);
     }
 
     // If new user and no active game, don't set up polling
     return undefined;
-  }, [
-    diceContract,
-    account,
-    currentPollingInterval,
-    gameData.isNewUser,
-    hasActiveGame,
-  ]);
+  }, [fetchData, currentPollingInterval]);
 
-  // Create a manual refresh function
-  const refreshData = () => {
-    setGameData(prev => ({ ...prev, isLoading: true }));
+  // Create a manual refresh function that uses the useCallback for stability
+  const refreshData = useCallback(() => {
     fetchData();
-  };
+  }, [fetchData]);
 
   // Value to be provided through context
   const contextValue = {

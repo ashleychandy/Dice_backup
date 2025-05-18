@@ -1,13 +1,14 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { usePollingService } from '../services/pollingService.jsx';
 
-// Constants for special game results
-const RESULT_FORCE_STOPPED = 254;
-const RESULT_RECOVERED = 255;
+// Constants not used directly in this file but kept for reference
+// or potentially future use
+const _RESULT_FORCE_STOPPED = 254;
+const _RESULT_RECOVERED = 255;
 
 export const useBetHistory = ({
   pageSize = 10,
-  playerAddress = null, // Optional: override the connected account
+  _playerAddress = null, // Prefixed with underscore as unused
   diceContract = null, // We don't actually need this directly anymore, but keeping for API compatibility
 } = {}) => {
   const {
@@ -45,17 +46,27 @@ export const useBetHistory = ({
     return Math.ceil((allBets?.length || 0) / pageSize) || 1; // Ensure at least 1 page
   }, [allBets, pageSize, isNewUser]);
 
-  const goToPage = page => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
-  };
+  // Use useCallback for all state-updating functions
+  const goToPage = useCallback(
+    page => {
+      const maxPage = Math.ceil((allBets?.length || 0) / pageSize) || 1;
+      if (page >= 1 && page <= maxPage) {
+        setCurrentPage(page);
+      }
+    },
+    [allBets, pageSize]
+  );
 
-  const goToNextPage = () => goToPage(currentPage + 1);
-  const goToPreviousPage = () => goToPage(currentPage - 1);
+  const goToNextPage = useCallback(() => {
+    goToPage(currentPage + 1);
+  }, [goToPage, currentPage]);
+
+  const goToPreviousPage = useCallback(() => {
+    goToPage(currentPage - 1);
+  }, [goToPage, currentPage]);
 
   // Direct fetch function in case polling service fails
-  const directFetch = async () => {
+  const directFetch = useCallback(async () => {
     // Skip direct fetch for new users
     if (isNewUser) {
       return;
@@ -70,7 +81,17 @@ export const useBetHistory = ({
     } catch (err) {
       // Handle error silently
     }
-  };
+  }, [isNewUser, diceContract, refreshData]);
+
+  // Fix dependency array to avoid infinite loops
+  const refetch = useCallback(() => {
+    // Skip refreshing for new users unless explicitly forced
+    if (isNewUser) {
+      return;
+    }
+    refreshData();
+    return directFetch();
+  }, [isNewUser, refreshData, directFetch]);
 
   return {
     betHistory,
@@ -84,13 +105,6 @@ export const useBetHistory = ({
     goToPreviousPage,
     goToPage,
     isNewUser, // Include isNewUser in the return object
-    refetch: () => {
-      // Skip refreshing for new users unless explicitly forced
-      if (isNewUser) {
-        return;
-      }
-      refreshData();
-      return directFetch();
-    },
+    refetch,
   };
 };

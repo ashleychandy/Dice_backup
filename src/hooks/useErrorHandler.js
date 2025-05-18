@@ -9,9 +9,6 @@ import { useCallback } from 'react';
 export const useErrorHandler = (addToast, onError) => {
   const handleError = useCallback(
     (error, context = '') => {
-      // Log error for debugging
-      console.error(`Error in ${context}:`, error);
-
       // Default error message
       let message = 'An unexpected error occurred';
       let type = 'error';

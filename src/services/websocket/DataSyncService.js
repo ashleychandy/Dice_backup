@@ -36,10 +36,6 @@ class DataSyncService {
     // Start the data synchronization
     this.start();
 
-    console.log(
-      `DataSyncService initialized with ${refreshInterval}ms refresh interval`
-    );
-
     return this;
   }
 
@@ -48,7 +44,7 @@ class DataSyncService {
    */
   start() {
     if (!this.isInitialized) {
-      console.warn('DataSyncService not initialized. Call init() first.');
+      // Not initialized, can't start
       return;
     }
 
@@ -57,8 +53,6 @@ class DataSyncService {
 
     // Set up contract event listeners
     this.setupEventListeners();
-
-    console.log('DataSyncService started');
   }
 
   /**
@@ -73,8 +67,6 @@ class DataSyncService {
 
     // Remove all contract event listeners
     this.removeEventListeners();
-
-    console.log('DataSyncService stopped');
   }
 
   /**
@@ -121,13 +113,6 @@ class DataSyncService {
     try {
       // Listen for bet events
       this.listeners.betPlaced = (player, requestId, chosenNumber, amount) => {
-        console.log('BetPlaced event detected:', {
-          player,
-          requestId: requestId.toString(),
-          chosenNumber: Number(chosenNumber),
-          amount: amount.toString(),
-        });
-
         // Only refresh data for the current player
         if (player.toLowerCase() === this.account?.toLowerCase()) {
           this.refreshData(['betHistory', 'balance', 'gameStatus']);
@@ -136,13 +121,6 @@ class DataSyncService {
 
       // Listen for game completed events
       this.listeners.gameCompleted = (player, requestId, result, payout) => {
-        console.log('GameCompleted event detected:', {
-          player,
-          requestId: requestId.toString(),
-          result: Number(result),
-          payout: payout.toString(),
-        });
-
         // Only refresh data for the current player
         if (player.toLowerCase() === this.account?.toLowerCase()) {
           this.refreshData(['betHistory', 'balance', 'gameStatus']);
@@ -151,12 +129,6 @@ class DataSyncService {
 
       // Listen for recovery events
       this.listeners.gameRecovered = (player, requestId, refundAmount) => {
-        console.log('GameRecovered event detected:', {
-          player,
-          requestId: requestId.toString(),
-          refundAmount: refundAmount.toString(),
-        });
-
         // Only refresh data for the current player
         if (player.toLowerCase() === this.account?.toLowerCase()) {
           this.refreshData(['betHistory', 'balance', 'gameStatus']);
@@ -165,12 +137,10 @@ class DataSyncService {
 
       // Listen for contract state changes
       this.listeners.paused = () => {
-        console.log('Paused event detected');
         this.refreshData('contractState');
       };
 
       this.listeners.unpaused = () => {
-        console.log('Unpaused event detected');
         this.refreshData('contractState');
       };
 
@@ -180,10 +150,8 @@ class DataSyncService {
       this.contracts.dice.on('GameRecovered', this.listeners.gameRecovered);
       this.contracts.dice.on('Paused', this.listeners.paused);
       this.contracts.dice.on('Unpaused', this.listeners.unpaused);
-
-      console.log('Contract event listeners set up');
     } catch (error) {
-      console.error('Error setting up contract event listeners:', error);
+      // Error handling without logging
     }
   }
 
@@ -200,10 +168,8 @@ class DataSyncService {
       this.contracts.dice.removeAllListeners('GameRecovered');
       this.contracts.dice.removeAllListeners('Paused');
       this.contracts.dice.removeAllListeners('Unpaused');
-
-      console.log('Contract event listeners removed');
     } catch (error) {
-      console.error('Error removing contract event listeners:', error);
+      // Error handling without logging
     }
   }
 
@@ -240,7 +206,7 @@ class DataSyncService {
    */
   setRefreshInterval(interval) {
     if (interval < 1000) {
-      console.warn('Refresh interval too short, minimum is 1000ms');
+      // Enforce minimum interval
       interval = 1000;
     }
 
@@ -249,8 +215,6 @@ class DataSyncService {
     // Restart polling with new interval
     this.stop();
     this.start();
-
-    console.log(`Refresh interval updated to ${interval}ms`);
   }
 }
 

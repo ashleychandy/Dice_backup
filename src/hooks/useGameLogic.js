@@ -24,13 +24,6 @@ const useBetState = (initialBetAmount = '1000000000000000000') => {
   const lastBetAmountRef = useRef(initialBetAmount);
 
   const setBetAmount = useCallback(amount => {
-    // Debug the amount being set
-    console.log('setBetAmount called with:', {
-      type: typeof amount,
-      value: String(amount),
-      isBigInt: typeof amount === 'bigint',
-    });
-
     // Convert to string regardless of input type
     let amountStr;
     try {
@@ -43,10 +36,7 @@ const useBetState = (initialBetAmount = '1000000000000000000') => {
       } else {
         amountStr = String(amount);
       }
-
-      console.log('Converted to string:', amountStr);
     } catch (error) {
-      console.error('Error converting amount to string:', error);
       amountStr = '0';
     }
 
@@ -61,18 +51,11 @@ const useBetState = (initialBetAmount = '1000000000000000000') => {
   // Convert to BigInt when needed
   const betAmountBigInt = useMemo(() => {
     try {
-      console.log('Converting betAmount to BigInt:', betAmount);
       if (!betAmount || betAmount === '') {
         return BigInt(0);
       }
       return BigInt(betAmount);
     } catch (error) {
-      console.error(
-        'Error converting betAmount to BigInt:',
-        error,
-        'Value:',
-        betAmount
-      );
       return BigInt(0);
     }
   }, [betAmount]);
@@ -124,7 +107,6 @@ const setupSafetyTimeout = (timeoutRef, callback, timeoutMs = 60000) => {
 
   // Set new timeout
   timeoutRef.current = setTimeout(() => {
-    console.warn(`Safety timeout triggered after ${timeoutMs}ms`);
     timeoutRef.current = null;
     if (typeof callback === 'function') {
       callback();
@@ -188,9 +170,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       typeof contracts.dice.playDice === 'function' &&
       typeof contracts.dice.placeBet !== 'function'
     ) {
-      console.log(
-        'Adding placeBet method to dice contract as wrapper for playDice'
-      );
       // Use bind to ensure 'this' context is preserved
       contracts.dice.placeBet = contracts.dice.playDice.bind(contracts.dice);
     }
@@ -246,7 +225,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       try {
         const [balance, tokenAllowance] = await Promise.all([
           contracts.token.balanceOf(walletAccount).catch(err => {
-            console.error('Error fetching balance:', err);
             return BigInt(0);
           }),
           contracts.token
@@ -257,7 +235,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
                 ethers.ZeroAddress
             )
             .catch(err => {
-              console.error('Error fetching allowance:', err);
               return BigInt(0);
             }),
         ]);
@@ -273,7 +250,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           allowance: allowanceBigInt,
         };
       } catch (error) {
-        console.error('Balance query error:', error);
         return {
           balance: BigInt(0),
           allowance: BigInt(0),
@@ -288,7 +264,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     refetchIntervalInBackground: true, // Continue refetching even when tab is not in focus
     refetchOnWindowFocus: true,
     onError: error => {
-      console.error('Balance query failed:', error);
+      // Error handled silently
     },
   });
 
@@ -301,7 +277,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           ? 'Game contract not connected'
           : 'Wallet not connected';
 
-      console.error(`Approval failed: ${errorMessage}`);
       addToast(
         `Cannot approve tokens: ${errorMessage}. This may be a network issue.`,
         'error'
@@ -341,10 +316,9 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
             method: 'eth_chainId',
           });
           currentChainId = parseInt(chainIdHex, 16);
-          console.log(`Current chain ID during approval: ${currentChainId}`);
         }
       } catch (networkError) {
-        console.warn('Could not detect current network:', networkError);
+        // Silently handle network error
       }
 
       // Get the dice contract address (target for v6 ethers, address for v5)
@@ -374,7 +348,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           // Refresh balance data
           invalidateQueries(['balance']);
         } catch (refetchError) {
-          console.error('Error refreshing data after approval:', refetchError);
           // Continue despite refetch error, since approval was successful
         }
       } else {
@@ -398,10 +371,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
             }
           }
         } catch (networkCheckError) {
-          console.warn(
-            'Error checking for network changes:',
-            networkCheckError
-          );
+          // Silently handle network check error
         }
 
         if (!networkIssue) {
@@ -412,18 +382,9 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           );
         }
 
-        // Add debug information to console
-        console.info('Debug information for approval failure:', {
-          walletConnected: !!walletAccount,
-          tokenContract: !!contracts?.token,
-          diceContract: !!contracts?.dice,
-          diceAddress: diceContractAddress,
-          chainId: currentChainId,
-        });
+        // Debug information removed
       }
     } catch (error) {
-      console.error('Token approval error:', error);
-
       // Check for network-related errors
       if (
         error.message &&
@@ -612,14 +573,12 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           let tx;
           try {
             if (typeof contracts.dice.placeBet === 'function') {
-              console.log('Using placeBet method');
               tx = await contracts.dice.placeBet(
                 chosenNumberBigInt,
                 betAmount,
                 txOptions
               );
             } else if (typeof contracts.dice.playDice === 'function') {
-              console.log('Using playDice method as fallback');
               tx = await contracts.dice.playDice(
                 chosenNumberBigInt,
                 betAmount,
@@ -646,7 +605,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           // Wait for transaction confirmation
           try {
             const receipt = await tx.wait();
-            console.log('Transaction confirmed:', receipt);
 
             // Update queries and state
             invalidateQueries(['balance', 'gameStatus', 'betHistory']);
@@ -681,7 +639,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         }
       });
     } catch (error) {
-      console.error('Error in withBetting wrapper:', error);
       operationInProgress.current = false;
       setProcessingState(false);
       setRollingState(false);
@@ -712,27 +669,14 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         BigInt(balanceData.balance.toString()) <= BigInt(0)
       );
     } catch (error) {
-      console.error('Error in hasNoTokens calculation:', error);
       return true; // Assume no tokens on error
     }
   }, [balanceData]);
 
   const needsApproval = useMemo(() => {
     try {
-      // For debugging purposes, log the current balance data
-      console.log('Checking approval needs:', {
-        balance: balanceData?.balance
-          ? balanceData.balance.toString()
-          : 'undefined',
-        allowance: balanceData?.allowance
-          ? balanceData.allowance.toString()
-          : 'undefined',
-        betAmount: betAmount.toString(),
-      });
-
       // If we don't have balance data yet, we can't determine if approval is needed
       if (!balanceData) {
-        console.log('No balance data available yet, deferring approval check');
         return false;
       }
 
@@ -747,19 +691,14 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
       // If balance is zero, no need to approve (can't bet anyway)
       if (balanceBigInt <= BigInt(0)) {
-        console.log('Balance is zero or negative, no approval needed');
         return false;
       }
 
       // Check if allowance is less than bet amount
       const needsApproval = allowanceBigInt < betAmountBigInt;
-      console.log(
-        `Approval check result: ${needsApproval ? 'Needs approval' : 'Already approved'}`
-      );
 
       return needsApproval;
     } catch (error) {
-      console.error('Error in needsApproval calculation:', error);
       return false; // Assume no approval needed on error
     }
   }, [balanceData, betAmount]);
@@ -768,12 +707,10 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   useEffect(() => {
     return () => {
       if (pendingTxRef.current) {
-        console.log('Cleaning up pending transaction references');
         pendingTxRef.current = null;
       }
 
       if (operationInProgress.current) {
-        console.log('Resetting operation in progress flag');
         operationInProgress.current = false;
       }
 
@@ -805,7 +742,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         // After result is known, immediately refresh all data
         invalidateQueries(['balance', 'gameHistory', 'gameStats']);
       } catch (error) {
-        console.error('Error updating game result in UI:', error);
+        // Handle error silently
       }
     }
   }, [
@@ -822,11 +759,8 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       // Only proceed if we still have a pending VRF
       const currentResult = queryClient.getQueryData(['lastResult']);
       if (!currentResult || !currentResult.vrfPending) {
-        console.log('No pending VRF result to check for');
         return;
       }
-
-      console.log('Checking game history for VRF result for tx:', txHash);
 
       // Fetch the latest history data
       await queryClient.invalidateQueries(['gameHistory']);
@@ -847,8 +781,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           matchingGame.rolledNumber >= 1 &&
           matchingGame.rolledNumber <= 6
         ) {
-          console.log('✅ Found matching game in history:', matchingGame);
-
           // Create a complete result with the VRF data
           const completeResult = {
             ...currentResult,
@@ -876,7 +808,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           // Force refresh all data
           invalidateQueries(['balance', 'gameHistory', 'gameStats']);
         } else {
-          console.log('💤 No matching game found in history yet, will retry');
           // If still not found, schedule another check in a few seconds (max 5 retries)
           if (!currentResult.vrfRetryCount || currentResult.vrfRetryCount < 5) {
             // Update retry count
@@ -887,9 +818,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
             setTimeout(() => checkVrfResultInHistory(txHash), 5000);
           } else {
-            console.log(
-              '⚠️ Maximum VRF retry count reached, marking as incomplete'
-            );
             // After max retries, mark the VRF as complete but with unknown result
             setLastResult(prev => ({
               ...prev,
@@ -913,7 +841,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         setTimeout(() => checkVrfResultInHistory(txHash), 5000);
       }
     } catch (error) {
-      console.error('Error checking VRF result in history:', error);
       // On error, make sure we stop the animation after a few retries
       const currentResult = queryClient.getQueryData(['lastResult']);
       if (currentResult && currentResult.vrfRetryCount >= 3) {

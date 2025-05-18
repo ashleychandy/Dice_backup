@@ -40,25 +40,11 @@ export const PollingProvider = ({
     setGameData(prev => ({ ...prev, isLoading: true }));
 
     try {
-      console.log('DEBUG - Starting fetchData:', {
-        hasContract: !!diceContract,
-        account,
-        contractMethods: Object.keys(diceContract).filter(
-          key => typeof diceContract[key] === 'function'
-        ),
-      });
-
       // Check which methods exist on the contract
       const hasGetGameStatus = typeof diceContract.getGameStatus === 'function';
       const hasGetBetHistory = typeof diceContract.getBetHistory === 'function';
       const hasGetContractStats =
         typeof diceContract.getContractStats === 'function';
-
-      console.log('DEBUG - Available contract methods:', {
-        hasGetGameStatus,
-        hasGetBetHistory,
-        hasGetContractStats,
-      });
 
       // Define promises based on available methods
       let promises = [];
@@ -68,7 +54,7 @@ export const PollingProvider = ({
       if (hasGetGameStatus) {
         promises.push(
           diceContract.getGameStatus(account).catch(error => {
-            console.error('Error fetching game status:', error);
+            // Handle error silently
             return null;
           })
         );
@@ -84,7 +70,7 @@ export const PollingProvider = ({
       if (hasGetBetHistory && (!isNewUser || hasActiveGame)) {
         promises.push(
           diceContract.getBetHistory(account).catch(error => {
-            console.error('Error fetching bet history:', error);
+            // Handle error silently
             return [];
           })
         );
@@ -98,7 +84,7 @@ export const PollingProvider = ({
       if (hasGetContractStats) {
         promises.push(
           diceContract.getContractStats().catch(error => {
-            console.error('Error fetching contract stats:', error);
+            // Handle error silently
             return null;
           })
         );
@@ -107,14 +93,6 @@ export const PollingProvider = ({
 
       // Wait for all promises to resolve
       const results = await Promise.allSettled(promises);
-
-      console.log('DEBUG - Fetch results:', {
-        results: results.map((r, i) => ({
-          type: promiseTypes[i],
-          status: r.status,
-          hasValue: r.status === 'fulfilled' && r.value !== null,
-        })),
-      });
 
       // Extract results
       let gameStatus = {};
@@ -129,9 +107,6 @@ export const PollingProvider = ({
         if (result.status === 'fulfilled') {
           if (type === 'gameStatus' && result.value) {
             const status = result.value;
-
-            // For debugging purposes, log the raw status
-            console.log('Raw game status from contract:', status);
 
             gameStatus = {
               isActive: status.isActive,
@@ -183,7 +158,6 @@ export const PollingProvider = ({
         isNewUser: !userHasPlacedBets, // Update new user state
       });
     } catch (error) {
-      console.error('Error in polling service:', error);
       setGameData(prev => ({
         ...prev,
         isLoading: false,
@@ -195,13 +169,6 @@ export const PollingProvider = ({
 
   // Process bet history data
   const processBetHistory = bets => {
-    console.log('DEBUG - Processing bet history:', {
-      receivedData: !!bets,
-      isArray: Array.isArray(bets),
-      length: bets?.length || 0,
-      rawData: bets,
-    });
-
     if (!bets || !Array.isArray(bets)) return [];
 
     const RESULT_FORCE_STOPPED = 254;
@@ -240,17 +207,11 @@ export const PollingProvider = ({
                     : 'Unknown',
           };
         } catch (error) {
-          console.error('Error processing bet:', error);
           return null;
         }
       })
       .filter(Boolean)
       .sort((a, b) => b.timestamp - a.timestamp);
-
-    console.log('DEBUG - Processed bet history:', {
-      processedLength: processedBets.length,
-      processedData: processedBets,
-    });
 
     return processedBets;
   };

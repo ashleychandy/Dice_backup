@@ -19,29 +19,6 @@ export const useBetHistory = ({
   } = usePollingService();
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Add debugging for bet history
-  useEffect(() => {
-    console.log('DEBUG - useBetHistory allBets:', {
-      hasData: !!allBets && allBets.length > 0,
-      allBetsLength: allBets?.length || 0,
-      allBetsData: allBets,
-      isNewUser,
-    });
-  }, [allBets, isNewUser]);
-
-  // Add debugging for the contract
-  useEffect(() => {
-    if (diceContract) {
-      console.log('DEBUG - diceContract in useBetHistory:', {
-        hasDiceContract: !!diceContract,
-        hasBetHistoryMethod: typeof diceContract.getBetHistory === 'function',
-        contractMethods: Object.keys(diceContract).filter(
-          key => typeof diceContract[key] === 'function'
-        ),
-      });
-    }
-  }, [diceContract]);
-
   // Get the current page of bet history
   const betHistory = useMemo(() => {
     // For new users, return empty array without any processing
@@ -51,7 +28,6 @@ export const useBetHistory = ({
 
     // Calculate pagination
     if (!allBets || !Array.isArray(allBets)) {
-      console.log('DEBUG - allBets is empty or not an array in useBetHistory');
       return [];
     }
 
@@ -59,14 +35,6 @@ export const useBetHistory = ({
     const endIndex = startIndex + pageSize;
 
     const paginatedBets = allBets.slice(startIndex, endIndex);
-
-    console.log('DEBUG - Paginated bets:', {
-      currentPage,
-      pageSize,
-      startIndex,
-      endIndex,
-      paginatedLength: paginatedBets.length,
-    });
 
     return paginatedBets;
   }, [allBets, currentPage, pageSize, isNewUser]);
@@ -90,22 +58,17 @@ export const useBetHistory = ({
   const directFetch = async () => {
     // Skip direct fetch for new users
     if (isNewUser) {
-      console.log('Skipping direct fetch for new user');
       return;
     }
 
-    console.log('Attempting direct fetch of bet history from contract');
     if (!diceContract || typeof diceContract.getBetHistory !== 'function') {
-      console.error(
-        'Direct fetch failed: contract or getBetHistory method not available'
-      );
       return;
     }
 
     try {
       refreshData();
     } catch (err) {
-      console.error('Error in direct fetch:', err);
+      // Handle error silently
     }
   };
 
@@ -124,10 +87,8 @@ export const useBetHistory = ({
     refetch: () => {
       // Skip refreshing for new users unless explicitly forced
       if (isNewUser) {
-        console.log('Skipping bet history refresh for new user');
         return;
       }
-      console.log('Refreshing bet history data');
       refreshData();
       return directFetch();
     },

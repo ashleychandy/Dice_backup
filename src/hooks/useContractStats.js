@@ -95,29 +95,6 @@ export const useContractStats = () => {
             ? Number(maxHistorySizeResult.value)
             : defaultStats.maxHistorySize;
 
-        // Log any errors for debugging
-        [
-          totalGamesResult,
-          totalPayoutResult,
-          totalWageredResult,
-          maxBetAmountResult,
-          maxHistorySizeResult,
-        ]
-          .filter(result => result.status === 'rejected')
-          .forEach((result, index) => {
-            const propertyNames = [
-              'totalGames',
-              'totalPayout',
-              'totalWagered',
-              'maxBetAmount',
-              'maxHistorySize',
-            ];
-            console.error(
-              `Error fetching ${propertyNames[index]}:`,
-              result.reason
-            );
-          });
-
         return {
           totalGames,
           totalPayout,
@@ -126,7 +103,6 @@ export const useContractStats = () => {
           maxHistorySize,
         };
       } catch (error) {
-        console.error('Error fetching contract stats:', error);
         // Return default values instead of throwing to prevent UI errors
         return defaultStats;
       }
@@ -138,8 +114,7 @@ export const useContractStats = () => {
     refetchInterval: 5000, // Refetch every 5 seconds
     refetchIntervalInBackground: true, // Continue refetching even when tab is not in focus
     onError: err => {
-      console.error('Contract stats query error:', err);
-      // Don't show toast for this error as it might be frequent
+      // Silent error handling
     },
   });
 

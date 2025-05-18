@@ -48,7 +48,6 @@ export const useContractConstants = () => {
           BLOCK_THRESHOLD: 300, // Number of blocks to wait before recovery
         };
       } catch (error) {
-        console.error('Error fetching contract constants:', error);
         throw error;
       }
     },

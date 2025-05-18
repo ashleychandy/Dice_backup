@@ -56,15 +56,11 @@ export const WalletProvider = ({ children }) => {
 
       // If the reload flag is older than 10 seconds, clear it
       if (recentReload && now - reloadTimestamp > 10000) {
-        console.log('Clearing stale reload flags from previous session');
         sessionStorage.removeItem('xdc_recent_reload');
         sessionStorage.removeItem('xdc_network_changing');
       }
-
-      // Log initialization for debugging
-      console.log('WalletProvider initialized, preventing reload loops');
     } catch (e) {
-      console.warn('Error managing session storage during initialization:', e);
+      // Silently handle session storage errors
     }
   }, []);
 
@@ -111,7 +107,6 @@ export const WalletProvider = ({ children }) => {
           // Set timeout to prevent hanging
           const timeoutId = setTimeout(() => {
             setIsAutoConnecting(false);
-            console.warn('Auto-connect timed out');
           }, CONNECTION_TIMEOUT);
 
           try {
@@ -119,14 +114,12 @@ export const WalletProvider = ({ children }) => {
             clearTimeout(timeoutId);
           } catch (error) {
             clearTimeout(timeoutId);
-            console.warn('Auto-connect failed:', error);
             // Don't show toast for auto-connect failures
           }
 
           setIsAutoConnecting(false);
         }
       } catch (error) {
-        console.error('Error during auto-connect:', error);
         setIsAutoConnecting(false);
       }
     };
@@ -185,11 +178,6 @@ export const WalletProvider = ({ children }) => {
 
       // Show warnings if RPC endpoints are down
       if (!mainnetHealth.ok && !apothemHealth.ok) {
-        console.error('Both RPC endpoints are not responding:', {
-          mainnet: mainnetHealth.error,
-          apothem: apothemHealth.error,
-        });
-
         if (
           mainnetHealth.error?.includes('blocked by CORS policy') ||
           apothemHealth.error?.includes('blocked by CORS policy')
@@ -204,21 +192,10 @@ export const WalletProvider = ({ children }) => {
             'error'
           );
         }
-      } else if (!mainnetHealth.ok) {
-        console.warn(
-          'Mainnet RPC endpoint is not responding:',
-          mainnetHealth.error
-        );
-      } else if (!apothemHealth.ok) {
-        console.warn(
-          'Apothem RPC endpoint is not responding:',
-          apothemHealth.error
-        );
       }
 
       return newHealthState;
     } catch (error) {
-      console.error('Error checking RPC health:', error);
       return null;
     }
   }, [addToast]);
@@ -242,7 +219,6 @@ export const WalletProvider = ({ children }) => {
     // Check mainnet configuration
     const mainnetConfig = NETWORK_CONFIG?.mainnet;
     if (!mainnetConfig?.contracts?.dice) {
-      console.warn('Mainnet Dice contract address is not configured');
       if (DEFAULT_NETWORK === 'mainnet') {
         addToast(
           'Mainnet Dice contract is not configured. Some features may not work.',
@@ -254,7 +230,6 @@ export const WalletProvider = ({ children }) => {
     // Check testnet configuration
     const testnetConfig = NETWORK_CONFIG?.apothem;
     if (!testnetConfig?.contracts?.dice) {
-      console.warn('Testnet Dice contract address is not configured');
       if (DEFAULT_NETWORK === 'apothem') {
         addToast(
           'Testnet Dice contract is not configured. Some features may not work.',

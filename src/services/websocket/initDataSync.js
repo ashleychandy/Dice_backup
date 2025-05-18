@@ -13,12 +13,7 @@ import dataSyncService from './DataSyncService';
 export const initDataSync = options => {
   try {
     if (!options.queryClient) {
-      console.error('QueryClient is required to initialize DataSyncService');
       return null;
-    }
-
-    if (!options.contracts?.dice) {
-      console.warn('Dice contract not provided, some features may not work');
     }
 
     // Initialize the service with provided options
@@ -28,10 +23,8 @@ export const initDataSync = options => {
       refreshInterval: options.refreshInterval || 5000, // Default to 5 seconds
     });
 
-    console.log('Data synchronization initialized successfully');
     return dataSyncService;
   } catch (error) {
-    console.error('Failed to initialize data synchronization:', error);
     return null;
   }
 };

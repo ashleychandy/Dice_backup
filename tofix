@@ -2,12 +2,11 @@ approval waiting after approved
 should not show not approved, game history
 
 
-MetaMask: The event 'networkChanged' is deprecated and may be removed in the future. Use 'chainChanged' instead.
-For more information, see: https://eips.ethereum.org/EIPS/eip-1193#chainchanged
-
 remove testing code
 how can i removeal of dev code and making the codebase production ready
 
 refreshing of page as soon as opened
 
 removal of empty and useless functions
+
+error placing bets, maybe due to not proper chagning of accounts

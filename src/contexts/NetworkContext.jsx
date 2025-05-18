@@ -54,6 +54,7 @@ export const NetworkProvider = ({ children }) => {
   const [isNetworkSwitching, setIsNetworkSwitching] = useState(false);
   const [networkError, setNetworkError] = useState(null);
   const [lastChainId, setLastChainId] = useState(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // A function to set the current network based on a chain ID
   const updateNetworkFromChainId = useCallback(chainId => {
@@ -73,6 +74,15 @@ export const NetworkProvider = ({ children }) => {
       updateNetworkFromChainId(chainId);
     }
   }, [chainId, lastChainId, updateNetworkFromChainId]);
+
+  // Clear initial load flag after component mount
+  useEffect(() => {
+    // Clear initial load flag after 3 seconds
+    const timer = setTimeout(() => {
+      setIsInitialLoad(false);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Detect the current network from provider when available
   useEffect(() => {
@@ -136,6 +146,11 @@ export const NetworkProvider = ({ children }) => {
 
   // Switch network function with improved reliability
   const switchNetwork = async targetNetworkId => {
+    // Skip network switching during initial page load
+    if (isInitialLoad) {
+      return false;
+    }
+
     try {
       // Start by setting state and clearing errors
       setIsNetworkSwitching(true);

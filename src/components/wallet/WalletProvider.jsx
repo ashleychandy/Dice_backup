@@ -45,6 +45,7 @@ export const WalletProvider = ({ children }) => {
     autoConnect: false,
   });
   const [isAutoConnecting, setIsAutoConnecting] = useState(false);
+  const [initialPageLoad, setInitialPageLoad] = useState(true);
 
   // On initial load - clear stale reload flags to prevent reload loops
   useEffect(() => {
@@ -59,10 +60,27 @@ export const WalletProvider = ({ children }) => {
         sessionStorage.removeItem('xdc_recent_reload');
         sessionStorage.removeItem('xdc_network_changing');
       }
+
+      // Clear other session storage flags on first load to prevent refresh issues
+      if (initialPageLoad) {
+        // Clear all network-related session storage flags
+        sessionStorage.removeItem('xdc_recent_network_change');
+        sessionStorage.removeItem('xdc_last_switch_attempt');
+        sessionStorage.removeItem('xdc_switch_error');
+        sessionStorage.removeItem('xdc_target_network');
+        sessionStorage.removeItem('xdc_network_warning');
+      }
+
+      // Set a flag that we completed initial page load check
+      if (initialPageLoad) {
+        setTimeout(() => {
+          setInitialPageLoad(false);
+        }, 3000); // Wait 3 seconds before allowing network change reloads
+      }
     } catch (e) {
       // Silently handle session storage errors
     }
-  }, []);
+  }, [initialPageLoad]);
 
   // Store connection details when wallet connects
   useEffect(() => {
@@ -500,6 +518,11 @@ export const WalletProvider = ({ children }) => {
           }
 
           // If reinitialization didn't work, fall back to reload approach
+          // But don't reload on initial page load
+          if (initialPageLoad) {
+            return;
+          }
+
           // Use session storage to coordinate the reload
           try {
             // Mark that we're about to reload

@@ -45,27 +45,19 @@ const BetInput = ({
       if (!value || value === '0') {
         setDisplayValue('');
       } else {
-        // Debug the value received
-        console.log('BetInput received value:', {
-          type: typeof value,
-          value: String(value),
-          isBigInt: typeof value === 'bigint',
-        });
-
         // Only update display value from props if it's different from current input
         // This prevents overriding user input
         let formatted = formatTokenAmount(value, 0);
 
         // Ensure formatted is a clean string with no extra characters
         formatted = formatted.replace(/[^0-9]/g, '');
-        console.log('Cleaned formatted value:', formatted);
 
         if (displayValue !== formatted) {
           setDisplayValue(formatted);
         }
       }
     } catch (err) {
-      console.error('Error formatting value:', err, value);
+      // Error handling without console logging
     }
   }, [value, displayValue]);
 
@@ -83,20 +75,8 @@ const BetInput = ({
       }
 
       try {
-        console.log('Validating input:', input);
-
-        // Debug the user's balance
-        console.log('Current userBalance:', {
-          value:
-            typeof userBalance === 'bigint'
-              ? userBalance.toString()
-              : userBalance,
-          type: typeof userBalance,
-        });
-
         // Convert input to BigInt with 18 decimals (wei)
         const amount = BigInt(input) * BigInt(10) ** BigInt(18);
-        console.log('Bet amount in wei:', String(amount));
 
         // Parse min value properly ensuring it's always BigInt
         const minAmount =
@@ -137,30 +117,12 @@ const BetInput = ({
             const balanceStr = userBalance.toString();
             balanceAmount = balanceStr === '' ? BigInt(0) : BigInt(balanceStr);
           } else {
-            // Unable to convert, log and use 0
-            console.warn(
-              '[validateInput] Unable to parse userBalance:',
-              userBalance
-            );
+            // Unable to convert, use 0
             balanceAmount = BigInt(0);
           }
         } catch (error) {
-          console.error(
-            '[validateInput] Error converting userBalance to BigInt:',
-            error,
-            userBalance
-          );
           balanceAmount = BigInt(0);
         }
-
-        // Log comparison values for debugging
-        console.log('[validateInput] Balance comparison:', {
-          betAmountWei: String(amount),
-          userBalanceWei: String(balanceAmount),
-          betAmountEther: ethers.formatEther(amount),
-          userBalanceEther: ethers.formatEther(balanceAmount),
-          insufficientBalance: amount > balanceAmount,
-        });
 
         // Ensure both values are BigInt before comparison
         const betAmountBigInt = BigInt(amount.toString());
@@ -176,7 +138,6 @@ const BetInput = ({
 
         return { isValid: true };
       } catch (err) {
-        console.error('Error in validation:', err);
         return {
           isValid: false,
           error: 'Invalid amount',
@@ -189,11 +150,9 @@ const BetInput = ({
   // Handle input changes - simplified
   const handleInputChange = e => {
     const input = e.target.value;
-    console.log('Input changed to:', input);
 
     // Only allow digits
     if (input !== '' && !/^\d+$/.test(input)) {
-      console.log('Rejecting non-digit input:', input);
       return;
     }
 
@@ -202,23 +161,15 @@ const BetInput = ({
 
     if (input === '') {
       // Handle empty input
-      console.log('Setting empty bet amount');
       onChange(BigInt(0));
       setError('');
     } else {
       try {
         // Convert to BigInt with 18 decimals (wei)
         const amount = BigInt(input) * BigInt(10) ** BigInt(18);
-        console.log(
-          'Converted amount to wei:',
-          String(amount),
-          'Ether:',
-          ethers.formatEther(amount)
-        );
 
         // Validate
         const validation = validateInput(input);
-        console.log('Validation result:', validation);
 
         if (!validation.isValid) {
           setError(validation.error);
@@ -229,7 +180,6 @@ const BetInput = ({
         // Update parent
         onChange(amount);
       } catch (err) {
-        console.error('Error processing input:', err);
         setError('Invalid amount');
       }
     }
@@ -268,7 +218,7 @@ const BetInput = ({
         setError('');
       }
     } catch (err) {
-      console.error('Error doubling amount:', err);
+      // Error handling without console logging
     }
   };
 
@@ -304,7 +254,7 @@ const BetInput = ({
         setError('');
       }
     } catch (err) {
-      console.error('Error halving amount:', err);
+      // Error handling without console logging
     }
   };
 
@@ -336,7 +286,7 @@ const BetInput = ({
         onRepeatLastBet();
       }
     } catch (err) {
-      console.error('Error repeating last bet:', err);
+      // Error handling without console logging
     }
   };
 

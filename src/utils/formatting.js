@@ -12,13 +12,6 @@ export const formatTokenAmount = (value, decimals = 0) => {
   try {
     let bigIntValue;
 
-    // Debug the received value
-    console.log('formatTokenAmount received:', {
-      type: typeof value,
-      value: String(value),
-      isBigInt: typeof value === 'bigint',
-    });
-
     // Ensure we have a BigInt
     if (typeof value === 'string') {
       bigIntValue = BigInt(value);
@@ -32,12 +25,10 @@ export const formatTokenAmount = (value, decimals = 0) => {
     } else {
       // Last resort fallback
       bigIntValue = BigInt(0);
-      console.error('Unhandled value type in formatTokenAmount:', typeof value);
     }
 
     // Format with ethers
     const formatted = ethers.formatEther(bigIntValue);
-    console.log('ethers.formatEther result:', formatted);
 
     // If decimals is 0, return only the whole number part
     if (decimals === 0) {
@@ -53,14 +44,6 @@ export const formatTokenAmount = (value, decimals = 0) => {
 
     return parts[0];
   } catch (error) {
-    console.error(
-      'Error formatting token amount:',
-      error,
-      'Value:',
-      value,
-      'Type:',
-      typeof value
-    );
     return '0';
   }
 };
@@ -74,24 +57,11 @@ export const parseTokenAmount = input => {
   if (!input || input === '') return BigInt(0);
 
   try {
-    // Debug the input
-    console.log('parseTokenAmount input:', {
-      input,
-      type: typeof input,
-    });
-
     // Convert to string first if not already
     const inputStr = String(input);
 
     // Only allow digits (whole numbers)
     const sanitized = inputStr.replace(/[^\d]/g, '');
-
-    // Debug logs
-    console.log('parseTokenAmount processing:', {
-      input: inputStr,
-      sanitized,
-      result: `${sanitized} * 10^18`,
-    });
 
     // Handle empty sanitized string
     if (!sanitized || sanitized === '') {
@@ -100,11 +70,9 @@ export const parseTokenAmount = input => {
 
     // Convert to whole token amount (no decimals)
     const result = BigInt(sanitized) * BigInt(10) ** BigInt(18);
-    console.log('parseTokenAmount result:', String(result));
 
     return result;
   } catch (error) {
-    console.error('Error parsing token amount:', error, 'Input:', input);
     return BigInt(0);
   }
 };
@@ -127,7 +95,6 @@ export const formatTimestamp = timestamp => {
 
     // Validate the date
     if (isNaN(date.getTime()) || date.getFullYear() < 1990) {
-      console.warn('Invalid timestamp detected:', timestamp);
       return 'Invalid date';
     }
 
@@ -141,7 +108,6 @@ export const formatTimestamp = timestamp => {
       second: '2-digit',
     });
   } catch (error) {
-    console.error('Error formatting timestamp:', error);
     return 'Invalid date';
   }
 };
@@ -175,7 +141,6 @@ export const calculatePercentage = (value, percentage) => {
     const bigIntValue = typeof value === 'bigint' ? value : BigInt(value);
     return (bigIntValue * BigInt(Math.floor(percentage * 100))) / BigInt(10000);
   } catch (error) {
-    console.error('Error calculating percentage:', error);
     return BigInt(0);
   }
 };

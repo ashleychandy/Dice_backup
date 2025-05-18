@@ -33,17 +33,8 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
 
   // Direct control of dice rolling
   useEffect(() => {
-    console.log('Dice state update:', {
-      isRolling,
-      processingVrf,
-      hasResult: !!result,
-      resultProcessed: gameStatus?.requestProcessed,
-      resultDetails: result ? JSON.stringify(result) : 'none',
-    });
-
     // Start rolling
     if (isRolling && !result) {
-      console.log('Starting dice roll');
       setShouldRollDice(true);
       setProcessingVrf(true);
     }
@@ -55,20 +46,17 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
         result.requestFulfilled === true ||
         result.vrfComplete === true)
     ) {
-      console.log('Stopping dice roll - have conclusive result', result);
       setShouldRollDice(false);
       setProcessingVrf(false);
     }
     // For pending VRF results, keep processing state active
     else if (result && result.vrfPending) {
-      console.log('Processing VRF - keep animation state');
       setShouldRollDice(true);
       setProcessingVrf(true);
     }
 
     // Stop rolling when blockchain says request is processed
     if (gameStatus?.requestProcessed) {
-      console.log('Stopping dice roll - request processed by blockchain');
       setShouldRollDice(false);
       setProcessingVrf(false);
     }
@@ -80,7 +68,6 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     if (shouldRollDice) {
       // Force stop the dice roll after 10 seconds maximum
       maxDurationTimer = setTimeout(() => {
-        console.log('Maximum dice roll duration reached (10 seconds)');
         setShouldRollDice(false);
         setProcessingVrf(false);
       }, 10000);
@@ -154,7 +141,6 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
         displayNumber &&
         (displayNumber < 1 || displayNumber > 6 || isNaN(displayNumber))
       ) {
-        console.error(`Invalid dice number: ${displayNumber}`);
         setHasError(true);
         setErrorMessage(`Invalid dice number: ${displayNumber}`);
       } else {
@@ -163,7 +149,6 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
         setErrorMessage('');
       }
     } catch (error) {
-      console.error('Error in DiceVisualizer:', error);
       setHasError(true);
       setErrorMessage(error.message || 'Error rendering dice');
     }

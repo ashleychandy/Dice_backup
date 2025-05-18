@@ -159,8 +159,6 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
       // If no account is provided, use the current one
       const targetAccount = accountAddress || account;
       if (targetAccount) {
-        console.log('Refreshing all data for account:', targetAccount);
-
         // Refresh game history
         queryClient.invalidateQueries(['gameHistory', targetAccount]);
 
@@ -174,7 +172,6 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
       // If no account is provided, use the current one
       const targetAccount = accountAddress || account;
       if (targetAccount) {
-        console.log('Invalidating game history for account:', targetAccount);
         queryClient.invalidateQueries(['gameHistory', targetAccount]);
       }
     };
@@ -189,7 +186,6 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
   // Refresh all data when account or contracts change
   useEffect(() => {
     if (account && contracts) {
-      console.log('Account or contracts changed, refreshing all data');
       window.refreshAllData(account);
     }
   }, [account, contracts, queryClient]);
@@ -252,15 +248,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
 
   // Debug logging for gameState.lastResult
   useEffect(() => {
-    if (gameState.lastResult) {
-      console.log('Dice Page - gameState.lastResult:', gameState.lastResult);
-      console.log('Structure:', Object.keys(gameState.lastResult));
-      console.log(
-        'rolledNumber type:',
-        typeof gameState.lastResult.rolledNumber
-      );
-      console.log('rolledNumber value:', gameState.lastResult.rolledNumber);
-    }
+    // Keep this effect for any future implementation but remove console logs
   }, [gameState.lastResult]);
 
   // Store last bet details when placing a bet
@@ -282,20 +270,6 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
   // Debug approval state
   useEffect(() => {
     if (contracts?.token && contracts?.dice && account) {
-      console.log('=== Approval Debug Info ===');
-      console.log('needsApproval:', needsApproval);
-      console.log('Balance data:', {
-        balance: balanceData?.balance
-          ? balanceData.balance.toString()
-          : 'undefined',
-        allowance: balanceData?.allowance
-          ? balanceData.allowance.toString()
-          : 'undefined',
-        betAmount: betAmount ? betAmount.toString() : 'undefined',
-      });
-      console.log('Game state:', gameState);
-      console.log('isApproving:', isApproving);
-
       // Add a window method to force show the approve button for testing
       window.forceShowApprove = () => {
         document

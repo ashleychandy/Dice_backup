@@ -47,7 +47,6 @@ export const validateNetwork = async provider => {
     const isSupported = supportedChainIds.includes(Number(chainId));
 
     if (!isSupported) {
-      console.warn(`Connected to unsupported network with chainId ${chainId}`);
       return {
         isValid: false,
         chainId: Number(chainId),
@@ -55,7 +54,6 @@ export const validateNetwork = async provider => {
       };
     }
 
-    console.log(`Connected to supported network: ${network.name} (${chainId})`);
     return {
       isValid: true,
       chainId: Number(chainId),
@@ -64,7 +62,6 @@ export const validateNetwork = async provider => {
         (chainId === 50 ? 'XDC Mainnet' : 'XDC Apothem Testnet'),
     };
   } catch (error) {
-    console.error('Error validating network:', error);
     // Instead of throwing, return an error state
     return {
       isValid: false,
@@ -318,11 +315,7 @@ export const switchNetwork = async (
                 resolve();
               }
             } catch (error) {
-              // Ignore error and continue waiting for chainChanged event - IMPROVE LOGGING
-              console.error(
-                'Error checking chain ID after switch attempt:',
-                error
-              );
+              // Ignore error and continue waiting for chainChanged event
             }
           }, 1000);
         })
@@ -364,11 +357,7 @@ export const switchNetwork = async (
                     resolve();
                   }
                 } catch (error) {
-                  // Ignore error and continue waiting for chainChanged event - IMPROVE LOGGING
-                  console.error(
-                    'Error checking chain ID after add attempt:',
-                    error
-                  );
+                  // Ignore error and continue waiting for chainChanged event
                 }
               }, 1000);
             } catch (addError) {
@@ -458,7 +447,6 @@ export const checkRpcHealth = async rpcUrl => {
     const data = await response.json();
     return { ok: true, blockNumber: parseInt(data.result, 16) };
   } catch (error) {
-    console.error('RPC health check failed:', error);
     return { ok: false, error: error.message };
   }
 };
@@ -488,9 +476,6 @@ export const handleRpcError = async (error, provider, addToast = null) => {
   if (!isRpcIssue) return false;
 
   try {
-    // Log the error for debugging
-    console.warn('RPC issue detected:', errorMessage);
-
     // Attempt to reset the connection by requesting a block number
     // This often helps refresh the RPC connection
     await provider.getBlockNumber().catch(() => {});
@@ -506,7 +491,6 @@ export const handleRpcError = async (error, provider, addToast = null) => {
     // Return true to indicate a recovery was attempted
     return true;
   } catch (recoveryError) {
-    console.error('Failed to recover from RPC error:', recoveryError);
     return false;
   }
 };

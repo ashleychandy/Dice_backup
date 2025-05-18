@@ -12,7 +12,7 @@ const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
     try {
       return ethers.formatEther(value.toString());
     } catch (error) {
-      console.error('Error formatting ether value:', error);
+      // Error handling without console logging
       return '0';
     }
   };
@@ -24,15 +24,10 @@ const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
       return { sufficient: false, status: 'Wallet Not Connected' };
     }
 
-    // Log the incoming props for debugging
-    console.log('BalancePanel props:', {
-      userBalance: userBalance ? userBalance.toString() : 'undefined',
-      allowance: allowance ? allowance.toString() : 'undefined',
-      betAmount: betAmount ? betAmount.toString() : 'undefined',
-    });
+    // Props debugging removed
 
     if (!allowance) {
-      console.log('No allowance data available');
+      // No allowance data available
       return { sufficient: false, status: 'Not Approved' };
     }
 
@@ -43,12 +38,7 @@ const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
         ? BigInt(betAmount.toString())
         : BigInt(0);
 
-      // Log values for debugging
-      console.log('Approval check:', {
-        allowance: String(allowanceBigInt),
-        betAmount: String(betAmountBigInt),
-        userBalance: userBalance ? String(userBalance) : 'undefined',
-      });
+      // Approval check logging removed
 
       // If bet amount is zero, we consider it approved (nothing to approve)
       if (betAmountBigInt <= BigInt(0)) {
@@ -66,10 +56,10 @@ const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
           ? 'Fully Approved'
           : 'Approved';
 
-      console.log(`Approval status: ${status} (sufficient: ${isSufficient})`);
+      // Approval status logging removed
       return { sufficient: isSufficient, status };
     } catch (error) {
-      console.error('Error in approval status check:', error);
+      // Error logging removed
       return { sufficient: false, status: 'Not Approved' };
     }
   };

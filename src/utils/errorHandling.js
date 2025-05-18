@@ -36,9 +36,6 @@ export const handleError = (error, addToast) => {
     errorMessage =
       "You don't have enough tokens for this transaction. Please check your balance and try again.";
     errorType = 'error';
-
-    // Log for debugging
-    console.info('Balance error details:', error);
   }
 
   if (addToast) {
@@ -136,7 +133,6 @@ export const parseContractError = error => {
       details: error.message,
     };
   } catch (parseError) {
-    console.error('Error parsing contract error:', parseError);
     return {
       code: 'PARSE_ERROR',
       message: 'Error parsing contract response',
@@ -182,12 +178,6 @@ const getSeverity = errorCode => {
 // Handle contract errors
 export const handleContractError = (error, addToast) => {
   const formattedError = formatErrorForDisplay(error);
-
-  // Log error for debugging
-  console.error('Contract error:', {
-    original: error,
-    formatted: formattedError,
-  });
 
   // Show toast notification
   addToast({

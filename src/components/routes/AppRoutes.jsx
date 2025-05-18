@@ -43,7 +43,6 @@ const AppRoutes = () => {
   const mappedContracts = useMemo(() => {
     // Handle case where contracts is null/undefined
     if (!contracts) {
-      console.warn('No contracts available');
       return { token: null, dice: null };
     }
 
@@ -69,7 +68,6 @@ const AppRoutes = () => {
       typeof diceContract.playDice === 'function' &&
       typeof diceContract.placeBet !== 'function'
     ) {
-      console.log('Adding placeBet method to dice contract in AppRoutes');
       diceContract.placeBet = diceContract.playDice.bind(diceContract);
     }
 
@@ -79,7 +77,6 @@ const AppRoutes = () => {
       typeof diceContract.placeBet === 'function' &&
       typeof diceContract.playDice !== 'function'
     ) {
-      console.log('Adding playDice method to dice contract in AppRoutes');
       diceContract.playDice = diceContract.placeBet.bind(diceContract);
     }
 
@@ -108,8 +105,6 @@ const AppRoutes = () => {
 
     // Show warning if no contracts are available
     if (!mappedContracts.token && !mappedContracts.dice) {
-      console.warn('No token or dice contracts available');
-
       if (account && !contractCheckDone) {
         // Show network-specific error message
         if (networkName === 'unknown') {
@@ -136,7 +131,6 @@ const AppRoutes = () => {
 
     // Show specific warnings for missing contracts
     if (!mappedContracts.token && mappedContracts.dice) {
-      console.warn('Token contract not available');
       if (account && !contractCheckDone) {
         addToast(
           'Token contract not available. Some features may not work.',
@@ -147,7 +141,6 @@ const AppRoutes = () => {
     }
 
     if (mappedContracts.token && !mappedContracts.dice) {
-      console.warn('Dice contract not available');
       if (account && !contractCheckDone) {
         addToast(
           'Dice contract not available. Game features will not work.',
@@ -216,7 +209,6 @@ const AppRoutes = () => {
         currentDiceAddress &&
         expectedDiceAddress.toLowerCase() !== currentDiceAddress.toLowerCase()
       ) {
-        console.warn('Dice contract address mismatch for current network');
         addToast(
           "Dice contract address doesn't match the current network. Please check your wallet connection.",
           'warning'
@@ -228,7 +220,6 @@ const AppRoutes = () => {
         currentTokenAddress &&
         expectedTokenAddress.toLowerCase() !== currentTokenAddress.toLowerCase()
       ) {
-        console.warn('Token contract address mismatch for current network');
         addToast(
           "Token contract address doesn't match the current network. Please check your wallet connection.",
           'warning'

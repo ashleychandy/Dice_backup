@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faHistory,
@@ -219,21 +219,8 @@ const GameHistory = ({ account, onError }) => {
     diceContract,
   });
 
-  // Add debugging logs
-  useEffect(() => {
-    console.log('DEBUG - BetHistory:', {
-      hasData: !!betHistory && betHistory.length > 0,
-      betHistoryLength: betHistory?.length || 0,
-      betHistoryData: betHistory,
-      isLoading,
-      account,
-      contract: !!diceContract,
-      isNewUser,
-    });
-  }, [betHistory, isLoading, account, diceContract, isNewUser]);
-
   // Handle any errors
-  React.useEffect(() => {
+  useEffect(() => {
     if (error && onError) {
       onError(
         typeof error === 'string' ? error : error.message || 'Unknown error'
@@ -242,12 +229,12 @@ const GameHistory = ({ account, onError }) => {
   }, [error, onError]);
 
   // Reset to page 1 when changing filters
-  React.useEffect(() => {
+  useEffect(() => {
     goToPage(1);
   }, [filter, goToPage]);
 
   // Filter games based on selected filter
-  const filteredGames = React.useMemo(() => {
+  const filteredGames = useMemo(() => {
     if (!betHistory) return [];
 
     if (filter === 'pending') {
@@ -268,17 +255,8 @@ const GameHistory = ({ account, onError }) => {
     return betHistory;
   }, [betHistory, filter]);
 
-  // Add logging for filtered games
-  useEffect(() => {
-    console.log('DEBUG - Filtered Games:', {
-      filter,
-      filteredCount: filteredGames?.length || 0,
-      filteredGames,
-    });
-  }, [filteredGames, filter]);
-
   // Calculate counts for tabs
-  const pendingGamesCount = React.useMemo(() => {
+  const pendingGamesCount = useMemo(() => {
     // Count pending games from bet history
     const pendingCount = betHistory
       ? betHistory.filter(game => game.resultType === 'unknown').length
@@ -307,21 +285,7 @@ const GameHistory = ({ account, onError }) => {
     return pendingCount;
   }, [betHistory, gameStatus]);
 
-  // Add debugging for active game and pending count - moved after pendingGamesCount declaration
-  useEffect(() => {
-    console.log('DEBUG - Active Game Status:', {
-      hasActiveGame: gameStatus?.isActive,
-      chosenNumber: gameStatus?.chosenNumber,
-      amount: gameStatus?.amount?.toString(),
-      lastPlayTimestamp: gameStatus?.lastPlayTimestamp,
-      pendingGamesCount,
-      pendingGamesInHistory: betHistory
-        ? betHistory.filter(game => game.resultType === 'unknown').length
-        : 0,
-    });
-  }, [gameStatus, pendingGamesCount, betHistory]);
-
-  const winGamesCount = React.useMemo(() => {
+  const winGamesCount = useMemo(() => {
     return betHistory
       ? betHistory.filter(
           game =>
@@ -331,7 +295,7 @@ const GameHistory = ({ account, onError }) => {
       : 0;
   }, [betHistory]);
 
-  const lossGamesCount = React.useMemo(() => {
+  const lossGamesCount = useMemo(() => {
     return betHistory
       ? betHistory.filter(
           game =>
@@ -342,36 +306,28 @@ const GameHistory = ({ account, onError }) => {
   }, [betHistory]);
 
   // Create fallback data if no bets are available
-  const sampleBets = React.useMemo(() => {
+  const sampleBets = useMemo(() => {
     // Return empty array instead of sample data
     return [];
   }, []);
 
   // Check if contract is available and has the necessary methods
-  const contractHasRequiredMethods = React.useMemo(() => {
+  const contractHasRequiredMethods = useMemo(() => {
     if (!diceContract) return false;
 
     const hasGetGameStatus = typeof diceContract.getGameStatus === 'function';
     const hasGetBetHistory = typeof diceContract.getBetHistory === 'function';
 
-    console.log('DEBUG - Contract methods check in GameHistory:', {
-      hasGetGameStatus,
-      hasGetBetHistory,
-      allMethods: Object.keys(diceContract).filter(
-        key => typeof diceContract[key] === 'function'
-      ),
-    });
-
     return hasGetBetHistory;
   }, [diceContract]);
 
   // We no longer use sample data
-  const shouldUseSampleData = React.useMemo(() => {
+  const shouldUseSampleData = useMemo(() => {
     return false; // Always return false to never use sample data
   }, []);
 
   // Update displayBets to include active game
-  const displayBets = React.useMemo(() => {
+  const displayBets = useMemo(() => {
     // Start with the filtered games
     let games = [...filteredGames];
 
@@ -416,14 +372,6 @@ const GameHistory = ({ account, onError }) => {
       }
     }
 
-    // Add debug logging
-    console.log('DEBUG - Display Bets:', {
-      hasActiveGame: gameStatus?.isActive,
-      activeGameAdded: games.length > filteredGames.length,
-      totalGames: games.length,
-      games,
-    });
-
     return games;
   }, [filteredGames, gameStatus, filter]);
 
@@ -458,11 +406,9 @@ const GameHistory = ({ account, onError }) => {
   }
 
   if (!contractHasRequiredMethods) {
-    console.warn(
-      'Dice contract is missing required methods to fetch bet history'
-    );
+    // Contract missing required methods
   } else if (error) {
-    console.error('Error loading bet history:', error);
+    // Error handling
   }
 
   if (showEmptyState) {
@@ -554,7 +500,6 @@ const GameHistory = ({ account, onError }) => {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => {
-            console.log('Manual refresh triggered');
             forceRefresh();
           }}
           className="px-4 py-2 bg-[#22AD74]/10 hover:bg-[#22AD74]/20 text-[#22AD74] rounded-xl font-medium flex items-center gap-2 border border-[#22AD74]/20"

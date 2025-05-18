@@ -30,14 +30,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
 
   // Add debugging logs to help diagnose issues
   useEffect(() => {
-    console.log('LatestBet component received:', {
-      result,
-      chosenNumber,
-      betAmount: betAmount ? betAmount.toString() : null,
-      latestHistoryBet,
-      gameStatus,
-      isNewUser,
-    });
+    // Removed console log
   }, [
     result,
     chosenNumber,
@@ -49,15 +42,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
 
   // Add detailed debugging for props
   useEffect(() => {
-    console.log('LatestBet component props:', {
-      resultObj: result ? { ...result } : null,
-      resultKeys: result ? Object.keys(result) : [],
-      chosenNumber,
-      betAmount: betAmount ? betAmount.toString() : null,
-      latestHistoryBet: latestHistoryBet ? { ...latestHistoryBet } : null,
-      latestHistoryKeys: latestHistoryBet ? Object.keys(latestHistoryBet) : [],
-      isNewUser,
-    });
+    // Removed console log
   }, [result, chosenNumber, betAmount, latestHistoryBet, isNewUser]);
 
   const formatAmount = amount => {
@@ -66,7 +51,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
       // Get only the whole number part
       return ethers.formatEther(amount.toString()).split('.')[0];
     } catch (e) {
-      console.error('Error formatting amount:', e);
+      // Error handling without console logging
       return '0';
     }
   };
@@ -82,12 +67,6 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     const isActive = gameStatus.isActive;
     const requestExists = gameStatus.requestExists;
     const requestFulfilled = gameStatus.requestFulfilled;
-
-    console.log('VRF status check:', {
-      isActive,
-      requestExists,
-      requestFulfilled,
-    });
 
     // Waiting for VRF if the game is active and the request exists but isn't fulfilled
     return isActive && requestExists && !requestFulfilled;
@@ -148,7 +127,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
       // Compare only the first few digits to avoid precision issues
       amountMatch = resultAmount.substring(0, 5) === betAmount.substring(0, 5);
     } catch (e) {
-      console.error('Error comparing amounts:', e);
+      // Error handling without console logging
     }
 
     return chosenMatch && amountMatch;
@@ -254,7 +233,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
 
   // Log the display result for debugging
   useEffect(() => {
-    console.log('Display result decision:', displayResult);
+    // Removed console log
   }, [displayResult]);
 
   // Show welcome message for new users

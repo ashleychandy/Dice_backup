@@ -50,18 +50,6 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
     return `${seconds}s`;
   };
 
-  // Debug logging to track VRF status changes
-  useEffect(() => {
-    console.log('VRF Status popup debug:', {
-      gameStatusActive: gameStatus?.isActive,
-      requestExists: gameStatus?.requestExists,
-      requestProcessed: gameStatus?.requestProcessed,
-      shouldShow,
-      resultJustReceived,
-      hasTimestamp: !!gameStatus?.lastPlayTimestamp,
-    });
-  }, [gameStatus, shouldShow, resultJustReceived]);
-
   // Handle VRF status changes
   useEffect(() => {
     // Check if the game status actually changed to avoid unnecessary updates
@@ -82,15 +70,12 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
       timerRef.current = null;
     }
 
-    console.log('VRF status changed:', gameStatus);
-
     // CASE 1: Active game with pending VRF verification
     if (
       gameStatus?.isActive &&
       gameStatus?.requestExists &&
       !gameStatus?.requestProcessed
     ) {
-      console.log('VRF: Active verification in progress');
       setShouldShow(true);
       setResultJustReceived(false);
 
@@ -107,12 +92,10 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
       gameStatus?.requestProcessed &&
       shouldShow
     ) {
-      console.log('VRF: Verification completed, showing success');
       setResultJustReceived(true);
 
       // Show success state for 3 seconds, then hide
       timerRef.current = setTimeout(() => {
-        console.log('VRF: Hiding after success timer');
         setShouldShow(false);
         setResultJustReceived(false);
         vrfStartTimeRef.current = null;
@@ -121,7 +104,6 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
     }
     // CASE 3: No active game or explicit reset
     else if (!gameStatus?.isActive) {
-      console.log('VRF: No active game, hiding popup');
       setShouldShow(false);
       setResultJustReceived(false);
       vrfStartTimeRef.current = null;

@@ -58,17 +58,8 @@ const NetworkSwitcher = ({ isInDropdown = false }) => {
 
   // Make sure our UI reflects the actual wallet chain ID
   useEffect(() => {
-    if (chainId === 50 && currentNetwork.id !== 'mainnet') {
-      console.log(
-        'ChainID is 50 (Mainnet) but UI shows different network, fixing...'
-      );
-      // No need to do anything, NetworkContext should handle this
-    } else if (chainId === 51 && currentNetwork.id !== 'apothem') {
-      console.log(
-        'ChainID is 51 (Apothem) but UI shows different network, fixing...'
-      );
-      // No need to do anything, NetworkContext should handle this
-    }
+    // Component will update automatically based on the chainId value
+    // The NetworkContext should handle this internally
   }, [chainId, currentNetwork.id]);
 
   // Close dropdown when clicking outside
@@ -96,13 +87,11 @@ const NetworkSwitcher = ({ isInDropdown = false }) => {
   const handleNetworkSwitch = async networkId => {
     // Don't attempt switch if already switching
     if (isNetworkSwitching || localSwitchState.inProgress) {
-      console.log('Already switching networks, ignoring request');
       return;
     }
 
     // Don't switch if we're already on this network
     if (currentNetwork?.id === networkId) {
-      console.log(`Already on ${networkId} network, no switch needed`);
       return;
     }
 
@@ -115,14 +104,13 @@ const NetworkSwitcher = ({ isInDropdown = false }) => {
       const now = Date.now();
 
       if (lastSwitchAttempt && now - lastSwitchTime < 3000) {
-        console.log('Ignoring rapid network switch attempt');
         return;
       }
 
       // Record this attempt time
       sessionStorage.setItem('xdc_last_switch_attempt', now.toString());
     } catch (e) {
-      console.warn('Error accessing sessionStorage:', e);
+      // Silently handle SessionStorage errors
     }
 
     // Update UI to show which network we're switching to
@@ -136,13 +124,8 @@ const NetworkSwitcher = ({ isInDropdown = false }) => {
     try {
       // Attempt the network switch
       const success = await switchNetwork(networkId);
-
-      if (!success) {
-        console.warn('Network switch was unsuccessful');
-        // Let the effects handle state updates from global state
-      }
+      // Let the effects handle state updates from global state
     } catch (error) {
-      console.error('Error in network switch handler:', error);
       setLocalSwitchState({
         inProgress: false,
         error: error.message || 'Network switch failed',
@@ -164,9 +147,6 @@ const NetworkSwitcher = ({ isInDropdown = false }) => {
   const getOtherNetwork = () => {
     // Make sure we have a valid current network
     if (!currentNetwork || !currentNetwork.id) {
-      console.warn(
-        'Current network not properly defined, defaulting to Apothem'
-      );
       return NETWORKS.APOTHEM;
     }
 

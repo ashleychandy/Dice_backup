@@ -1,4 +1,11 @@
-import { useReducer, useEffect, useCallback, useRef, useContext } from 'react';
+import {
+  useReducer,
+  useEffect,
+  useCallback,
+  useRef,
+  useContext,
+  useMemo,
+} from 'react';
 import { ethers } from 'ethers';
 
 // Utils and constants
@@ -29,45 +36,13 @@ export const useWalletImplementation = queryClient => {
   const handleError = useErrorHandler(addToast);
   const [isConnecting, withLoading] = useLoadingState(false);
 
-  // Use refs for values that shouldn't trigger re-renders
   const stateRef = useRef(state);
   stateRef.current = state;
-
-  // Add ref to queryClient for data refetching
-  // const queryClientRef = useRef(null);
-
-  // Try to get queryClient from React Query
-  // useEffect(() => {
-  //   try {
-  //     // Dynamically import to avoid circular dependencies
-  //     import('@tanstack/react-query')
-  //       .then(module => {
-  //         // Don't use hooks inside a regular function
-  //         // Instead, assign the module to a ref and use it directly
-  //         queryClientRef.current = module;
-
-  //         // Check if we can get the existing React Query client
-  //         if (
-  //           typeof window !== 'undefined' &&
-  //           window.__REACT_QUERY_GLOBAL_CLIENT__
-  //         ) {
-  //           console.log('Found React Query client from global context');
-  //           return window.__REACT_QUERY_GLOBAL_CLIENT__;
-  //         }
-
-  //         console.log('No queryClient available from context');
-  //       })
-  //       .catch(e => console.error('Could not import react-query:', e));
-  //   } catch (e) {
-  //     console.error('Error accessing query client:', e);
-  //   }
-  // }, []);
 
   const handleChainChanged = useCallback(
     async newChainId => {
       try {
         const chainIdNumber = parseInt(newChainId);
-        console.log(`Chain changed to: ${chainIdNumber}`);
 
         dispatch({
           type: walletActionTypes.SET_CHAIN_ID,
@@ -118,7 +93,6 @@ export const useWalletImplementation = queryClient => {
             const networkValidation = await validateNetwork(newProvider);
 
             if (!networkValidation.isValid) {
-              console.warn('Network validation failed:', networkValidation);
               if (networkValidation.error && !isCurrentlyConnecting) {
                 addToast(
                   `Network connection issue: ${networkValidation.error}. Please try again.`,
@@ -164,13 +138,8 @@ export const useWalletImplementation = queryClient => {
                     'gameHistory',
                     stateRef.current.account,
                   ]);
-                  console.log(
-                    'Invalidated game history for account after chain change:',
-                    stateRef.current.account
-                  );
                 }
               } else {
-                console.warn('No contracts returned after network change');
                 if (!isCurrentlyConnecting) {
                   addToast(
                     'Connected to network, but contracts are not available',
@@ -183,10 +152,6 @@ export const useWalletImplementation = queryClient => {
                 });
               }
             } catch (contractError) {
-              console.error(
-                'Error initializing contracts after chain change:',
-                contractError
-              );
               handleError(
                 contractError,
                 'initializeContracts after chain change'
@@ -198,10 +163,6 @@ export const useWalletImplementation = queryClient => {
             }
             // }, 1000); // Small delay to let network stabilize
           } catch (providerError) {
-            console.error(
-              'Error reconnecting after chain change:',
-              providerError
-            );
             handleError(providerError, 'reconnectProvider');
 
             // Only reset state if we failed to reconnect with a severe error
@@ -214,7 +175,6 @@ export const useWalletImplementation = queryClient => {
           }
         }
       } catch (error) {
-        console.error('Error handling chain change:', error);
         handleError(error, 'handleChainChanged');
 
         // Don't fully reset state for non-critical errors
@@ -325,10 +285,6 @@ export const useWalletImplementation = queryClient => {
           // Use the provided queryClient to invalidate queries
           if (queryClient && accounts[0]) {
             queryClient.invalidateQueries(['gameHistory', accounts[0]]);
-            console.log(
-              'Invalidated game history for account after connect:',
-              accounts[0]
-            );
           }
 
           addToast('Wallet connected successfully!', 'success');
@@ -386,7 +342,6 @@ export const useWalletImplementation = queryClient => {
           await validateNetwork(newProvider);
         } catch (networkError) {
           // Silent network validation error on init
-          console.error('Network validation error:', networkError);
           if (mounted) {
             dispatch({
               type: walletActionTypes.SET_LOADING_STATE,
@@ -404,13 +359,11 @@ export const useWalletImplementation = queryClient => {
         });
 
         if (accounts && accounts.length > 0 && mounted) {
-          console.log('Connected account found:', accounts[0]);
           dispatch({
             type: walletActionTypes.SET_ACCOUNT,
             payload: accounts[0],
           });
 
-          console.log('Initializing contracts for account:', accounts[0]);
           const contracts = await initializeContracts(
             newProvider,
             accounts[0],
@@ -423,17 +376,14 @@ export const useWalletImplementation = queryClient => {
             handleError
           );
 
-          console.log('Contract initialization result:', contracts);
           if (contracts && mounted) {
             dispatch({
               type: walletActionTypes.SET_CONTRACTS,
               payload: contracts,
             });
           } else {
-            console.error('Failed to initialize contracts.');
           }
         } else if (mounted) {
-          console.log('No connected accounts found.');
           dispatch({
             type: walletActionTypes.SET_LOADING_STATE,
             payload: { provider: false, contracts: false },
@@ -441,7 +391,6 @@ export const useWalletImplementation = queryClient => {
         }
       } catch (error) {
         if (mounted) {
-          console.error('Wallet initialization error:', error);
           handleError(error, 'init');
           dispatch({
             type: walletActionTypes.SET_LOADING_STATE,
@@ -475,10 +424,6 @@ export const useWalletImplementation = queryClient => {
         // Use the provided queryClient to invalidate queries
         if (queryClient && accounts[0]) {
           queryClient.invalidateQueries(['gameHistory', accounts[0]]);
-          console.log(
-            'Invalidated game history for account after account change:',
-            accounts[0]
-          );
         }
       }
     };
@@ -488,7 +433,6 @@ export const useWalletImplementation = queryClient => {
 
     // Listen for wallet disconnection event
     const handleDisconnect = error => {
-      console.log('Wallet disconnected', error);
       // Reset state on disconnection
       dispatch({ type: walletActionTypes.RESET_STATE });
       addToast('Wallet disconnected', 'info');
@@ -556,8 +500,6 @@ export const useWalletImplementation = queryClient => {
   // Method to reinitialize contracts when chain changes without page reload
   const reinitializeWithChainId = useCallback(
     async chainId => {
-      console.log(`Reinitializing wallet with chain ID: ${chainId}`);
-
       try {
         // First update the chain ID in state
         dispatch({
@@ -567,7 +509,6 @@ export const useWalletImplementation = queryClient => {
 
         // Only proceed if we have a provider and account
         if (!state.provider || !state.account) {
-          console.log('No provider or account available for reinitialization');
           return false;
         }
 
@@ -579,8 +520,6 @@ export const useWalletImplementation = queryClient => {
 
         // Check if this is a supported network
         if (!SUPPORTED_CHAIN_IDS.includes(chainId)) {
-          console.warn(`Chain ID ${chainId} is not supported`);
-
           // Clear contracts for unsupported networks
           dispatch({
             type: walletActionTypes.SET_CONTRACTS,
@@ -619,7 +558,6 @@ export const useWalletImplementation = queryClient => {
         // Validate the network
         const networkValidation = await validateNetwork(newProvider);
         if (!networkValidation.isValid) {
-          console.warn('Network validation failed:', networkValidation);
           addToast(
             `Network connection issue: ${networkValidation.error || 'Unknown error'}. Please try again.`,
             'warning'
@@ -640,7 +578,7 @@ export const useWalletImplementation = queryClient => {
           return false;
         }
 
-        // Initialize contracts with the new provider
+        // Initialize contracts with the new provider and account
         const contracts = await initializeContracts(
           newProvider,
           state.account,
@@ -654,7 +592,6 @@ export const useWalletImplementation = queryClient => {
         );
 
         if (!contracts) {
-          console.warn('Failed to initialize contracts for new chain');
           addToast(
             'Connected to network, but contracts are not available',
             'warning'
@@ -697,7 +634,6 @@ export const useWalletImplementation = queryClient => {
         addToast('Network changed successfully', 'success');
         return true;
       } catch (error) {
-        console.error('Error reinitializing with new chain ID:', error);
         handleError(error, 'reinitializeWithChainId');
 
         // End loading state
@@ -720,15 +656,15 @@ export const useWalletImplementation = queryClient => {
   );
 
   return {
-    ...state,
+      ...state,
     isConnecting,
-    isWalletConnected,
-    isNetworkSupported,
-    connectWallet,
-    handleLogout,
-    handleError,
+      isWalletConnected,
+      isNetworkSupported,
+      connectWallet,
+      handleLogout,
+      handleError,
     handleSwitchNetwork,
-    reinitializeWithChainId,
+      reinitializeWithChainId,
   };
 };
 

@@ -80,21 +80,9 @@ export const initializeContracts = async (
   handleError
 ) => {
   try {
-    // DEBUG LOGS - REMOVE AFTER DEBUGGING
-    // console.log(
-    //   'DEBUG CONTRACT INIT: Initializing contracts with account:',
-    //   account
-    // );
-
     const network = await provider.getNetwork();
     // Always convert to Number for consistent comparison
     const currentChainId = Number(network.chainId);
-
-    // DEBUG LOGS - REMOVE AFTER DEBUGGING
-    // console.log(
-    //   'DEBUG CONTRACT INIT: Connected to network with chainId:',
-    //   currentChainId
-    // );
 
     // Find network config
     const networkKey = Object.keys(NETWORK_CONFIG).find(
@@ -103,20 +91,7 @@ export const initializeContracts = async (
 
     const networkConfig = NETWORK_CONFIG[networkKey];
 
-    // DEBUG LOGS - REMOVE AFTER DEBUGGING
-    // console.log('DEBUG CONTRACT INIT: Network config:', networkKey, {
-    //   chainId: networkConfig?.chainId,
-    //   name: networkConfig?.name,
-    //   tokenAddress: networkConfig?.contracts?.token,
-    //   diceAddress: networkConfig?.contracts?.dice,
-    // });
-
     if (!networkConfig) {
-      // DEBUG LOGS - REMOVE AFTER DEBUGGING
-      // console.error(
-      //   'DEBUG CONTRACT INIT: Network config not found for chainId:',
-      //   currentChainId
-      // );
       throw new Error(
         `Unsupported network. Connected to chain ID: ${currentChainId}. Supported chain IDs: ${SUPPORTED_CHAIN_IDS.join(
           ', '
@@ -126,40 +101,19 @@ export const initializeContracts = async (
 
     // Check if contract addresses are configured
     if (!networkConfig.contracts.token) {
-      // DEBUG LOGS - REMOVE AFTER DEBUGGING
-      // console.error(
-      //   'DEBUG CONTRACT INIT: Token contract address not configured'
-      // );
-      // console.error(
-      //   `Token contract address not configured for ${networkConfig.name}`
-      // );
       throw new Error(
         `Token contract address not configured for ${networkConfig.name}`
       );
     }
 
     if (!networkConfig.contracts.dice) {
-      // DEBUG LOGS - REMOVE AFTER DEBUGGING
-      // console.error(
-      //   'DEBUG CONTRACT INIT: Dice contract address not configured'
-      // );
-      // console.error(
-      //   `Dice contract address not configured for ${networkConfig.name}`
-      // );
       throw new Error(
         `Dice contract address not configured for ${networkConfig.name}`
       );
     }
 
-    // DEBUG LOGS - REMOVE AFTER DEBUGGING
-    // console.log('DEBUG CONTRACT INIT: Contract addresses:', {
-    //   token: networkConfig.contracts.token,
-    //   dice: networkConfig.contracts.dice,
-    // });
-
     // Get signer for the connected account
     const signer = await provider.getSigner(account);
-    // console.log('DEBUG CONTRACT INIT: Got signer for account:', account);
 
     try {
       // Create token contract instance
@@ -176,16 +130,6 @@ export const initializeContracts = async (
         signer
       );
 
-      // DEBUG LOGS - REMOVE AFTER DEBUGGING
-      // console.log('DEBUG CONTRACT INIT: Contracts initialized:', {
-      //   tokenAddress: tokenContract.target,
-      //   diceAddress: diceContract.target,
-      //   diceAbiLength: DiceABI.abi.length,
-      //   diceHasGetBetHistory: DiceABI.abi.some(
-      //     item => item.name === 'getBetHistory'
-      //   ),
-      // });
-
       if (setContracts) {
         setContracts({
           token: tokenContract,
@@ -199,18 +143,11 @@ export const initializeContracts = async (
 
       return { token: tokenContract, dice: diceContract };
     } catch (contractError) {
-      // DEBUG LOGS - REMOVE AFTER DEBUGGING
-      // console.error(
-      //   'DEBUG CONTRACT INIT: Error creating contract instances:',
-      //   contractError
-      // );
       throw new Error(
         `Failed to create contract instances: ${contractError.message}`
       );
     }
   } catch (error) {
-    // DEBUG LOGS - REMOVE AFTER DEBUGGING
-    // console.error('DEBUG CONTRACT INIT: Contract initialization error:', error);
     if (handleError) {
       handleError(error, 'initializeContracts');
     }
@@ -406,8 +343,6 @@ export const switchNetwork = async (
   } catch (error) {
     if (handleError) {
       handleError(error, 'switchNetwork');
-    } else {
-      // console.error('Network switch error:', error);
     }
 
     // Reset contracts and provider on error

@@ -57,7 +57,6 @@ const BetInput = ({
         }
       }
     } catch (err) {
-      // Error handling without console logging
     }
   }, [value, displayValue]);
 
@@ -218,7 +217,6 @@ const BetInput = ({
         setError('');
       }
     } catch (err) {
-      // Error handling without console logging
     }
   };
 
@@ -254,7 +252,6 @@ const BetInput = ({
         setError('');
       }
     } catch (err) {
-      // Error handling without console logging
     }
   };
 
@@ -286,7 +283,6 @@ const BetInput = ({
         onRepeatLastBet();
       }
     } catch (err) {
-      // Error handling without console logging
     }
   };
 

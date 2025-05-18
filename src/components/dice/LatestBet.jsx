@@ -30,7 +30,6 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
 
   // Add debugging logs to help diagnose issues
   useEffect(() => {
-    // Removed console log
   }, [
     result,
     chosenNumber,
@@ -40,10 +39,6 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     isNewUser,
   ]);
 
-  // Add detailed debugging for props
-  useEffect(() => {
-    // Removed console log
-  }, [result, chosenNumber, betAmount, latestHistoryBet, isNewUser]);
 
   const formatAmount = amount => {
     if (!amount || amount === '0') return '0';
@@ -51,7 +46,6 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
       // Get only the whole number part
       return ethers.formatEther(amount.toString()).split('.')[0];
     } catch (e) {
-      // Error handling without console logging
       return '0';
     }
   };
@@ -127,7 +121,6 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
       // Compare only the first few digits to avoid precision issues
       amountMatch = resultAmount.substring(0, 5) === betAmount.substring(0, 5);
     } catch (e) {
-      // Error handling without console logging
     }
 
     return chosenMatch && amountMatch;
@@ -231,11 +224,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     specialResultType,
   ]);
 
-  // Log the display result for debugging
-  useEffect(() => {
-    // Removed console log
-  }, [displayResult]);
-
+  
   // Show welcome message for new users
   if (isNewUser) {
     return (

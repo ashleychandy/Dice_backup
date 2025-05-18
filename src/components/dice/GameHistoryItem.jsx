@@ -155,7 +155,6 @@ const formatAmount = amount => {
     // Return only whole numbers
     return Math.floor(value).toString();
   } catch (error) {
-    // Error handling without console logging
     return '0';
   }
 };

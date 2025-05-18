@@ -43,7 +43,6 @@ export const useContractState = () => {
           isOwner: account?.toLowerCase() === contractOwner?.toLowerCase(),
         };
       } catch (error) {
-        console.error('Error fetching contract state:', error);
         // Return a default state instead of throwing, to avoid breaking the UI
         return { isPaused: false, isOwner: false };
       }
@@ -55,7 +54,6 @@ export const useContractState = () => {
     refetchInterval: 5000, // Refetch data every 5 seconds
     refetchIntervalInBackground: true, // Continue refetching even when tab is not in focus
     onError: error => {
-      console.error('Contract state query error:', error);
       // Don't show toast for this error as it might be frequent
     },
   });
@@ -90,7 +88,6 @@ export const useContractState = () => {
       queryClient.invalidateQueries(['contractState']);
     },
     onError: error => {
-      console.error('Error pausing contract:', error);
       addToast(error.message || 'Failed to pause contract', 'error');
     },
   });
@@ -125,7 +122,6 @@ export const useContractState = () => {
       queryClient.invalidateQueries(['contractState']);
     },
     onError: error => {
-      console.error('Error unpausing contract:', error);
       addToast(error.message || 'Failed to unpause contract', 'error');
     },
   });
@@ -159,7 +155,7 @@ export const useContractState = () => {
         contract.on('Unpaused', handleUnpaused);
         contract.on('OwnershipTransferred', handleOwnershipTransferred);
       } catch (err) {
-        console.error('Error setting up contract event listeners:', err);
+        // Silent error for event listeners setup
       }
 
       return () => {
@@ -168,11 +164,10 @@ export const useContractState = () => {
           contract.removeAllListeners('Unpaused');
           contract.removeAllListeners('OwnershipTransferred');
         } catch (err) {
-          console.error('Error removing contract event listeners:', err);
+          // Silent error for event listeners removal
         }
       };
     } catch (error) {
-      console.error('Error in contract state effect:', error);
       return () => {}; // Empty cleanup function
     }
   }, [contract, queryClient, addToast]);

@@ -35,7 +35,6 @@ export const useGameRecovery = ({ onSuccess, onError } = {}) => {
         const receipt = await tx.wait();
         return receipt;
       } catch (error) {
-        console.error('Game recovery failed:', error);
         throw error;
       }
     },
@@ -87,7 +86,6 @@ export const useGameRecovery = ({ onSuccess, onError } = {}) => {
         const receipt = await tx.wait();
         return receipt;
       } catch (error) {
-        console.error('Force stop failed:', error);
         throw error;
       }
     },
@@ -131,7 +129,6 @@ export const useGameRecovery = ({ onSuccess, onError } = {}) => {
           const status = await diceContract.getGameStatus(playerAddress);
           return processGameStatusForRecovery(status);
         } catch (error) {
-          console.error('Error checking recovery eligibility:', error);
           return null;
         }
       }

@@ -58,13 +58,11 @@ export const NetworkProvider = ({ children }) => {
   // A function to set the current network based on a chain ID
   const updateNetworkFromChainId = useCallback(chainId => {
     if (chainId === 50) {
-      console.log('Setting current network to MAINNET from chain ID 50');
       setCurrentNetwork(NETWORKS.MAINNET);
     } else if (chainId === 51) {
-      console.log('Setting current network to APOTHEM from chain ID 51');
       setCurrentNetwork(NETWORKS.APOTHEM);
     } else {
-      console.warn(`Unrecognized chain ID: ${chainId}, defaulting to APOTHEM`);
+      // Default to APOTHEM for unrecognized chain IDs
     }
     setLastChainId(chainId);
   }, []);
@@ -72,7 +70,6 @@ export const NetworkProvider = ({ children }) => {
   // Set the initial network based on the wallet's chainId
   useEffect(() => {
     if (chainId && chainId !== lastChainId) {
-      console.log(`Chain ID updated from wallet: ${chainId}`);
       updateNetworkFromChainId(chainId);
     }
   }, [chainId, lastChainId, updateNetworkFromChainId]);
@@ -90,13 +87,12 @@ export const NetworkProvider = ({ children }) => {
 
         // If we've reloaded very recently, delay network detection
         if (recentReload && now - reloadTimestamp < 3000) {
-          console.log('Delaying network detection after recent reload');
           // Set a small timeout to check later
           setTimeout(() => detectNetwork(), 3000);
           return;
         }
       } catch (e) {
-        console.warn('Error checking session storage:', e);
+        // Error checking session storage
       }
 
       try {
@@ -105,11 +101,10 @@ export const NetworkProvider = ({ children }) => {
 
         // Only update if different from the current
         if (detectedChainId !== lastChainId) {
-          console.log(`Detected network with chain ID: ${detectedChainId}`);
           updateNetworkFromChainId(detectedChainId);
         }
       } catch (error) {
-        console.error('Failed to detect network:', error);
+        // Failed to detect network
       }
     };
 
@@ -122,16 +117,12 @@ export const NetworkProvider = ({ children }) => {
 
     const handleEthChainChanged = hexChainId => {
       const newChainId = parseInt(hexChainId, 16);
-      console.log(
-        `Ethereum chain changed event: ${hexChainId} (${newChainId})`
-      );
 
       if (newChainId !== lastChainId) {
         updateNetworkFromChainId(newChainId);
 
         // Reset network switching state if we were in the middle of switching
         if (isNetworkSwitching) {
-          console.log('Completing network switch due to chain changed event');
           setIsNetworkSwitching(false);
         }
       }
@@ -149,9 +140,6 @@ export const NetworkProvider = ({ children }) => {
       // Start by setting state and clearing errors
       setIsNetworkSwitching(true);
       setNetworkError(null);
-
-      // Log the attempt for debugging
-      console.log(`Attempting to switch to network ID: ${targetNetworkId}`);
 
       // Check if wallet is connected
       if (!window.ethereum) {
@@ -182,10 +170,6 @@ export const NetworkProvider = ({ children }) => {
         const currentDecimalChainId = parseInt(currentChainId, 16);
 
         if (currentDecimalChainId === chainIdDecimal) {
-          console.log(
-            `Already on network ${targetNetwork.name}, no switch needed`
-          );
-
           // Make sure our state is correct
           updateNetworkFromChainId(chainIdDecimal);
           setNetworkError(null);
@@ -193,17 +177,11 @@ export const NetworkProvider = ({ children }) => {
           return true;
         }
       } catch (checkError) {
-        console.warn(
-          'Error checking current chain, will proceed with switch attempt',
-          checkError
-        );
+        // Error checking current chain, will proceed with switch attempt
       }
 
       // Step 2: Try switching with the standard method
       try {
-        console.log(
-          `Switching to ${targetNetwork.name} using wallet_switchEthereumChain`
-        );
         await window.ethereum.request({
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: chainIdHex }],
@@ -211,15 +189,11 @@ export const NetworkProvider = ({ children }) => {
 
         // Success! Store preference but DON'T update the network state yet
         // The chainChanged event will handle that to ensure it's in sync
-        console.log(
-          `Switch request to ${targetNetwork.name} sent successfully`
-        );
         localStorage.setItem('preferredNetwork', targetNetworkId);
 
         // Set a timeout to prevent the UI from being stuck if the chain change event doesn't fire
         setTimeout(() => {
           if (isNetworkSwitching) {
-            console.log('Network switch timeout reached, forcing state update');
             updateNetworkFromChainId(chainIdDecimal);
             setIsNetworkSwitching(false);
           }
@@ -232,10 +206,7 @@ export const NetworkProvider = ({ children }) => {
           switchError.code === 4902 ||
           switchError.message.includes('Unrecognized chain')
         ) {
-          console.log('Network not found in wallet, attempting to add it...');
-
           try {
-            console.log(`Adding ${targetNetwork.name} to wallet`);
             await window.ethereum.request({
               method: 'wallet_addEthereumChain',
               params: [
@@ -261,17 +232,11 @@ export const NetworkProvider = ({ children }) => {
               });
 
               // Success after adding network
-              console.log(
-                `Successfully switched to ${targetNetwork.name} after adding it`
-              );
               localStorage.setItem('preferredNetwork', targetNetworkId);
 
               // Again, let the chain changed event handle the state update
               setTimeout(() => {
                 if (isNetworkSwitching) {
-                  console.log(
-                    'Network switch timeout reached after adding chain, forcing state update'
-                  );
                   updateNetworkFromChainId(chainIdDecimal);
                   setIsNetworkSwitching(false);
                 }
@@ -314,8 +279,6 @@ export const NetworkProvider = ({ children }) => {
         throw new Error(`Error switching network: ${switchError.message}`);
       }
     } catch (error) {
-      console.error('Network switch error:', error);
-
       // Format user-friendly error message
       let errorMessage = 'Failed to switch network.';
 

@@ -246,11 +246,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
     }
   }, [lastBetAmount, setBetAmount]);
 
-  // Debug logging for gameState.lastResult
-  useEffect(() => {
-    // Keep this effect for any future implementation but remove console logs
-  }, [gameState.lastResult]);
-
+  
   // Store last bet details when placing a bet
   const handlePlaceBetWithTracking = useCallback(() => {
     // Store the current bet details before placing the bet

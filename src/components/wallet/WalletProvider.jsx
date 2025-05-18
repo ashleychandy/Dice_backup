@@ -129,24 +129,7 @@ export const WalletProvider = ({ children }) => {
     }
   }, [walletState.connectWallet]);
 
-  // Debug logging for wallet state (production: only log on state changes)
-  useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Wallet State:', {
-        account: walletState.account || 'Not connected',
-        chainId: walletState.chainId || 'Unknown',
-        tokenContract:
-          walletState.contracts?.token?.target || 'Not initialized',
-        diceContract: walletState.contracts?.dice?.target || 'Not initialized',
-        isWalletConnected: walletState.isWalletConnected || false,
-      });
-    }
-  }, [
-    walletState.account,
-    walletState.chainId,
-    walletState.contracts?.token,
-    walletState.contracts?.dice,
-  ]);
+ 
 
   // Check RPC endpoints health
   const checkEndpointsHealth = useCallback(async () => {
@@ -273,7 +256,6 @@ export const WalletProvider = ({ children }) => {
         raw: balance,
       };
     } catch (error) {
-      console.error('Error fetching token balance:', error);
       return { balance: ethers.parseEther('0'), formatted: '0' };
     }
   }, [walletState.account, walletState.contracts?.token]);
@@ -296,7 +278,6 @@ export const WalletProvider = ({ children }) => {
         raw: balance,
       };
     } catch (error) {
-      console.error('Error fetching XDC balance:', error);
       return { balance: ethers.parseEther('0'), formatted: '0' };
     }
   }, [walletState.account, walletState.provider]);
@@ -317,7 +298,6 @@ export const WalletProvider = ({ children }) => {
 
       addToast('Wallet disconnected and auto-connect disabled', 'success');
     } catch (error) {
-      console.error('Error disconnecting wallet:', error);
       addToast('Error disconnecting wallet', 'error');
     }
   }, [walletState.handleLogout, addToast]);
@@ -325,8 +305,6 @@ export const WalletProvider = ({ children }) => {
   // Enhanced error handler that shows meaningful messages
   const handleErrorWithToast = useCallback(
     (error, context = '') => {
-      console.error(`Wallet error in ${context}:`, error);
-
       // CORS-related errors
       if (error?.message && error.message.includes('CORS')) {
         addToast(
@@ -439,14 +417,12 @@ export const WalletProvider = ({ children }) => {
       // Add safe contract access methods
       getTokenContract: () => {
         if (!walletState.contracts?.token) {
-          console.warn('Token contract not available');
           return null;
         }
         return walletState.contracts.token;
       },
       getDiceContract: () => {
         if (!walletState.contracts?.dice) {
-          console.warn('Dice contract not available');
           return null;
         }
         return walletState.contracts.dice;
@@ -483,11 +459,8 @@ export const WalletProvider = ({ children }) => {
     };
 
     const handleChainChanged = async chainIdRaw => {
-      console.log(`Network change detected. Raw chain ID: ${chainIdRaw}`);
-
       // Convert to numeric chainId
       const chainId = normalizeChainId(chainIdRaw);
-      console.log(`Normalized chain ID: ${chainId}`);
 
       // Prevent excessive handling - check if we're in a cooldown period
       try {
@@ -498,30 +471,21 @@ export const WalletProvider = ({ children }) => {
         const now = Date.now();
 
         if (recentNetworkChange && now - changeTimestamp < 2000) {
-          console.log(
-            'Recent network change detected, waiting for things to settle'
-          );
           return;
         }
 
         // Mark that we just handled a network change
         sessionStorage.setItem('xdc_recent_network_change', now.toString());
       } catch (e) {
-        console.warn('Error accessing sessionStorage:', e);
+        // Silently handle session storage errors
       }
 
       // Check if this is a supported network
       const network = getNetworkForChainId(chainId);
 
       if (network) {
-        console.log(`Detected supported network: ${network.name}`);
-
         // Only update if the chain ID actually changed
         if (chainId !== normalizeChainId(walletState.chainId)) {
-          console.log(
-            `Chain ID changed from ${walletState.chainId} to ${chainId}`
-          );
-
           // First approach: Try to handle the change without reloading
           // Most users will benefit from this smoother experience
           try {
@@ -530,22 +494,14 @@ export const WalletProvider = ({ children }) => {
               await walletState.reinitializeWithChainId(chainId);
 
             if (reinitializeSuccess) {
-              console.log(
-                'Successfully reinitialized contracts for new network without reload'
-              );
               // No need to reload!
               return;
             }
           } catch (reinitError) {
-            console.warn(
-              'Error reinitializing contracts, will fall back to reload:',
-              reinitError
-            );
+            // If error, proceed with reload approach
           }
 
           // If reinitialization didn't work, fall back to reload approach
-          console.log('Falling back to page reload to handle network change');
-
           // Use session storage to coordinate the reload
           try {
             // Mark that we're about to reload
@@ -553,7 +509,7 @@ export const WalletProvider = ({ children }) => {
             sessionStorage.setItem('xdc_network_changing', 'true');
             sessionStorage.setItem('xdc_target_network', chainId.toString());
           } catch (e) {
-            console.warn('Could not access sessionStorage:', e);
+            // Silently handle session storage errors
           }
 
           // Delay reload to allow for any pending operations to complete
@@ -561,15 +517,12 @@ export const WalletProvider = ({ children }) => {
             try {
               sessionStorage.removeItem('xdc_network_changing');
             } catch (e) {
-              console.warn('Error removing session storage item:', e);
+              // Silently handle session storage errors
             }
             window.location.reload();
           }, 1000);
-        } else {
-          console.log('Chain ID matches current chain, no action needed');
         }
       } else {
-        console.warn(`Unsupported network detected. Chain ID: ${chainId}`);
         // Check if we already warned about this network to avoid duplicate toasts
         try {
           const lastWarningNetwork = sessionStorage.getItem(
@@ -620,11 +573,10 @@ export const WalletProvider = ({ children }) => {
         }
 
         if (currentChainId) {
-          console.log(`Initial chain ID: ${currentChainId}`);
           handleChainChanged(currentChainId);
         }
       } catch (error) {
-        console.error('Error getting initial chain ID:', error);
+        // Silently handle errors
       }
     };
 
@@ -635,7 +587,6 @@ export const WalletProvider = ({ children }) => {
     const setupListeners = () => {
       // Modern wallet providers
       if (window.ethereum && typeof window.ethereum.on === 'function') {
-        console.log('Setting up ethereum provider listeners');
         window.ethereum.on('chainChanged', handleChainChanged);
 
         return () => {
@@ -650,11 +601,9 @@ export const WalletProvider = ({ children }) => {
         walletState.provider &&
         typeof walletState.provider.on === 'function'
       ) {
-        console.log('Setting up ethers provider listeners');
         walletState.provider.on('chainChanged', handleChainChanged);
         walletState.provider.on('network', (newNetwork, oldNetwork) => {
           if (oldNetwork) {
-            console.log('Network changed via ethers provider event');
             handleChainChanged(newNetwork.chainId);
           }
         });

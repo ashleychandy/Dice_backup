@@ -241,38 +241,14 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
     return constants.MIN_DICE_NUMBER;
   };
 
-  // Get text to display for special results
-  const getSpecialResultText = () => {
-    if (rolledNumber === constants.RESULT_RECOVERED) {
-      return 'Game Recovered';
-    }
-    if (rolledNumber === constants.RESULT_FORCE_STOPPED) {
-      return 'Game Stopped';
-    }
-    return 'Unknown Result';
-  };
-
-  // Reset animations and state
-  const resetState = () => {
-    setShowResultAnimation(false);
-    setShowConfetti(false);
-    setBetOutcome(null);
-  };
-
   return {
     // Current state
     displayNumber: getDisplayNumber(),
     rolledNumber,
-    lastRolledNumber,
-    randomDiceNumber,
     betOutcome,
     showResultAnimation,
     showConfetti,
     processingVrf,
-
-    // Methods
-    getSpecialResultText,
-    resetState,
 
     // Setters for external control
     setShowResultAnimation,

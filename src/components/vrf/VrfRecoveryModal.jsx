@@ -12,18 +12,13 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
   const [showDebug, setShowDebug] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
-  const {
-    recoverGame,
-    isRecovering,
-    recoveryError,
-    GAME_TIMEOUT,
-    BLOCK_THRESHOLD,
-  } = useGameRecovery({
-    onSuccess: () => {
-      refreshData();
-      onClose();
-    },
-  });
+  const { recoverGame, isRecovering, recoveryError, GAME_TIMEOUT } =
+    useGameRecovery({
+      onSuccess: () => {
+        refreshData();
+        onClose();
+      },
+    });
 
   // Function to handle manual refresh with visual indicator
   const handleManualRefresh = async () => {

@@ -8,9 +8,11 @@ import {
   faCheckCircle,
 } from '@fortawesome/free-solid-svg-icons';
 import { usePollingService } from '../../services/pollingService.jsx';
+import { useGameRecovery } from '../../hooks/useGameRecovery.js';
 
 const VrfStatusGlobal = ({ onOpenRecovery }) => {
   const { gameStatus } = usePollingService();
+  const { GAME_TIMEOUT } = useGameRecovery();
   const [shouldShow, setShouldShow] = useState(false);
   const [vrfElapsed, setVrfElapsed] = useState(0);
   const vrfStartTimeRef = useRef(null);
@@ -19,17 +21,11 @@ const VrfStatusGlobal = ({ onOpenRecovery }) => {
   const timerRef = useRef(null);
   const prevGameStatusRef = useRef(null);
 
-  // Define recovery timeout period in seconds (should match contract's GAME_TIMEOUT)
-  const RECOVERY_TIMEOUT = 3600; // 1 hour
-
   // Check if recovery timeout has been reached
-  const isRecoveryTimeoutReached = vrfElapsed >= RECOVERY_TIMEOUT;
+  const isRecoveryTimeoutReached = vrfElapsed >= GAME_TIMEOUT;
 
   // Calculate progress percentage (capped at 100%)
-  const progressPercentage = Math.min(
-    100,
-    (vrfElapsed / RECOVERY_TIMEOUT) * 100
-  );
+  const progressPercentage = Math.min(100, (vrfElapsed / GAME_TIMEOUT) * 100);
 
   // Format elapsed time in a human-readable way
   const formatElapsedTime = () => {

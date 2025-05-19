@@ -274,8 +274,6 @@ export const PollingProvider = ({
 
     // Methods
     refreshData,
-    isStale: (maxAge = 10000) =>
-      gameData.lastUpdated && Date.now() - gameData.lastUpdated > maxAge,
   };
 
   return (

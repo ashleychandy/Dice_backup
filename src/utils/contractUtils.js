@@ -129,17 +129,6 @@ export const handleContractError = (error, onError, addToast) => {
   }
 };
 
-/**
- * Safely call a contract method with proper error handling
- * @param {Object} contract - The contract instance
- * @param {String} methodName - The name of the method to call
- * @param {Array} params - Parameters to pass to the method
- * @param {Any} defaultValue - Default value to return if call fails
- * @param {Function} onError - Optional error handler function
- * @param {Function} addToast - Optional toast notification function
- * @param {Object} options - Optional transaction options (for writing methods)
- * @returns {Promise<Any>} - Result of the contract call or defaultValue if failed
- */
 export const safeContractCall = async (
   contract,
   methodName,

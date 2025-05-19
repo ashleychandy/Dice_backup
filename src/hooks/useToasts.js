@@ -14,7 +14,7 @@ export const useToasts = () => {
 
   /**
    * Add a new toast notification
-   * @param {string} message - The toast message
+   * @param {string|object} message - The toast message or object with title and description
    * @param {string} type - The toast type (info, success, warning, error)
    * @param {number} duration - Duration in ms (0 for persistent toast)
    * @returns {string} The ID of the created toast
@@ -23,7 +23,55 @@ export const useToasts = () => {
     (message, type = 'info', duration = 5000) => {
       const id = Date.now().toString();
 
-      // Ensure message is a string
+      // Handle object format with title and description
+      if (
+        typeof message === 'object' &&
+        message !== null &&
+        !(message instanceof Error)
+      ) {
+        if (message.title || message.description) {
+          // Keep the object format as is
+          setToasts(prevToasts => {
+            // Check for duplicate message based on title and description
+            const existingToast = prevToasts.find(
+              toast =>
+                typeof toast.message === 'object' &&
+                toast.message.title === message.title &&
+                toast.message.description === message.description
+            );
+
+            if (existingToast) {
+              // Return the same array if message already exists
+              return prevToasts;
+            }
+
+            // Add new toast and limit to 5 maximum
+            const newToasts = [
+              ...prevToasts,
+              {
+                id,
+                message, // Keep as object
+                type,
+                duration,
+              },
+            ];
+
+            // Keep only the most recent 5 toasts
+            return newToasts.slice(-5);
+          });
+
+          // Auto-remove toast after duration (if not persistent)
+          if (duration > 0) {
+            setTimeout(() => {
+              removeToast(id);
+            }, duration);
+          }
+
+          return id;
+        }
+      }
+
+      // Handle strings and other types
       const safeMessage =
         typeof message === 'string'
           ? message
@@ -36,7 +84,8 @@ export const useToasts = () => {
       setToasts(prevToasts => {
         // Check for duplicate message
         const existingToast = prevToasts.find(
-          toast => toast.message === safeMessage
+          toast =>
+            typeof toast.message === 'string' && toast.message === safeMessage
         );
         if (existingToast) {
           // Return the same array if message already exists

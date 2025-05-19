@@ -2,13 +2,23 @@ import React from 'react';
 import { motion } from 'framer-motion';
 
 const Toast = ({ message, type, onClose }) => {
-  // Ensure message is always a string
-  const displayMessage =
-    typeof message === 'string'
-      ? message
-      : message instanceof Error
-        ? message.message || 'An error occurred'
-        : 'An error occurred';
+  // Parse message if it's an object with title and description
+  let title = '';
+  let description = '';
+
+  if (typeof message === 'object' && message !== null && !message.stack) {
+    // Handle object format
+    title = message.title || '';
+    description = message.description || '';
+  } else {
+    // Handle string or Error format
+    description =
+      typeof message === 'string'
+        ? message
+        : message instanceof Error
+          ? message.message || 'An error occurred'
+          : 'An error occurred';
+  }
 
   return (
     <motion.div
@@ -41,11 +51,14 @@ const Toast = ({ message, type, onClose }) => {
                               : 'bg-gaming-info/20'
                       }`}
           />
-          <p className="text-white/90 font-medium">{displayMessage}</p>
+          <div className="text-secondary-900">
+            {title && <p className="font-bold">{title}</p>}
+            <p className="font-medium">{description}</p>
+          </div>
         </div>
         <button
           onClick={onClose}
-          className="text-white/60 hover:text-white/90 transition-colors"
+          className="text-secondary-700 hover:text-secondary-900 transition-colors"
         >
           <svg
             className="w-5 h-5"

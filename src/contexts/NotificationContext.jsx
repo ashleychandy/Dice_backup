@@ -20,15 +20,30 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     debouncedAddToastRef.current = debounce(
       (message, type = 'info', duration = 5000) => {
-        // Ensure message is a string
+        // Handle different message types (including objects)
+        if (
+          typeof message === 'object' &&
+          message !== null &&
+          !(message instanceof Error)
+        ) {
+          // If it's an object with title and description, keep it as is
+          if (message.title || message.description) {
+            addToastBase(message, type, duration);
+            return;
+          }
+
+          // Otherwise convert to string
+          addToastBase(JSON.stringify(message), type, duration);
+          return;
+        }
+
+        // Handle strings and errors
         const messageString =
           typeof message === 'string'
             ? message
             : message instanceof Error
               ? message.message || 'An error occurred'
-              : typeof message === 'object'
-                ? JSON.stringify(message)
-                : String(message || 'An error occurred');
+              : String(message || 'An error occurred');
 
         addToastBase(messageString, type, duration);
       },
@@ -45,7 +60,25 @@ export const NotificationProvider = ({ children }) => {
   // Wrapper function to handle immediate notifications
   const addToast = useCallback(
     (message, type = 'info', duration = 5000) => {
-      // Ensure message is a string
+      // Handle objects with title and description
+      if (
+        typeof message === 'object' &&
+        message !== null &&
+        !(message instanceof Error)
+      ) {
+        // If it's an object with title and description, keep it as is
+        if (message.title || message.description) {
+          if (type === 'error' || duration === 0) {
+            // Show errors immediately
+            addToastBase(message, type, duration);
+          } else {
+            debouncedAddToastRef.current?.(message, type, duration);
+          }
+          return;
+        }
+      }
+
+      // Handle strings and errors
       const messageString =
         typeof message === 'string'
           ? message

@@ -1,5 +1,8 @@
 import { ethers } from 'ethers';
 
+// Create closure to track last error without using window global
+let _lastErrorKey = '';
+
 /**
  * Handles errors and displays appropriate toast messages
  * @param {Error} error - The error object
@@ -11,10 +14,10 @@ export const handleError = (error, addToast) => {
     Date.now() / 1000
   )}`;
 
-  if (window._lastErrorKey === errorKey) {
+  if (_lastErrorKey === errorKey) {
     return;
   }
-  window._lastErrorKey = errorKey;
+  _lastErrorKey = errorKey;
 
   let errorMessage = 'Something went wrong. Please try again later.';
   let errorType = 'error';

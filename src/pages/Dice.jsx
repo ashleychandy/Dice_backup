@@ -152,44 +152,6 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
         gameStatus?.requestExists &&
         !gameStatus?.requestProcessed));
 
-  // Create a global function to invalidate game history
-  useEffect(() => {
-    // Centralized function to refresh all data after wallet connection
-    window.refreshAllData = accountAddress => {
-      // If no account is provided, use the current one
-      const targetAccount = accountAddress || account;
-      if (targetAccount) {
-        // Refresh game history
-        queryClient.invalidateQueries(['gameHistory', targetAccount]);
-
-        // Refresh balance data
-        queryClient.invalidateQueries(['balance', targetAccount]);
-      }
-    };
-
-    // Individual refresh functions for specific data
-    window.invalidateGameHistory = accountAddress => {
-      // If no account is provided, use the current one
-      const targetAccount = accountAddress || account;
-      if (targetAccount) {
-        queryClient.invalidateQueries(['gameHistory', targetAccount]);
-      }
-    };
-
-    return () => {
-      // Clean up global functions
-      delete window.invalidateGameHistory;
-      delete window.refreshAllData;
-    };
-  }, [account, queryClient]);
-
-  // Refresh all data when account or contracts change
-  useEffect(() => {
-    if (account && contracts) {
-      window.refreshAllData(account);
-    }
-  }, [account, contracts, queryClient]);
-
   // Use our custom game logic hook
   const {
     chosenNumber,
@@ -209,20 +171,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
 
   // When bet is placed, immediately update UI with the result
   useEffect(() => {
-    if (gameState.lastResult && window.addNewGameResult) {
-      // Add this game to history for instant display
-      window.addNewGameResult({
-        timestamp: Math.floor(Date.now() / 1000).toString(),
-        chosenNumber: chosenNumber?.toString() || '0',
-        rolledNumber: gameState.lastResult.rolledNumber?.toString() || '0',
-        amount: betAmount.toString(),
-        payout: gameState.lastResult.payout?.toString() || '0',
-        isWin: gameState.lastResult.isWin,
-        isRecovered: false,
-        isForceStopped: false,
-        isSpecialResult: false,
-      });
-
+    if (gameState.lastResult) {
       // Store last bet details for LatestBet component
       setLastBetDetails({
         result: gameState.lastResult,

@@ -179,18 +179,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       invalidateQueries(['balance']);
     }
 
-    // Register global function to refresh balance data
-    window.refreshBalanceData = accountAddress => {
-      // If no account is provided, use the current one
-      const targetAccount = accountAddress || walletAccount;
-      if (targetAccount) {
-        queryClient.invalidateQueries(['balance', targetAccount]);
-      }
-    };
-
     return () => {
-      delete window.refreshBalanceData;
-
       // Clean up safety timeout when component unmounts
       if (safetyTimeoutRef.current) {
         clearTimeout(safetyTimeoutRef.current);
@@ -722,34 +711,11 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
   // When bet is placed, immediately update UI with the result
   useEffect(() => {
-    if (gameState.lastResult && window.addNewGameResult) {
-      try {
-        // Add this game to history for instant display
-        window.addNewGameResult({
-          timestamp: Math.floor(Date.now() / 1000).toString(),
-          chosenNumber: chosenNumber?.toString() || '0',
-          rolledNumber: gameState.lastResult.rolledNumber?.toString() || '0',
-          amount: betAmount.toString(),
-          payout: gameState.lastResult.payout?.toString() || '0',
-          isWin: gameState.lastResult.isWin,
-          isRecovered: false,
-          isForceStopped: false,
-          isSpecialResult: false,
-        });
-
-        // After result is known, immediately refresh all data
-        invalidateQueries(['balance', 'gameHistory', 'gameStats']);
-      } catch (error) {
-        // Handle error silently
-      }
+    if (gameState.lastResult) {
+      // After result is known, immediately refresh all data
+      invalidateQueries(['balance', 'gameHistory', 'gameStats']);
     }
-  }, [
-    gameState.lastResult,
-    chosenNumber,
-    betAmount,
-    queryClient,
-    walletAccount,
-  ]);
+  }, [gameState.lastResult, invalidateQueries]);
 
   // Add a function to check for VRF results in history
   const checkVrfResultInHistory = async txHash => {

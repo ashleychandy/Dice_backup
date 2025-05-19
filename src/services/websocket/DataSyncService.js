@@ -221,9 +221,4 @@ class DataSyncService {
 // Create a singleton instance
 const dataSyncService = new DataSyncService();
 
-// Add to window for debugging purposes
-if (typeof window !== 'undefined') {
-  window.dataSyncService = dataSyncService;
-}
-
 export default dataSyncService;

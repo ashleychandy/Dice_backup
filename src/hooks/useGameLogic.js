@@ -381,8 +381,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
             'error'
           );
         }
-
-        // Debug information removed
       }
     } catch (error) {
       // Check for network-related errors

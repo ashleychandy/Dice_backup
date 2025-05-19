@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { ethers } from 'ethers';
 import { motion } from 'framer-motion';
 import { usePollingService } from '../../services/pollingService.jsx';
@@ -27,18 +27,6 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     if (isNewUser || !allBets || allBets.length === 0) return null;
     return allBets[0]; // First item is the most recent bet
   }, [allBets, isNewUser]);
-
-  // Add debugging logs to help diagnose issues
-  useEffect(() => {
-    // No debug logs needed at this time
-  }, [
-    result,
-    chosenNumber,
-    betAmount,
-    latestHistoryBet,
-    gameStatus,
-    isNewUser,
-  ]);
 
   const formatAmount = amount => {
     if (!amount || amount === '0') return '0';

@@ -23,8 +23,6 @@ const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
       return { sufficient: false, status: 'Wallet Not Connected' };
     }
 
-    // Props debugging removed
-
     if (!allowance) {
       // No allowance data available
       return { sufficient: false, status: 'Not Approved' };
@@ -36,8 +34,6 @@ const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
       const betAmountBigInt = betAmount
         ? BigInt(betAmount.toString())
         : BigInt(0);
-
-      // Approval check logging removed
 
       // If bet amount is zero, we consider it approved (nothing to approve)
       if (betAmountBigInt <= BigInt(0)) {
@@ -55,10 +51,8 @@ const BalancePanel = ({ userBalance, allowance, betAmount = BigInt(0) }) => {
           ? 'Fully Approved'
           : 'Approved';
 
-      // Approval status logging removed
       return { sufficient: isSufficient, status };
     } catch (error) {
-      // Error logging removed
       return { sufficient: false, status: 'Not Approved' };
     }
   };

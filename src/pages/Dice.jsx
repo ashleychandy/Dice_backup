@@ -262,30 +262,6 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
     handlePlaceBet();
   }, [handlePlaceBet, chosenNumber, betAmount, gameState.lastResult]);
 
-  // Debug approval state
-  useEffect(() => {
-    if (contracts?.token && contracts?.dice && account) {
-      // Add a window method to force show the approve button for testing
-      window.forceShowApprove = () => {
-        document
-          .querySelector('.temp-approve-button')
-          ?.classList.remove('hidden');
-      };
-    }
-
-    return () => {
-      delete window.forceShowApprove;
-    };
-  }, [
-    needsApproval,
-    balanceData,
-    betAmount,
-    account,
-    contracts,
-    gameState,
-    isApproving,
-  ]);
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <motion.div

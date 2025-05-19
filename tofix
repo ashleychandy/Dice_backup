@@ -29,3 +29,7 @@ wallet addr grey bg change
 scrollbar under vrf recovery
 
 multiple error handling files
+
+remove websocket
+
+cors

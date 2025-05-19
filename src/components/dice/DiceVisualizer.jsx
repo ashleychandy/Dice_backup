@@ -27,7 +27,6 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     showResultAnimation,
     showConfetti,
     processingVrf,
-    getSpecialResultText: _getSpecialResultText,
     setProcessingVrf,
   } = useDiceNumber(result, chosenNumber, isRolling);
 

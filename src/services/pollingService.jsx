@@ -14,7 +14,6 @@ export const PollingProvider = ({
   children,
   diceContract,
   account,
-  _defaultInterval = 5000, // Prefix with underscore to indicate it's not used
   activeGameInterval = 2000, // Poll more frequently during active games
   inactiveInterval = 10000, // Poll less frequently when idle
 }) => {

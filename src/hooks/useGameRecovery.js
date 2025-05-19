@@ -10,8 +10,8 @@ const GAME_TIMEOUT = 3600; // 1 hour in seconds
 const BLOCK_THRESHOLD = 300;
 
 /**
- * Hook for managing game recovery and force stop functionality
- * Aligns with contract's recoverOwnStuckGame and forceStopGame functions
+ * Hook for managing game recovery functionality
+ * Aligns with contract's recoverOwnStuckGame function
  */
 export const useGameRecovery = ({ onSuccess, onError } = {}) => {
   const { account } = useWallet();
@@ -53,53 +53,6 @@ export const useGameRecovery = ({ onSuccess, onError } = {}) => {
         title: 'Game Recovery Failed',
         description:
           error.message || 'Failed to recover game. Please try again.',
-        type: 'error',
-      });
-
-      if (onError) {
-        onError(error);
-      }
-    },
-  });
-
-  // Mutation for force stop (admin only)
-  const {
-    mutate: forceStopGame,
-    isLoading: isForceStoping,
-    error: forceStopError,
-  } = useMutation({
-    mutationFn: async playerAddress => {
-      if (!diceContract) {
-        throw new Error('Contract not initialized');
-      }
-
-      if (!playerAddress) {
-        throw new Error('Player address required');
-      }
-
-      const tx = await diceContract.forceStopGame(playerAddress);
-      const receipt = await tx.wait();
-      return receipt;
-    },
-    onSuccess: (data, variables) => {
-      addToast({
-        title: 'Force Stop Successful',
-        description: `Game force stopped for player ${variables}`,
-        type: 'success',
-      });
-
-      // Refresh data from polling service
-      refreshData();
-
-      if (onSuccess) {
-        onSuccess(data);
-      }
-    },
-    onError: error => {
-      addToast({
-        title: 'Force Stop Failed',
-        description:
-          error.message || 'Failed to force stop game. Please try again.',
         type: 'error',
       });
 
@@ -170,16 +123,13 @@ export const useGameRecovery = ({ onSuccess, onError } = {}) => {
   return {
     // Recovery actions
     recoverGame,
-    forceStopGame,
     checkRecoveryEligibility,
 
     // Loading states
     isRecovering,
-    isForceStoping,
 
     // Errors
     recoveryError,
-    forceStopError,
 
     // Constants
     GAME_TIMEOUT,

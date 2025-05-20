@@ -168,59 +168,55 @@ const NetworkSwitcher = ({ isInDropdown = false }) => {
   if (isInDropdown) {
     return (
       <div className="space-y-1.5">
-        {/* Current network */}
-        <div className="flex items-center p-2 rounded-md bg-gray-50/80 border border-gray-100 group">
-          <div className="flex items-center space-x-2 flex-1">
-            <div
-              className="w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: currentNetwork.color }}
-            ></div>
-            <div className="text-sm font-medium text-gray-800">
+        {/* Current network - Sleeker version */}
+        <div className="flex items-center p-1.5 rounded-md bg-[#22AD74]/5 border-0">
+          <div className="flex items-center w-full">
+            <div className="text-xs font-medium text-gray-800">
               {currentNetwork.name}
             </div>
-            <div className="ml-auto flex items-center text-xs text-green-600">
+            <div className="ml-auto text-[#22AD74] text-[10px] font-medium flex items-center">
               <FontAwesomeIcon
                 icon={faCheckCircle}
-                className="mr-1 text-[10px]"
+                className="mr-0.5 text-[9px]"
               />
-              <span className="text-[10px] font-medium">Active</span>
+              Active
             </div>
           </div>
         </div>
 
-        {/* Other network option */}
+        {/* Other network option - Sleeker version */}
         <button
           onClick={() => handleNetworkSwitch(getOtherNetwork().id)}
           disabled={isNetworkSwitching || localSwitchState.inProgress}
           className={`
-            w-full flex items-center p-2 rounded-md border border-transparent hover:bg-gray-50/80 hover:border-gray-100 transition-all
+            w-full flex items-center p-1.5 rounded-md transition-all hover:bg-gray-50
             ${isNetworkSwitching || localSwitchState.inProgress ? 'opacity-50 cursor-wait' : ''}
           `}
         >
-          <div className="flex items-center space-x-2 flex-1">
-            <div
-              className="w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: getOtherNetwork().color }}
-            ></div>
-            <div className="text-sm text-gray-600">
+          <div className="flex items-center w-full">
+            <div className="text-xs text-gray-600">
               {getOtherNetwork().name}
             </div>
 
-            {isSwitchingTo(getOtherNetwork().id) && (
+            {isSwitchingTo(getOtherNetwork().id) ? (
               <div className="ml-auto">
                 <FontAwesomeIcon
                   icon={faSpinner}
-                  className="text-xs animate-spin text-blue-500"
+                  className="text-[9px] animate-spin text-gray-400"
                 />
+              </div>
+            ) : (
+              <div className="ml-auto opacity-40">
+                <FontAwesomeIcon icon={faChevronRight} className="text-[9px]" />
               </div>
             )}
           </div>
         </button>
 
-        {/* Display error if there is one */}
+        {/* Display error if there is one - Smaller version */}
         {(networkError || localSwitchState.error) && (
-          <div className="mt-2 p-2 text-xs text-red-600 bg-red-50 rounded-md border border-red-100">
-            <FontAwesomeIcon icon={faExclamationTriangle} className="mr-1" />
+          <div className="mt-1 p-1 text-[9px] text-red-600 bg-red-50 rounded-md">
+            <FontAwesomeIcon icon={faExclamationTriangle} className="mr-0.5" />
             {networkError || localSwitchState.error}
           </div>
         )}
@@ -233,26 +229,22 @@ const NetworkSwitcher = ({ isInDropdown = false }) => {
     <div className="network-switcher-container relative">
       <button
         className={`
-          flex items-center space-x-2 px-3 py-1.5 rounded-lg border transition-all
-          ${showDropdown ? 'border-blue-200 bg-blue-50/50' : 'border-gray-200 hover:border-blue-200 hover:bg-blue-50/20'}
+          flex items-center space-x-1.5 px-2 py-1 rounded-md border border-transparent hover:border-[#22AD74]/10 hover:bg-[#22AD74]/5 transition-all
+          ${showDropdown ? 'border-[#22AD74]/10 bg-[#22AD74]/5' : ''}
           ${isNetworkSwitching || localSwitchState.inProgress ? 'opacity-70 cursor-wait' : ''}
         `}
         onClick={toggleDropdown}
         disabled={isNetworkSwitching || localSwitchState.inProgress}
         aria-label="Network Selector"
       >
-        <div
-          className="w-2 h-2 rounded-full"
-          style={{ backgroundColor: currentNetwork.color }}
-        ></div>
-        <span className="text-sm font-medium">
+        <span className="text-xs font-medium">
           {isSwitchingTo(getOtherNetwork().id) ? (
             <span className="flex items-center">
-              Switching
               <FontAwesomeIcon
                 icon={faSpinner}
-                className="ml-1 animate-spin text-blue-500"
+                className="animate-spin mr-1 text-[9px]"
               />
+              <span className="text-xs">Switching...</span>
             </span>
           ) : (
             currentNetwork.name
@@ -260,49 +252,41 @@ const NetworkSwitcher = ({ isInDropdown = false }) => {
         </span>
         <FontAwesomeIcon
           icon={faChevronDown}
-          className={`text-xs transition-transform ${
-            showDropdown ? 'transform rotate-180' : ''
+          className={`text-[9px] transition-transform duration-200 ${
+            showDropdown ? 'rotate-180' : ''
           }`}
         />
       </button>
 
-      {/* Show error message if any */}
+      {/* Show error message if any - Smaller version */}
       {(networkError || localSwitchState.error) && (
-        <div className="absolute top-full right-0 mt-1 z-10 w-48 p-2 text-xs text-red-600 bg-red-50 rounded-md border border-red-100">
-          <FontAwesomeIcon icon={faExclamationTriangle} className="mr-1" />
+        <div className="absolute top-full right-0 mt-1 z-10 w-40 p-1 text-[9px] text-red-600 bg-red-50 rounded-md">
+          <FontAwesomeIcon icon={faExclamationTriangle} className="mr-0.5" />
           {networkError || localSwitchState.error}
         </div>
       )}
 
-      {/* Network dropdown */}
+      {/* Network dropdown - Sleeker version */}
       <AnimatePresence>
         {showDropdown && (
           <motion.div
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
+            initial={{ opacity: 0, y: -2, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -2, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute top-full right-0 mt-1 w-48 bg-white border border-gray-100 rounded-md shadow-sm overflow-hidden z-50"
+            className="absolute top-full right-0 mt-1 w-40 bg-white rounded-md shadow-sm border border-gray-100/80 overflow-hidden z-50"
           >
-            <div className="p-2 border-b border-gray-100/80">
-              <div className="text-xs text-gray-500 font-medium">Network</div>
-            </div>
-
-            {/* Networks list */}
+            {/* Networks list - Compact version */}
             <div className="p-1">
               {/* Current network */}
-              <div className="p-1.5 flex items-center rounded-md bg-gray-50/80">
-                <div
-                  className="w-2 h-2 rounded-full mr-2"
-                  style={{ backgroundColor: currentNetwork.color }}
-                ></div>
+              <div className="p-1 flex items-center rounded bg-[#22AD74]/5">
                 <div className="flex-1">
                   <div className="text-xs font-medium text-gray-800">
                     {currentNetwork.name}
                   </div>
                 </div>
-                <div className="text-[10px] text-green-600 flex items-center">
-                  <FontAwesomeIcon icon={faCheckCircle} className="mr-1" />
+                <div className="text-[9px] text-[#22AD74] flex items-center">
+                  <FontAwesomeIcon icon={faCheckCircle} className="mr-0.5" />
                   Active
                 </div>
               </div>
@@ -311,13 +295,9 @@ const NetworkSwitcher = ({ isInDropdown = false }) => {
               <button
                 onClick={() => handleNetworkSwitch(getOtherNetwork().id)}
                 disabled={isNetworkSwitching || localSwitchState.inProgress}
-                className={`w-full p-1.5 flex items-center rounded-md hover:bg-gray-50/80 transition-colors mt-1 
+                className={`w-full p-1 flex items-center rounded hover:bg-gray-50 transition-all mt-0.5
                   ${isNetworkSwitching || localSwitchState.inProgress ? 'opacity-50 cursor-wait' : ''}`}
               >
-                <div
-                  className="w-2 h-2 rounded-full mr-2"
-                  style={{ backgroundColor: getOtherNetwork().color }}
-                ></div>
                 <div className="flex-1">
                   <div className="text-xs text-gray-600">
                     {getOtherNetwork().name}
@@ -326,25 +306,14 @@ const NetworkSwitcher = ({ isInDropdown = false }) => {
                 {isSwitchingTo(getOtherNetwork().id) && (
                   <FontAwesomeIcon
                     icon={faSpinner}
-                    className="text-[10px] animate-spin text-blue-500 ml-1"
+                    className="text-[9px] animate-spin text-gray-400"
                   />
                 )}
               </button>
-
-              {/* Display error if there is one */}
-              {(networkError || localSwitchState.error) && (
-                <div className="mt-1 p-1.5 text-[10px] text-red-600 bg-red-50 rounded-md">
-                  <FontAwesomeIcon
-                    icon={faExclamationTriangle}
-                    className="mr-1"
-                  />
-                  {networkError || localSwitchState.error}
-                </div>
-              )}
             </div>
 
-            <div className="px-2 py-1.5 border-t border-gray-100/80 text-[10px] text-gray-400">
-              Network change will reload the page
+            <div className="px-1 py-0.5 border-t border-gray-100/80 text-[8px] text-gray-400">
+              Network change will reload
             </div>
           </motion.div>
         )}

@@ -128,23 +128,19 @@ const Navbar = () => {
                   isScrolled
                     ? 'bg-[#22AD74]/5 border border-[#22AD74]/20'
                     : 'bg-[#22AD74]/20 backdrop-blur-sm border border-white/20'
-                } hover:bg-[#22AD74]/10 transition-colors flex items-center gap-2`}
+                } hover:bg-[#22AD74]/10 transition-all duration-300 flex items-center gap-2`}
               >
-                <div
-                  className="w-2.5 h-2.5 rounded-full mr-1"
-                  style={{
-                    backgroundColor: '#22AD74',
-                  }}
-                ></div>
                 <span
-                  className={isScrolled ? 'text-gray-900' : 'text-gray-900'}
+                  className={`font-medium ${isScrolled ? 'text-gray-900' : 'text-gray-900'}`}
                 >
-                  {account.slice(0, 6)}...{account.slice(-4)}
+                  {account.slice(0, 6)}
+                  <span className="opacity-50 mx-0.5">|</span>
+                  {account.slice(-4)}
                 </span>
                 <svg
                   className={`w-4 h-4 ${
                     isScrolled ? 'text-gray-600' : 'text-gray-600'
-                  } transition-transform duration-200 ${
+                  } transition-transform duration-300 ease-in-out ${
                     dropdownOpen ? 'rotate-180' : ''
                   }`}
                   fill="none"
@@ -160,32 +156,52 @@ const Navbar = () => {
                 </svg>
               </button>
 
-              {/* Enhanced Dropdown Menu with Network Switcher */}
+              {/* Enhanced Modern Dropdown Menu */}
               <AnimatePresence>
                 {dropdownOpen && (
                   <motion.div
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute right-0 mt-2 w-64 rounded-xl bg-white shadow-lg border border-gray-200 overflow-hidden z-50"
+                    initial={{ opacity: 0, y: -5, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -5, scale: 0.98 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    className="absolute right-0 mt-2 w-64 rounded-xl bg-white backdrop-blur-md shadow-xl shadow-[#22AD74]/5 border border-[#22AD74]/10 overflow-hidden z-50"
                   >
-                    {/* Network Section */}
-                    <div className="p-3 border-b border-gray-100">
-                      <div className="text-xs text-gray-500 mb-2 font-medium">
-                        NETWORK
+                    {/* Account Info Section */}
+                    <div className="p-4 bg-gradient-to-r from-[#22AD74]/5 to-transparent">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="text-xs text-[#22AD74] font-medium tracking-wide uppercase">
+                          Account
+                        </div>
+                        <div className="px-2 py-0.5 bg-[#22AD74]/10 rounded-full text-xs text-[#22AD74] font-medium">
+                          Connected
+                        </div>
+                      </div>
+                      <div className="text-sm font-mono text-gray-600 break-all">
+                        {account}
+                      </div>
+                    </div>
+
+                    {/* Network Section with no border, instead a subtle divider */}
+                    <div className="mx-4 h-px bg-gradient-to-r from-transparent via-[#22AD74]/10 to-transparent"></div>
+
+                    <div className="p-4">
+                      <div className="text-xs text-[#22AD74] mb-2 font-medium tracking-wide uppercase">
+                        Network
                       </div>
                       <NetworkSwitcher isInDropdown={true} />
                     </div>
 
+                    {/* Subtle divider instead of border */}
+                    <div className="mx-4 h-px bg-gradient-to-r from-transparent via-[#22AD74]/10 to-transparent"></div>
+
                     {/* Actions Section */}
-                    <div className="p-2">
+                    <div className="p-4">
                       <button
                         onClick={() => {
                           handleLogout();
                           setDropdownOpen(false);
                         }}
-                        className="w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2 transition-colors"
+                        className="w-full px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-lg flex items-center justify-center gap-2.5 transition-all duration-300 shadow-sm hover:shadow"
                       >
                         <svg
                           className="w-4 h-4"

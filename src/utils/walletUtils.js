@@ -429,3 +429,91 @@ export const handleRpcError = async (error, provider, addToast = null) => {
     return false;
   }
 };
+
+// Function to help reinitialize contract instances on account change
+export const reinitializeContractsForAccount = async (
+  provider,
+  newAccount,
+  contracts
+) => {
+  if (!provider || !newAccount) {
+    return null;
+  }
+
+  try {
+    // We need the signer for the new account
+    const newSigner = await provider.getSigner(newAccount);
+
+    // Create new contract instances using the new signer
+    const newContracts = {};
+
+    // For each existing contract, create a new instance with the new signer
+    if (contracts) {
+      for (const contractKey in contracts) {
+        if (contracts[contractKey]) {
+          // Create a new instance with the same address but new signer
+          const contractAddress = await contracts[contractKey].getAddress();
+          const contractInterface = contracts[contractKey].interface;
+
+          // Create new contract instance with the new signer
+          newContracts[contractKey] = new ethers.Contract(
+            contractAddress,
+            contractInterface,
+            newSigner
+          );
+        }
+      }
+    }
+
+    return Object.keys(newContracts).length > 0 ? newContracts : null;
+  } catch (error) {
+    console.error('Error reinitializing contracts for new account:', error);
+    return null;
+  }
+};
+
+/**
+ * Force a complete reset of the wallet state to resolve stale state issues
+ * This can be called when issues occur with transactions after account changes
+ */
+export const forceWalletReset = async () => {
+  try {
+    // Clear any localStorage cache related to wallet
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.includes('wallet') || key.includes('xdc'))) {
+        keysToRemove.push(key);
+      }
+    }
+
+    // Remove the identified keys
+    keysToRemove.forEach(key => {
+      try {
+        localStorage.removeItem(key);
+      } catch (e) {
+        // Ignore errors
+      }
+    });
+
+    // Dispatch event to notify components
+    window.dispatchEvent(new CustomEvent('xdc_wallet_reset'));
+
+    // Clear provider state if exists
+    if (window.ethereum) {
+      try {
+        // Request new accounts to force a refresh
+        await window.ethereum.request({
+          method: 'eth_requestAccounts',
+        });
+      } catch (e) {
+        // Ignore errors
+      }
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error during wallet reset:', error);
+    return false;
+  }
+};

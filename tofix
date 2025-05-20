@@ -1,5 +1,3 @@
-approval waiting after approved
-should not show not approved, game history
 
 
 remove testing code
@@ -9,9 +7,10 @@ refreshing of page as soon as opened
 
 removal of empty and useless functions
 
-error placing bets, maybe due to not proper chagning of accounts
 
 enhance toasts
+
+
 
 pastel colors
 
@@ -35,3 +34,6 @@ remove websocket
 cors
 
 remove gas buffer
+
+approval waiting after approved
+should not show not approved, game history

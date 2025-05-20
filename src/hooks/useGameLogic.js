@@ -60,12 +60,20 @@ const useBetState = (initialBetAmount = '1000000000000000000') => {
     }
   }, [betAmount]);
 
+  // Reset function to clear bet state
+  const resetBetState = useCallback(() => {
+    setBetAmountRaw(initialBetAmount);
+    setChosenNumber(null);
+    lastBetAmountRef.current = initialBetAmount;
+  }, [initialBetAmount]);
+
   return {
     betAmount: betAmountBigInt,
     betAmountString: betAmount,
     setBetAmount,
     chosenNumber,
     setChosenNumber,
+    resetBetState,
   };
 };
 
@@ -89,11 +97,21 @@ const useGameState = () => {
     setGameState(prev => ({ ...prev, lastResult: result }));
   }, []);
 
+  // Reset function to clear game state
+  const resetGameState = useCallback(() => {
+    setGameState({
+      isProcessing: false,
+      isRolling: false,
+      lastResult: null,
+    });
+  }, []);
+
   return {
     gameState,
     setProcessingState,
     setRollingState,
     setLastResult,
+    resetGameState,
   };
 };
 
@@ -142,6 +160,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   const [isProcessing, _setIsProcessing] = useState(false);
   const [error, _setError] = useState(null);
   const pendingTxRef = useRef(null);
+  const previousAccountRef = useRef(walletAccount);
 
   // Add new hooks
   const { contractState: _contractState } = useContractState();
@@ -185,10 +204,62 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     setBetAmount,
     chosenNumber,
     setChosenNumber,
+    resetBetState,
   } = useBetState();
 
-  const { gameState, setProcessingState, setRollingState, setLastResult } =
-    useGameState();
+  const {
+    gameState,
+    setProcessingState,
+    setRollingState,
+    setLastResult,
+    resetGameState,
+  } = useGameState();
+
+  // Add effect to reset state when account changes
+  useEffect(() => {
+    // Check if account has changed
+    if (walletAccount !== previousAccountRef.current) {
+      // Reset all game state
+      resetGameState();
+      resetBetState();
+
+      // Reset operation flags
+      operationInProgress.current = false;
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+        safetyTimeoutRef.current = null;
+      }
+
+      // Reset approval state
+      setIsApproving(false);
+
+      // Cancel any pending transactions
+      pendingTxRef.current = null;
+
+      // Update the ref to current account
+      previousAccountRef.current = walletAccount;
+
+      // Invalidate all relevant queries with a slight delay to ensure provider is updated
+      setTimeout(() => {
+        invalidateQueries(['balance', 'gameStatus', 'betHistory']);
+      }, 500);
+    }
+  }, [walletAccount, resetGameState, resetBetState, invalidateQueries]);
+
+  // Add effect to detect and handle contract changes
+  useEffect(() => {
+    // When contracts change (typically after account change), we need to reset states
+    if (contracts?.token && contracts?.dice && walletAccount) {
+      // Reset operation flags
+      operationInProgress.current = false;
+
+      // Reset states to ensure we're working with fresh data
+      resetGameState();
+
+      // Invalidate all queries to get fresh data
+      invalidateQueries(['balance', 'gameStatus', 'betHistory']);
+    }
+  }, [contracts, walletAccount, resetGameState, invalidateQueries]);
 
   // Balance Query with optimized settings
   const { data: balanceData, isLoading: balanceLoading } = useQuery({
@@ -421,6 +492,38 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         type: 'error',
       });
       return;
+    }
+
+    // Ensure we're using up-to-date contract instances
+    if (walletAccount && contracts?.dice?.signer) {
+      const currentSigner = await contracts.dice.signer
+        .getAddress()
+        .catch(() => null);
+
+      // If signer doesn't match current wallet account, we need to reinitialize
+      if (
+        currentSigner &&
+        currentSigner.toLowerCase() !== walletAccount.toLowerCase()
+      ) {
+        addToast({
+          title: 'Updating Connection',
+          description: 'Detected account mismatch, updating connection...',
+          type: 'info',
+        });
+
+        // Force wallet state to update - this will cause a reinitialization
+        window.dispatchEvent(new CustomEvent('xdc_wallet_reset'));
+
+        // Wait a moment for state to update before proceeding
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Refresh page data
+        invalidateQueries(['balance']);
+
+        // Retry placing bet after a short delay
+        setTimeout(() => handlePlaceBet(), 2000);
+        return;
+      }
     }
 
     // Validate that a number is chosen

@@ -5,6 +5,7 @@ import React, {
   useState,
   useMemo,
   useCallback,
+  useRef,
 } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ethers } from 'ethers';
@@ -46,6 +47,7 @@ export const WalletProvider = ({ children }) => {
   });
   const [isAutoConnecting, setIsAutoConnecting] = useState(false);
   const [initialPageLoad, setInitialPageLoad] = useState(true);
+  const safetyTimeoutRef = useRef(null);
 
   // On initial load - clear stale reload flags to prevent reload loops
   useEffect(() => {
@@ -656,6 +658,150 @@ export const WalletProvider = ({ children }) => {
     getNetworkForChainId,
     addToast,
     walletState,
+  ]);
+
+  // Set up event listeners
+  useEffect(() => {
+    const handleChainChanged = chainId => {
+      if (!chainId) return;
+
+      try {
+        // Parse chain ID to decimal format
+        const parsed = parseInt(
+          chainId,
+          isNaN(parseInt(chainId, 16)) ? 10 : 16
+        );
+        walletState.updateChainId(parsed);
+      } catch (error) {
+        console.error('Error parsing chain ID:', error);
+      }
+    };
+
+    // Handle account change events
+    const handleAccountsChanged = accounts => {
+      if (Array.isArray(accounts) && accounts.length > 0) {
+        const newAccount = accounts[0];
+
+        // Only update if the account has actually changed
+        if (
+          newAccount &&
+          newAccount.toLowerCase() !== walletState.account?.toLowerCase()
+        ) {
+          // Clear any pending operations
+          if (safetyTimeoutRef.current) {
+            clearTimeout(safetyTimeoutRef.current);
+            safetyTimeoutRef.current = null;
+          }
+
+          // Update the wallet state with the new account
+          walletState.updateAccount(newAccount);
+
+          // Invalidate any queries that depend on the account
+          if (queryClient) {
+            queryClient.invalidateQueries();
+          }
+
+          // Notify the user
+          addToast('Account changed successfully', 'info');
+        }
+      } else if (walletState.account) {
+        // User disconnected/switched to no account
+        walletState.handleLogout();
+      }
+    };
+
+    // Initialize chain ID once on component mount
+    const initializeChainId = async () => {
+      try {
+        if (window.ethereum && typeof window.ethereum.request === 'function') {
+          const chainId = await window.ethereum.request({
+            method: 'eth_chainId',
+          });
+          if (chainId) {
+            handleChainChanged(chainId);
+          }
+        } else if (
+          walletState.provider &&
+          typeof walletState.provider.getNetwork === 'function'
+        ) {
+          const network = await walletState.provider.getNetwork();
+          if (network && network.chainId) {
+            handleChainChanged(network.chainId);
+          }
+        }
+      } catch (error) {
+        // Silently handle errors
+      }
+    };
+
+    // Different providers expose different events
+    const setupListeners = () => {
+      // Modern wallet providers
+      if (window.ethereum && typeof window.ethereum.on === 'function') {
+        window.ethereum.on('chainChanged', handleChainChanged);
+        window.ethereum.on('accountsChanged', handleAccountsChanged);
+
+        return () => {
+          if (typeof window.ethereum.removeListener === 'function') {
+            window.ethereum.removeListener('chainChanged', handleChainChanged);
+            window.ethereum.removeListener(
+              'accountsChanged',
+              handleAccountsChanged
+            );
+          }
+        };
+      }
+
+      // ethers.js provider might have events
+      if (
+        walletState.provider &&
+        typeof walletState.provider.on === 'function'
+      ) {
+        walletState.provider.on('chainChanged', handleChainChanged);
+        walletState.provider.on('accountsChanged', handleAccountsChanged);
+        walletState.provider.on('network', (newNetwork, oldNetwork) => {
+          if (oldNetwork) {
+            handleChainChanged(newNetwork.chainId);
+          }
+        });
+
+        return () => {
+          if (typeof walletState.provider.removeListener === 'function') {
+            walletState.provider.removeListener(
+              'chainChanged',
+              handleChainChanged
+            );
+            walletState.provider.removeListener(
+              'accountsChanged',
+              handleAccountsChanged
+            );
+            walletState.provider.removeListener('network', handleChainChanged);
+          }
+        };
+      }
+
+      // For providers without events, we could set up a polling mechanism
+      // But that's a fallback and might not be necessary
+      return () => {};
+    };
+
+    // Initialize chain ID on mount
+    initializeChainId();
+
+    // Set up event listeners
+    const cleanupListeners = setupListeners();
+
+    // Return cleanup function
+    return cleanupListeners;
+  }, [
+    walletState.provider,
+    walletState.chainId,
+    walletState.account,
+    walletState.updateChainId,
+    walletState.updateAccount,
+    walletState.handleLogout,
+    addToast,
+    queryClient,
   ]);
 
   return (

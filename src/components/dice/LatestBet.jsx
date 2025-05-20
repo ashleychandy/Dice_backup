@@ -587,7 +587,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
                 Last Bet
               </span>
               <div className="flex items-center">
-                <div className="h-6 w-6 rounded-full bg-white flex items-center justify-center mr-1.5 text-xs font-mono font-medium border border-gray-100">
+                <div className="h-6 w-6 rounded-full bg-white flex items-center justify-center mr-1.5 text-xs font-mono font-medium border border-gray-100 text-gray-700">
                   {latestHistoryBet.rolledNumber >= 1 &&
                   latestHistoryBet.rolledNumber <= 6
                     ? latestHistoryBet.rolledNumber

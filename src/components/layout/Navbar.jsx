@@ -87,6 +87,36 @@ const Navbar = () => {
         </div>
 
         <div className="hidden sm:flex items-center gap-4">
+          <a
+            href="https://roulette.gamacoin.ai/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`${
+              isScrolled ? 'text-gray-600' : 'text-white'
+            } hover:text-[#22AD74] transition-all duration-300 flex items-center gap-2 font-medium hover:-translate-y-0.5`}
+          >
+            Roulette
+          </a>
+
+          <div
+            className={`h-4 w-px ${isScrolled ? 'bg-gray-200' : 'bg-white/30'}`}
+          ></div>
+
+          <a
+            href="https://flipcoin.gamacoin.ai/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`${
+              isScrolled ? 'text-gray-600' : 'text-white'
+            } hover:text-[#22AD74] transition-all duration-300 flex items-center gap-2 font-medium hover:-translate-y-0.5`}
+          >
+            Coin Flip
+          </a>
+
+          <div
+            className={`h-4 w-px ${isScrolled ? 'bg-gray-200' : 'bg-white/30'}`}
+          ></div>
+
           <button
             onClick={() =>
               window.open(

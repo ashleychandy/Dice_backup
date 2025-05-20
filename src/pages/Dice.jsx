@@ -825,7 +825,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                                   Minimum Bet:
                                 </td>
                                 <td className="py-1.5 text-right font-medium text-gray-800">
-                                  Any non-zero amount
+                                  1 GAMA
                                 </td>
                               </tr>
                               <tr className="border-b border-gray-100">

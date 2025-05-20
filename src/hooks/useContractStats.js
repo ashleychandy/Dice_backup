@@ -33,7 +33,6 @@ export const useContractStats = () => {
         const [
           totalGamesResult,
           totalPayoutResult,
-          totalWageredResult,
           maxBetAmountResult,
           maxHistorySizeResult,
         ] = await Promise.allSettled([
@@ -48,12 +47,6 @@ export const useContractStats = () => {
             'totalPayoutAmount',
             [],
             defaultStats.totalPayout
-          ),
-          safeContractCall(
-            contract,
-            'totalWageredAmount',
-            [],
-            defaultStats.totalWagered
           ),
           safeContractCall(
             contract,
@@ -80,11 +73,6 @@ export const useContractStats = () => {
             ? totalPayoutResult.value.toString()
             : defaultStats.totalPayout;
 
-        const totalWagered =
-          totalWageredResult.status === 'fulfilled'
-            ? totalWageredResult.value.toString()
-            : defaultStats.totalWagered;
-
         const maxBetAmount =
           maxBetAmountResult.status === 'fulfilled'
             ? maxBetAmountResult.value.toString()
@@ -98,7 +86,7 @@ export const useContractStats = () => {
         return {
           totalGames,
           totalPayout,
-          totalWagered,
+          totalWagered: '0', // Remove totalWagered as it's not accessible as a function
           maxBetAmount,
           maxHistorySize,
         };

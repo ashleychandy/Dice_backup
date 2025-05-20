@@ -62,24 +62,6 @@ const AppRoutes = () => {
       diceContract = contracts.dice;
     }
 
-    // Add the placeBet method to the dice contract if it has playDice but not placeBet
-    if (
-      diceContract &&
-      typeof diceContract.playDice === 'function' &&
-      typeof diceContract.placeBet !== 'function'
-    ) {
-      diceContract.placeBet = diceContract.playDice.bind(diceContract);
-    }
-
-    // Add the playDice method to the dice contract if it has placeBet but not playDice
-    if (
-      diceContract &&
-      typeof diceContract.placeBet === 'function' &&
-      typeof diceContract.playDice !== 'function'
-    ) {
-      diceContract.playDice = diceContract.placeBet.bind(diceContract);
-    }
-
     return {
       token: tokenContract,
       dice: diceContract,

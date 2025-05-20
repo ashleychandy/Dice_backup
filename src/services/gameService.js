@@ -26,17 +26,11 @@ class GameService {
       throw new Error('Invalid dice contract: missing playDice method');
     }
 
-    if (!this.diceContract.placeBet) {
-      this.diceContract.placeBet = function (chosenNumber, amount, options) {
-        return this.playDice(chosenNumber, amount, options);
-      };
-    }
-
     return this;
   }
 
-  // Place a bet on the dice game
-  async placeBet(chosenNumber, amount) {
+  // Play dice game
+  async playDice(chosenNumber, amount) {
     if (!this.diceContract) {
       throw new Error('Dice contract not initialized');
     }
@@ -63,7 +57,6 @@ class GameService {
       throw this.parseContractError(error);
     }
   }
-
 
   // Parse contract errors
   parseContractError(error) {
@@ -120,6 +113,5 @@ class GameService {
     return amount * BigInt(2);
   }
 }
-
 
 export default new GameService();

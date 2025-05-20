@@ -164,16 +164,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
   // Always invalidate balance data when component mounts or account/contracts change
   useEffect(() => {
-    // Add placeBet method to contract if it has playDice but not placeBet
-    if (
-      contracts?.dice &&
-      typeof contracts.dice.playDice === 'function' &&
-      typeof contracts.dice.placeBet !== 'function'
-    ) {
-      // Use bind to ensure 'this' context is preserved
-      contracts.dice.placeBet = contracts.dice.playDice.bind(contracts.dice);
-    }
-
     // Invalidate balance data when account or contracts change
     if (walletAccount && contracts?.token) {
       invalidateQueries(['balance']);
@@ -559,22 +549,14 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           // Place bet
           let tx;
           try {
-            if (typeof contracts.dice.placeBet === 'function') {
-              tx = await contracts.dice.placeBet(
-                chosenNumberBigInt,
-                betAmount,
-                txOptions
-              );
-            } else if (typeof contracts.dice.playDice === 'function') {
+            if (typeof contracts.dice.playDice === 'function') {
               tx = await contracts.dice.playDice(
                 chosenNumberBigInt,
                 betAmount,
                 txOptions
               );
             } else {
-              throw new Error(
-                'No valid dice method found (placeBet or playDice)'
-              );
+              throw new Error('playDice method not found in dice contract');
             }
             pendingTxRef.current = tx;
           } catch (txError) {

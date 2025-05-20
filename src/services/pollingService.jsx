@@ -21,7 +21,6 @@ export const PollingProvider = ({
   const [gameData, setGameData] = useState({
     gameStatus: null,
     betHistory: [],
-    contractStats: null,
     isLoading: true,
     lastUpdated: null,
     error: null,
@@ -66,8 +65,6 @@ export const PollingProvider = ({
         typeof currentContract.getGameStatus === 'function';
       const hasGetBetHistory =
         typeof currentContract.getBetHistory === 'function';
-      const hasGetContractStats =
-        typeof currentContract.getContractStats === 'function';
 
       // Define promises based on available methods
       let promises = [];
@@ -103,24 +100,12 @@ export const PollingProvider = ({
         promiseTypes.push('betHistory');
       }
 
-      // 3. Contract stats (only if method exists)
-      if (hasGetContractStats) {
-        promises.push(
-          currentContract.getContractStats().catch(_error => {
-            // Handle error silently
-            return null;
-          })
-        );
-        promiseTypes.push('contractStats');
-      }
-
       // Wait for all promises to resolve
       const results = await Promise.allSettled(promises);
 
       // Extract results
       let gameStatus = {};
       let betHistory = [];
-      let contractStats = null;
       let userHasPlacedBets = false;
 
       // Process results by checking the type we stored
@@ -159,8 +144,6 @@ export const PollingProvider = ({
             if (betHistory && betHistory.length > 0) {
               userHasPlacedBets = true;
             }
-          } else if (type === 'contractStats') {
-            contractStats = result.value;
           }
         }
       });
@@ -169,7 +152,6 @@ export const PollingProvider = ({
       setGameData({
         gameStatus,
         betHistory,
-        contractStats,
         isLoading: false,
         lastUpdated: Date.now(),
         error: null,
@@ -250,43 +232,25 @@ export const PollingProvider = ({
       return () => clearInterval(intervalId);
     }
 
-    // If new user and no active game, don't set up polling
     return undefined;
-  }, [fetchData, currentPollingInterval]);
+  }, [currentPollingInterval, hasActiveGame, fetchData]);
 
-  // Create a manual refresh function that uses the useCallback for stability
-  const refreshData = useCallback(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // Value to be provided through context
-  const contextValue = {
-    // Game data
-    gameStatus: gameData.gameStatus,
-    betHistory: gameData.betHistory,
-    contractStats: gameData.contractStats,
-    isNewUser: gameData.isNewUser,
-
-    // Status indicators
-    isLoading: gameData.isLoading,
-    error: gameData.error,
-    lastUpdated: gameData.lastUpdated,
-
-    // Methods
-    refreshData,
+  // Expose functions and state
+  const value = {
+    ...gameData,
+    refreshData: fetchData,
+    hasActiveGame,
   };
 
   return (
-    <PollingContext.Provider value={contextValue}>
-      {children}
-    </PollingContext.Provider>
+    <PollingContext.Provider value={value}>{children}</PollingContext.Provider>
   );
 };
 
-// Custom hook to use the polling service
+// Custom hook for using the game data
 export const usePollingService = () => {
   const context = useContext(PollingContext);
-  if (!context) {
+  if (context === null) {
     throw new Error('usePollingService must be used within a PollingProvider');
   }
   return context;

@@ -8,4 +8,6 @@ should not show not approved, game history
 
 vite config check
 
-after bet is finished
+latest roll last bet not visible as white
+
+pending and active overlapping in vrf history

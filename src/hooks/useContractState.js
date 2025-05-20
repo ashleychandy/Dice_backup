@@ -74,8 +74,7 @@ export const useContractState = () => {
         error => {
           throw error;
         }, // Rethrow to trigger onError
-        addToast,
-        { gasLimit: ethers.parseUnits('200000', 'wei') }
+        addToast
       );
 
       if (!tx) throw new Error('Failed to pause contract');
@@ -108,8 +107,7 @@ export const useContractState = () => {
         error => {
           throw error;
         }, // Rethrow to trigger onError
-        addToast,
-        { gasLimit: ethers.parseUnits('200000', 'wei') }
+        addToast
       );
 
       if (!tx) throw new Error('Failed to unpause contract');

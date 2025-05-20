@@ -645,9 +645,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           }
 
           // Add transaction options
-          const txOptions = {
-            gasLimit: ethers.parseUnits('500000', 'wei'),
-          };
+          const txOptions = {};
 
           // Place bet
           let tx;

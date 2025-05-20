@@ -264,8 +264,7 @@ export const checkAndApproveToken = async (
               estimatedGas = ethers.parseUnits('100000', 'wei'); // fallback gas estimate
             }
 
-            const requiredGas =
-              (gasPrice * estimatedGas * BigInt(12)) / BigInt(10); // 1.2x for safety margin
+            const requiredGas = gasPrice * estimatedGas; // Use exact estimated gas without buffer
 
             if (balance < requiredGas) {
               if (addToast)
@@ -323,9 +322,7 @@ export const checkAndApproveToken = async (
         const maxApproval = ethers.MaxUint256;
 
         // Request approval with max amount
-        const tx = await tokenContract.approve(spenderAddress, maxApproval, {
-          gasLimit: ethers.parseUnits('300000', 'wei'), // Set a reasonable gas limit
-        });
+        const tx = await tokenContract.approve(spenderAddress, maxApproval);
 
         if (addToast) addToast('Token approval transaction sent', 'info');
 

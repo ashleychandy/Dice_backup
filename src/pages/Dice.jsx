@@ -628,23 +628,23 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                           className="text-[#22AD74] text-xl"
                         />
                       </div>
-                      <h3 className="text-xl font-semibold mb-3 text-[#22AD74]">
+                      <h3 className="text-xl font-semibold mb-4 text-[#22AD74]">
                         How to Play
                       </h3>
-                      <ul className="space-y-3 text-gray-700">
-                        <li className="flex items-start gap-2">
+                      <ul className="space-y-3.5 text-gray-700">
+                        <li className="flex items-start gap-3">
                           <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
                             1
                           </div>
                           <span>Choose a number between 1 and 6</span>
                         </li>
-                        <li className="flex items-start gap-2">
+                        <li className="flex items-start gap-3">
                           <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
                             2
                           </div>
                           <span>Enter your bet amount in GAMA tokens</span>
                         </li>
-                        <li className="flex items-start gap-2">
+                        <li className="flex items-start gap-3">
                           <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
                             3
                           </div>
@@ -652,13 +652,13 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                             Click &quot;Roll Dice&quot; to place your bet
                           </span>
                         </li>
-                        <li className="flex items-start gap-2">
+                        <li className="flex items-start gap-3">
                           <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
                             4
                           </div>
                           <span>Wait for the blockchain verification</span>
                         </li>
-                        <li className="flex items-start gap-2">
+                        <li className="flex items-start gap-3">
                           <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
                             5
                           </div>
@@ -682,29 +682,44 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                           className="text-[#22AD74] text-xl"
                         />
                       </div>
-                      <h3 className="text-xl font-semibold mb-3 text-[#22AD74]">
+                      <h3 className="text-xl font-semibold mb-4 text-[#22AD74]">
                         Odds & Payouts
                       </h3>
                       <div className="space-y-3 text-gray-700">
-                        <p className="flex justify-between border-b border-gray-100 pb-2">
-                          <span>Win Probability:</span>
-                          <span className="font-semibold">16.67%</span>
-                        </p>
-                        <p className="flex justify-between border-b border-gray-100 pb-2">
-                          <span>Payout Multiplier:</span>
-                          <span className="font-semibold text-[#22AD74]">
-                            6x
-                          </span>
-                        </p>
-                        <p className="flex justify-between border-b border-gray-100 pb-2">
-                          <span>House Edge:</span>
-                          <span className="font-semibold">0%</span>
-                        </p>
-                        <div className="pt-3">
+                        <table className="w-full">
+                          <tbody>
+                            <tr className="border-b border-gray-100">
+                              <td className="py-2.5">Win Probability:</td>
+                              <td className="py-2.5 text-right font-semibold">
+                                16.67% (1/6)
+                              </td>
+                            </tr>
+                            <tr className="border-b border-gray-100">
+                              <td className="py-2.5">Payout Multiplier:</td>
+                              <td className="py-2.5 text-right font-semibold text-[#22AD74]">
+                                6x
+                              </td>
+                            </tr>
+                            <tr className="border-b border-gray-100">
+                              <td className="py-2.5">House Edge:</td>
+                              <td className="py-2.5 text-right font-semibold">
+                                0%
+                              </td>
+                            </tr>
+                            <tr className="border-b border-gray-100">
+                              <td className="py-2.5">Dice Outcome Range:</td>
+                              <td className="py-2.5 text-right font-semibold">
+                                1-6
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        <div className="pt-3 mt-1">
                           <p className="text-sm text-gray-600">
-                            For each number, you have a 1-in-6 chance of
-                            winning. When you win, you receive 6x your bet
-                            amount giving the game a 0% house edge.
+                            For each dice roll, you choose one number from 1 to
+                            6. When you win (the roll matches your chosen
+                            number), you receive 6x your bet amount, giving the
+                            game a true 0% house edge with fair odds.
                           </p>
                           <p className="text-xs text-[#22AD74] italic mt-2">
                             Note: Blockchain transaction fees apply to all bets
@@ -726,10 +741,10 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                           className="text-[#22AD74] text-xl"
                         />
                       </div>
-                      <h3 className="text-xl font-semibold mb-3 text-[#22AD74]">
+                      <h3 className="text-xl font-semibold mb-4 text-[#22AD74]">
                         Verifiable Fairness
                       </h3>
-                      <div className="space-y-3 text-gray-700">
+                      <div className="space-y-3.5 text-gray-700">
                         <p>
                           GAMA Dice uses{' '}
                           <span className="font-medium">
@@ -737,24 +752,36 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                           </span>{' '}
                           to ensure complete fairness and transparency.
                         </p>
-                        <div className="bg-[#22AD74]/5 rounded-lg p-3 text-sm">
-                          <p className="font-medium mb-1">How VRF works:</p>
-                          <ol className="list-decimal list-inside space-y-1 text-gray-600">
-                            <li>Your bet generates a random number request</li>
+                        <div className="bg-[#22AD74]/5 rounded-lg p-4 text-sm">
+                          <p className="font-medium mb-2">How VRF works:</p>
+                          <ol className="list-decimal list-inside space-y-2 text-gray-600">
                             <li>
-                              Plugin VRF provides cryptographically secure
+                              When you place a bet, GAMA tokens are burned from
+                              your wallet
+                            </li>
+                            <li>
+                              Your bet generates a secure random number request
+                              via Plugin VRF
+                            </li>
+                            <li>
+                              The VRF oracle provides cryptographically secure
                               randomness
                             </li>
                             <li>
                               The dice result is determined transparently
                               on-chain
                             </li>
+                            <li>
+                              If you win, your payout is minted directly to your
+                              wallet
+                            </li>
                           </ol>
                         </div>
-                        <p className="text-sm mt-2">
+                        <p className="text-sm">
                           In rare cases where VRF confirmation takes longer than
-                          usual, the recovery option becomes available after 1
-                          hour, allowing you to recover your bet amount safely.
+                          usual, a recovery option becomes available after the
+                          required conditions are met. This allows you to
+                          recover your original bet amount safely.
                         </p>
                       </div>
                     </motion.div>
@@ -766,7 +793,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                     transition={{ delay: 0.4 }}
                     className="mt-8 p-5 bg-[#22AD74]/5 rounded-xl border border-[#22AD74]/10"
                   >
-                    <h4 className="font-semibold text-[#22AD74] mb-3 flex items-center">
+                    <h4 className="font-semibold text-[#22AD74] mb-4 flex items-center">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         className="h-5 w-5 mr-2"
@@ -783,32 +810,66 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                       </svg>
                       Important Game Information
                     </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
-                      <div>
-                        <p className="mb-2">
-                          <span className="font-medium">Minimum Bet:</span> 1
-                          GAMA token
-                        </p>
-                        <p className="mb-2">
-                          <span className="font-medium">Maximum Bet:</span>{' '}
-                          1,000 GAMA tokens
-                        </p>
-                        <p>
-                          <span className="font-medium">Maximum Win:</span>{' '}
-                          6,000 GAMA tokens
-                        </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Left Column */}
+                      <div className="space-y-4">
+                        <div className="bg-white/40 rounded-lg p-4 shadow-sm">
+                          <h5 className="font-medium text-[#22AD74] mb-2 text-sm">
+                            Betting Limits
+                          </h5>
+                          <table className="w-full text-sm">
+                            <tbody>
+                              <tr className="border-b border-gray-100">
+                                <td className="py-1.5 text-gray-700">
+                                  Minimum Bet:
+                                </td>
+                                <td className="py-1.5 text-right font-medium text-gray-800">
+                                  Any non-zero amount
+                                </td>
+                              </tr>
+                              <tr className="border-b border-gray-100">
+                                <td className="py-1.5 text-gray-700">
+                                  Maximum Bet:
+                                </td>
+                                <td className="py-1.5 text-right font-medium text-gray-800">
+                                  10,000,000 GAMA
+                                </td>
+                              </tr>
+                              <tr>
+                                <td className="py-1.5 text-gray-700">
+                                  Maximum Win:
+                                </td>
+                                <td className="py-1.5 text-right font-medium text-gray-800">
+                                  60,000,000 GAMA
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
-                      <div>
-                        <p className="mb-2">
-                          <span className="font-medium">Game History:</span>{' '}
-                          View your past bets and results in the Game History
-                          section
-                        </p>
-                        <p>
-                          <span className="font-medium">Recovery Window:</span>{' '}
-                          Bets that aren&apos;t verified within 1 hour can be
-                          refunded through the recovery option
-                        </p>
+
+                      {/* Right Column */}
+                      <div className="space-y-4">
+                        <div className="bg-white/40 rounded-lg p-4 shadow-sm h-full">
+                          <h5 className="font-medium text-[#22AD74] mb-2 text-sm">
+                            Recovery System
+                          </h5>
+                          <p className="text-sm text-gray-700 mb-2">
+                            Bets become eligible for refund when both conditions
+                            are met:
+                          </p>
+                          <ul className="list-disc ml-5 space-y-1.5 text-sm text-gray-700">
+                            <li>
+                              At least 1 hour has passed since placing bet
+                            </li>
+                            <li>At least 300 blocks have been mined</li>
+                          </ul>
+                          <p className="text-xs text-gray-500 mt-3 italic">
+                            Recovery can be initiated from the game interface
+                            when eligible
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </motion.div>

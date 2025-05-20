@@ -127,21 +127,23 @@ const Navbar = () => {
                 className={`px-4 py-2 rounded-lg text-sm ${
                   isScrolled
                     ? 'bg-[#22AD74]/5 border border-[#22AD74]/20'
-                    : 'bg-black/20 backdrop-blur-sm border border-white/20'
+                    : 'bg-[#22AD74]/20 backdrop-blur-sm border border-white/20'
                 } hover:bg-[#22AD74]/10 transition-colors flex items-center gap-2`}
               >
                 <div
                   className="w-2.5 h-2.5 rounded-full mr-1"
                   style={{
-                    backgroundColor: currentNetwork?.color || '#22AD74',
+                    backgroundColor: '#22AD74',
                   }}
                 ></div>
-                <span className={isScrolled ? 'text-gray-900' : 'text-white'}>
+                <span
+                  className={isScrolled ? 'text-gray-900' : 'text-gray-900'}
+                >
                   {account.slice(0, 6)}...{account.slice(-4)}
                 </span>
                 <svg
                   className={`w-4 h-4 ${
-                    isScrolled ? 'text-gray-600' : 'text-white/80'
+                    isScrolled ? 'text-gray-600' : 'text-gray-600'
                   } transition-transform duration-200 ${
                     dropdownOpen ? 'rotate-180' : ''
                   }`}

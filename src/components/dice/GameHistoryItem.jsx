@@ -247,25 +247,9 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
             repeatType: 'reverse',
           },
         }}
-        className={`rounded-xl border ${cardStyles.background} ${cardStyles.shadow} overflow-hidden hover:shadow-lg transition-all h-full ${game.isActiveGame ? 'border-purple-500' : ''}`}
+        className={`rounded-xl border ${cardStyles.background} ${cardStyles.shadow} overflow-hidden hover:shadow-lg transition-all h-full`}
       >
         <div className="p-4 h-full flex flex-col relative">
-          {/* Active game badge */}
-          {game.isActiveGame && (
-            <div className="absolute top-0 right-0 p-1">
-              <span className="inline-flex items-center px-2 py-1 text-xs font-medium leading-none text-purple-700 bg-purple-100 rounded-full">
-                <motion.span
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                  className="mr-1"
-                >
-                  <FontAwesomeIcon icon={faSync} className="h-3 w-3" />
-                </motion.span>
-                Active
-              </span>
-            </div>
-          )}
-
           {/* Decorative circles for visual appeal */}
           <div className="absolute -top-6 -right-6 w-16 h-16 rounded-full bg-white/20 blur-sm"></div>
           <div className="absolute -bottom-8 -left-8 w-20 h-20 rounded-full bg-white/30 blur-sm"></div>

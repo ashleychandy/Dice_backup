@@ -190,7 +190,7 @@ const WelcomeNewUser = () => (
   </motion.div>
 );
 
-const GameHistory = ({ account, onError }) => {
+const GameHistory = ({ account, onError, hideHeading = false }) => {
   const [filter, setFilter] = useState('all');
   const { contract: diceContract, isLoading: isContractLoading } =
     useDiceContract();
@@ -425,12 +425,14 @@ const GameHistory = ({ account, onError }) => {
         transition={{ type: 'spring', stiffness: 300, damping: 25 }}
         data-section="game-history"
       >
-        <div className="mb-4">
-          <h2 className="text-2xl font-bold text-secondary-800 mb-1">
-            Game History
-          </h2>
-          <p className="text-secondary-600">Your recent dice game results</p>
-        </div>
+        {!hideHeading && (
+          <div className="mb-4">
+            <h2 className="text-2xl font-bold text-secondary-800 mb-1">
+              Game History
+            </h2>
+            <p className="text-secondary-600">Your recent dice game results</p>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2 mb-6">
           <Tab
@@ -481,52 +483,54 @@ const GameHistory = ({ account, onError }) => {
       className="space-y-6"
       data-section="game-history"
     >
-      <div className="mb-4 flex justify-between items-center">
-        <div>
-          <motion.h2
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-2xl font-bold text-secondary-800 mb-1"
-          >
-            Game History
-          </motion.h2>
-          <motion.p
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-secondary-600"
-          >
-            Your recent dice game results
-          </motion.p>
-        </div>
+      {!hideHeading && (
+        <div className="mb-4 flex justify-between items-center">
+          <div>
+            <motion.h2
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-2xl font-bold text-secondary-800 mb-1"
+            >
+              Game History
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="text-secondary-600"
+            >
+              Your recent dice game results
+            </motion.p>
+          </div>
 
-        <motion.button
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => {
-            forceRefresh();
-          }}
-          className="px-4 py-2 bg-[#22AD74]/10 hover:bg-[#22AD74]/20 text-[#22AD74] rounded-xl font-medium flex items-center gap-2 border border-[#22AD74]/20"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+          <motion.button
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              forceRefresh();
+            }}
+            className="px-4 py-2 bg-[#22AD74]/10 hover:bg-[#22AD74]/20 text-[#22AD74] rounded-xl font-medium flex items-center gap-2 border border-[#22AD74]/20"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-          Refresh
-        </motion.button>
-      </div>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            Refresh
+          </motion.button>
+        </div>
+      )}
 
       <motion.div
         initial={{ opacity: 0, y: -10 }}

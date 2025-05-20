@@ -1,11 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   faRandom,
   faDice,
   faCubes,
   faChartLine,
+  faChevronDown,
+  faChevronUp,
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
@@ -210,6 +212,10 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
     // Call the original bet handler
     handlePlaceBet();
   }, [handlePlaceBet, chosenNumber, betAmount, gameState.lastResult]);
+
+  // Add state for dropdown sections
+  const [isRulesOpen, setIsRulesOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(true);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -471,208 +477,345 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
           </div>
         </div>
 
-        {/* Game History & Stats */}
+        {/* Game History & Stats - with dropdown */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.5 }}
-          className="bg-white backdrop-blur-md rounded-xl border border-secondary-200 p-6 shadow-xl"
+          className="bg-white backdrop-blur-md rounded-xl border border-secondary-200 shadow-xl overflow-hidden"
           data-section="game-history"
         >
-          <h2 className="text-2xl font-bold text-secondary-800 mb-6">
-            Game History
-          </h2>
+          <div
+            className="p-6 flex justify-between items-center cursor-pointer relative z-10 hover:bg-gray-50/50 transition-colors duration-200"
+            onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+            role="button"
+            aria-expanded={isHistoryOpen}
+            tabIndex={0}
+            onKeyPress={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                setIsHistoryOpen(!isHistoryOpen);
+              }
+            }}
+          >
+            <h2 className="text-2xl font-bold text-secondary-800">
+              Game History
+            </h2>
+            <motion.div
+              animate={{ rotate: isHistoryOpen ? 180 : 0 }}
+              transition={{ duration: 0.3 }}
+              className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 hover:text-gray-700"
+            >
+              <FontAwesomeIcon icon={faChevronDown} />
+            </motion.div>
 
-          <GameHistory
-            account={account}
-            diceContract={contracts?.dice}
-            onError={onError}
-          />
+            {/* Invisible overlay to increase clickable area */}
+            <div
+              className="absolute inset-0 z-0"
+              onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+            ></div>
+          </div>
+
+          <AnimatePresence>
+            {isHistoryOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="overflow-hidden relative z-0"
+              >
+                <div className="px-6 pb-6">
+                  <div className="flex justify-end mb-4">
+                    <motion.button
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => refreshData()}
+                      className="px-4 py-2 bg-[#22AD74]/10 hover:bg-[#22AD74]/20 text-[#22AD74] rounded-xl font-medium flex items-center gap-2 border border-[#22AD74]/20"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
+                      </svg>
+                      Refresh History
+                    </motion.button>
+                  </div>
+                  <GameHistory
+                    account={account}
+                    diceContract={contracts?.dice}
+                    onError={onError}
+                    hideHeading={true}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
 
-        {/* Game rules and odds - Enhanced & Modernized */}
+        {/* Game rules and odds - Enhanced & Modernized with dropdown */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.6 }}
-          className="bg-white/90 backdrop-blur-md rounded-xl border border-[#22AD74]/20 p-8 shadow-xl relative overflow-hidden"
+          className="bg-white/90 backdrop-blur-md rounded-xl border border-[#22AD74]/20 shadow-xl relative overflow-hidden"
         >
           {/* Decorative elements */}
-          <div className="absolute -top-16 -right-16 w-40 h-40 bg-[#22AD74]/10 rounded-full opacity-30 blur-2xl"></div>
-          <div className="absolute -bottom-20 -left-20 w-52 h-52 bg-[#22AD74]/10 rounded-full opacity-30 blur-3xl"></div>
+          <div className="absolute -top-16 -right-16 w-40 h-40 bg-[#22AD74]/10 rounded-full opacity-30 blur-2xl pointer-events-none"></div>
+          <div className="absolute -bottom-20 -left-20 w-52 h-52 bg-[#22AD74]/10 rounded-full opacity-30 blur-3xl pointer-events-none"></div>
 
-          <h2 className="text-2xl font-bold mb-6 text-[#22AD74] bg-clip-text text-transparent bg-gradient-to-r from-[#22AD74] to-[#22AD74]/70">
-            Game Rules & Odds
-          </h2>
+          <div
+            className="p-8 flex justify-between items-center cursor-pointer relative z-10 hover:bg-[#22AD74]/5 transition-colors duration-200"
+            onClick={() => setIsRulesOpen(!isRulesOpen)}
+            role="button"
+            aria-expanded={isRulesOpen}
+            tabIndex={0}
+            onKeyPress={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                setIsRulesOpen(!isRulesOpen);
+              }
+            }}
+          >
+            <h2 className="text-2xl font-bold text-[#22AD74] bg-clip-text text-transparent bg-gradient-to-r from-[#22AD74] to-[#22AD74]/70">
+              Game Rules & Odds
+            </h2>
+            <motion.div
+              animate={{ rotate: isRulesOpen ? 180 : 0 }}
+              transition={{ duration: 0.3 }}
+              className="w-10 h-10 bg-[#22AD74]/10 rounded-full flex items-center justify-center text-[#22AD74] hover:bg-[#22AD74]/20"
+            >
+              <FontAwesomeIcon icon={faChevronDown} className="text-lg" />
+            </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* How to Play */}
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-[#22AD74]/10 p-6 shadow-sm transition-all hover:shadow-md">
-              <div className="w-12 h-12 rounded-full bg-[#22AD74]/10 flex items-center justify-center mb-4">
-                <FontAwesomeIcon
-                  icon={faDice}
-                  className="text-[#22AD74] text-xl"
-                />
-              </div>
-              <h3 className="text-xl font-semibold mb-3 text-[#22AD74]">
-                How to Play
-              </h3>
-              <ul className="space-y-3 text-gray-700">
-                <li className="flex items-start gap-2">
-                  <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
-                    1
-                  </div>
-                  <span>Choose a number between 1 and 6</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
-                    2
-                  </div>
-                  <span>Enter your bet amount in GAMA tokens</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
-                    3
-                  </div>
-                  <span>Click &quot;Roll Dice&quot; to place your bet</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
-                    4
-                  </div>
-                  <span>Wait for the blockchain verification</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
-                    5
-                  </div>
-                  <span>If the dice rolls your number, you win instantly!</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Odds & Payouts */}
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-[#22AD74]/10 p-6 shadow-sm transition-all hover:shadow-md">
-              <div className="w-12 h-12 rounded-full bg-[#22AD74]/10 flex items-center justify-center mb-4">
-                <FontAwesomeIcon
-                  icon={faChartLine}
-                  className="text-[#22AD74] text-xl"
-                />
-              </div>
-              <h3 className="text-xl font-semibold mb-3 text-[#22AD74]">
-                Odds & Payouts
-              </h3>
-              <div className="space-y-3 text-gray-700">
-                <p className="flex justify-between border-b border-gray-100 pb-2">
-                  <span>Win Probability:</span>
-                  <span className="font-semibold">16.67%</span>
-                </p>
-                <p className="flex justify-between border-b border-gray-100 pb-2">
-                  <span>Payout Multiplier:</span>
-                  <span className="font-semibold text-[#22AD74]">6x</span>
-                </p>
-                <p className="flex justify-between border-b border-gray-100 pb-2">
-                  <span>House Edge:</span>
-                  <span className="font-semibold">0%</span>
-                </p>
-                <div className="pt-3">
-                  <p className="text-sm text-gray-600">
-                    For each number, you have a 1-in-6 chance of winning. When
-                    you win, you receive 6x your bet amount giving the game a 0%
-                    house edge.
-                  </p>
-                  <p className="text-xs text-[#22AD74] italic mt-2">
-                    Note: Blockchain transaction fees apply to all bets
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Blockchain Verification */}
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-[#22AD74]/10 p-6 shadow-sm transition-all hover:shadow-md">
-              <div className="w-12 h-12 rounded-full bg-[#22AD74]/10 flex items-center justify-center mb-4">
-                <FontAwesomeIcon
-                  icon={faRandom}
-                  className="text-[#22AD74] text-xl"
-                />
-              </div>
-              <h3 className="text-xl font-semibold mb-3 text-[#22AD74]">
-                Verifiable Fairness
-              </h3>
-              <div className="space-y-3 text-gray-700">
-                <p>
-                  GAMA Dice uses{' '}
-                  <span className="font-medium">
-                    Plugin&apos;s Verifiable Random Function (VRF)
-                  </span>{' '}
-                  to ensure complete fairness and transparency.
-                </p>
-                <div className="bg-[#22AD74]/5 rounded-lg p-3 text-sm">
-                  <p className="font-medium mb-1">How VRF works:</p>
-                  <ol className="list-decimal list-inside space-y-1 text-gray-600">
-                    <li>Your bet generates a random number request</li>
-                    <li>
-                      Plugin VRF provides cryptographically secure randomness
-                    </li>
-                    <li>
-                      The dice result is determined transparently on-chain
-                    </li>
-                  </ol>
-                </div>
-                <p className="text-sm mt-2">
-                  In rare cases where VRF confirmation takes longer than usual,
-                  the recovery option becomes available after 1 hour, allowing
-                  you to recover your bet amount safely.
-                </p>
-              </div>
-            </div>
+            {/* Invisible overlay to increase clickable area */}
+            <div
+              className="absolute inset-0 z-0"
+              onClick={() => setIsRulesOpen(!isRulesOpen)}
+            ></div>
           </div>
 
-          <div className="mt-8 p-5 bg-[#22AD74]/5 rounded-xl border border-[#22AD74]/10">
-            <h4 className="font-semibold text-[#22AD74] mb-3 flex items-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+          <AnimatePresence>
+            {isRulesOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                className="overflow-hidden relative z-0"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              Important Game Information
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
-              <div>
-                <p className="mb-2">
-                  <span className="font-medium">Minimum Bet:</span> 1 GAMA token
-                </p>
-                <p className="mb-2">
-                  <span className="font-medium">Maximum Bet:</span> 1,000 GAMA
-                  tokens
-                </p>
-                <p>
-                  <span className="font-medium">Maximum Win:</span> 6,000 GAMA
-                  tokens
-                </p>
-              </div>
-              <div>
-                <p className="mb-2">
-                  <span className="font-medium">Game History:</span> View your
-                  past bets and results in the Game History section
-                </p>
-                <p>
-                  <span className="font-medium">Recovery Window:</span> Bets
-                  that aren&apos;t verified within 1 hour can be refunded
-                  through the recovery option
-                </p>
-              </div>
-            </div>
-          </div>
+                <div className="px-8 pb-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* How to Play */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="bg-white/60 backdrop-blur-sm rounded-xl border border-[#22AD74]/10 p-6 shadow-sm transition-all hover:shadow-md hover:border-[#22AD74]/30"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-[#22AD74]/10 flex items-center justify-center mb-4">
+                        <FontAwesomeIcon
+                          icon={faDice}
+                          className="text-[#22AD74] text-xl"
+                        />
+                      </div>
+                      <h3 className="text-xl font-semibold mb-3 text-[#22AD74]">
+                        How to Play
+                      </h3>
+                      <ul className="space-y-3 text-gray-700">
+                        <li className="flex items-start gap-2">
+                          <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
+                            1
+                          </div>
+                          <span>Choose a number between 1 and 6</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
+                            2
+                          </div>
+                          <span>Enter your bet amount in GAMA tokens</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
+                            3
+                          </div>
+                          <span>
+                            Click &quot;Roll Dice&quot; to place your bet
+                          </span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
+                            4
+                          </div>
+                          <span>Wait for the blockchain verification</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
+                            5
+                          </div>
+                          <span>
+                            If the dice rolls your number, you win instantly!
+                          </span>
+                        </li>
+                      </ul>
+                    </motion.div>
+
+                    {/* Odds & Payouts */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="bg-white/60 backdrop-blur-sm rounded-xl border border-[#22AD74]/10 p-6 shadow-sm transition-all hover:shadow-md hover:border-[#22AD74]/30"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-[#22AD74]/10 flex items-center justify-center mb-4">
+                        <FontAwesomeIcon
+                          icon={faChartLine}
+                          className="text-[#22AD74] text-xl"
+                        />
+                      </div>
+                      <h3 className="text-xl font-semibold mb-3 text-[#22AD74]">
+                        Odds & Payouts
+                      </h3>
+                      <div className="space-y-3 text-gray-700">
+                        <p className="flex justify-between border-b border-gray-100 pb-2">
+                          <span>Win Probability:</span>
+                          <span className="font-semibold">16.67%</span>
+                        </p>
+                        <p className="flex justify-between border-b border-gray-100 pb-2">
+                          <span>Payout Multiplier:</span>
+                          <span className="font-semibold text-[#22AD74]">
+                            6x
+                          </span>
+                        </p>
+                        <p className="flex justify-between border-b border-gray-100 pb-2">
+                          <span>House Edge:</span>
+                          <span className="font-semibold">0%</span>
+                        </p>
+                        <div className="pt-3">
+                          <p className="text-sm text-gray-600">
+                            For each number, you have a 1-in-6 chance of
+                            winning. When you win, you receive 6x your bet
+                            amount giving the game a 0% house edge.
+                          </p>
+                          <p className="text-xs text-[#22AD74] italic mt-2">
+                            Note: Blockchain transaction fees apply to all bets
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* Blockchain Verification */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                      className="bg-white/60 backdrop-blur-sm rounded-xl border border-[#22AD74]/10 p-6 shadow-sm transition-all hover:shadow-md hover:border-[#22AD74]/30"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-[#22AD74]/10 flex items-center justify-center mb-4">
+                        <FontAwesomeIcon
+                          icon={faRandom}
+                          className="text-[#22AD74] text-xl"
+                        />
+                      </div>
+                      <h3 className="text-xl font-semibold mb-3 text-[#22AD74]">
+                        Verifiable Fairness
+                      </h3>
+                      <div className="space-y-3 text-gray-700">
+                        <p>
+                          GAMA Dice uses{' '}
+                          <span className="font-medium">
+                            Plugin&apos;s Verifiable Random Function (VRF)
+                          </span>{' '}
+                          to ensure complete fairness and transparency.
+                        </p>
+                        <div className="bg-[#22AD74]/5 rounded-lg p-3 text-sm">
+                          <p className="font-medium mb-1">How VRF works:</p>
+                          <ol className="list-decimal list-inside space-y-1 text-gray-600">
+                            <li>Your bet generates a random number request</li>
+                            <li>
+                              Plugin VRF provides cryptographically secure
+                              randomness
+                            </li>
+                            <li>
+                              The dice result is determined transparently
+                              on-chain
+                            </li>
+                          </ol>
+                        </div>
+                        <p className="text-sm mt-2">
+                          In rare cases where VRF confirmation takes longer than
+                          usual, the recovery option becomes available after 1
+                          hour, allowing you to recover your bet amount safely.
+                        </p>
+                      </div>
+                    </motion.div>
+                  </div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="mt-8 p-5 bg-[#22AD74]/5 rounded-xl border border-[#22AD74]/10"
+                  >
+                    <h4 className="font-semibold text-[#22AD74] mb-3 flex items-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 mr-2"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      Important Game Information
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
+                      <div>
+                        <p className="mb-2">
+                          <span className="font-medium">Minimum Bet:</span> 1
+                          GAMA token
+                        </p>
+                        <p className="mb-2">
+                          <span className="font-medium">Maximum Bet:</span>{' '}
+                          1,000 GAMA tokens
+                        </p>
+                        <p>
+                          <span className="font-medium">Maximum Win:</span>{' '}
+                          6,000 GAMA tokens
+                        </p>
+                      </div>
+                      <div>
+                        <p className="mb-2">
+                          <span className="font-medium">Game History:</span>{' '}
+                          View your past bets and results in the Game History
+                          section
+                        </p>
+                        <p>
+                          <span className="font-medium">Recovery Window:</span>{' '}
+                          Bets that aren&apos;t verified within 1 hour can be
+                          refunded through the recovery option
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </motion.div>
 

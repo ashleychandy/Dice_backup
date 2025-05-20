@@ -1,11 +1,10 @@
-import { ethers } from 'ethers';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import React, { useRef, useState, useEffect } from 'react';
 import { useDiceNumber } from '../../hooks/useDiceNumber';
 import { usePollingService } from '../../services/pollingService.jsx';
 
 /**
- * Enhanced Dice Visualizer Component with improved animations, visual feedback, and error handling
+ * Simplified Dice Visualizer Component focused only on dice display
  */
 const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
   const timeoutRefs = useRef([]);
@@ -13,22 +12,31 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
   const [errorMessage, setErrorMessage] = useState('');
   const prevResultRef = useRef(null);
   const vrfStartTimeRef = useRef(null);
+  const prevNumberRef = useRef(null);
 
   // Manage dice rolling state directly
   const [shouldRollDice, setShouldRollDice] = useState(false);
+
+  // We now manage processing state internally rather than from the hook
+  const [processingVrf, setProcessingVrf] = useState(false);
 
   // Use polling service to get current game status
   const { gameStatus } = usePollingService();
 
   // Use the custom hook to handle dice number state with error handling
-  const {
-    displayNumber,
-    betOutcome,
-    showResultAnimation,
-    showConfetti,
-    processingVrf,
-    setProcessingVrf,
-  } = useDiceNumber(result, chosenNumber, isRolling);
+  // Only using displayNumber from the hook now
+  const { displayNumber } = useDiceNumber(result, chosenNumber, isRolling);
+
+  // Track number changes to trigger dot animations
+  const [animationKey, setAnimationKey] = useState(0);
+
+  // Reset animation key when display number changes
+  useEffect(() => {
+    if (displayNumber !== prevNumberRef.current && !shouldRollDice) {
+      prevNumberRef.current = displayNumber;
+      setAnimationKey(prevKey => prevKey + 1);
+    }
+  }, [displayNumber, shouldRollDice]);
 
   // Direct control of dice rolling
   useEffect(() => {
@@ -59,9 +67,9 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       setShouldRollDice(false);
       setProcessingVrf(false);
     }
-  }, [isRolling, processingVrf, result, gameStatus, setProcessingVrf]);
+  }, [isRolling, processingVrf, result, gameStatus]);
 
-  // Maximum animation duration of 10 seconds (reduced from 15)
+  // Maximum animation duration of 10 seconds
   useEffect(() => {
     let maxDurationTimer;
     if (shouldRollDice) {
@@ -77,7 +85,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
         clearTimeout(maxDurationTimer);
       }
     };
-  }, [shouldRollDice, setProcessingVrf]);
+  }, [shouldRollDice]);
 
   // Check contract state on component load to maintain VRF status
   useEffect(() => {
@@ -100,12 +108,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       setProcessingVrf(false);
       setShouldRollDice(false);
     }
-  }, [gameStatus, setProcessingVrf]);
-
-  // Show elapsed time counter for VRF processing
-  const vrfElapsed = vrfStartTimeRef.current
-    ? Math.floor((Date.now() - vrfStartTimeRef.current) / 1000)
-    : 0;
+  }, [gameStatus]);
 
   // Keep track of last result to avoid re-rendering issues
   useEffect(() => {
@@ -153,23 +156,60 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     }
   }, [displayNumber]);
 
-  // Function to render a dot in the dice with enhanced styling
+  // Function to render a dot in the dice with enhanced animations
   const renderDot = (size = 'w-5 h-5', index = 0) => (
     <motion.div
-      key={`dot-${displayNumber}-${index}`}
-      className={`${size} dice-dot rounded-full`}
+      key={`dot-${animationKey}-${index}`}
+      className={`${size} dice-dot`}
       initial={{ scale: 0, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{
-        type: 'spring',
-        stiffness: 300,
-        damping: 15,
-        delay: index * 0.05, // Staggered animation with delay based on index
-        duration: 0.4,
-      }}
+      animate={
+        shouldRollDice
+          ? {
+              // Slow, smooth blinking animation during rolling state
+              opacity: [0.5, 1, 0.5],
+              scale: [0.9, 1, 0.9],
+              boxShadow: [
+                '0 0 2px rgba(255,255,255,0.4)',
+                '0 0 8px rgba(255,255,255,0.8)',
+                '0 0 2px rgba(255,255,255,0.4)',
+              ],
+            }
+          : {
+              scale: 1,
+              opacity: 1,
+              rotate: [0, 10, -10, 5, -5, 0],
+              backgroundColor: [
+                'rgba(255,255,255,0.8)',
+                '#ffffff',
+                '#f8f8f8',
+                '#ffffff',
+              ],
+            }
+      }
+      transition={
+        shouldRollDice
+          ? {
+              // Slow, smooth transition for rolling state
+              repeat: Infinity,
+              duration: 2.5 + index * 0.4, // Varied timing for each dot
+              repeatType: 'reverse',
+              ease: 'easeInOut',
+            }
+          : {
+              type: 'spring',
+              stiffness: 250,
+              damping: 15,
+              duration: 0.4,
+              delay: index * 0.06, // Staggered animation
+              backgroundColor: { duration: 0.8, ease: 'easeInOut' },
+            }
+      }
       style={{
         backgroundColor: 'white',
-        boxShadow: '0 0 3px rgba(0,0,0,0.2)',
+        boxShadow: shouldRollDice
+          ? '0 0 5px rgba(255,255,255,0.6)'
+          : '0 0 3px rgba(0,0,0,0.2)',
+        borderRadius: '50%',
       }}
     />
   );
@@ -283,17 +323,17 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     return dotConfigurations[safeNumber] || dotConfigurations[1];
   };
 
-  // Rolling animation variants - even slower motion for better visibility
+  // Rolling animation variants
   const rollingVariants = {
     rolling: {
       rotate: [-5, 5, -3, 3, 0],
       scale: [1, 0.97, 1.02, 0.98, 1],
       transition: {
-        duration: 4, // Even slower animation
-        repeat: 3, // 4 seconds x 3 repeats = 12 seconds (plus a small buffer)
+        duration: 4,
+        repeat: 3,
         ease: 'easeInOut',
         repeatType: 'mirror',
-        maxDuration: 15, // Maximum duration of 15 seconds
+        maxDuration: 15,
       },
     },
     static: {
@@ -308,27 +348,6 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     },
   };
 
-  // Result animation variants
-  const resultVariants = {
-    initial: { opacity: 0, scale: 0.8, y: 20 },
-    animate: {
-      opacity: 1,
-      scale: 1,
-      y: 0,
-      transition: {
-        type: 'spring',
-        stiffness: 300,
-        damping: 25,
-      },
-    },
-    exit: {
-      opacity: 0,
-      scale: 0.8,
-      y: -20,
-      transition: { duration: 0.3 },
-    },
-  };
-
   // Fallback UI for error state
   if (hasError) {
     return (
@@ -340,7 +359,6 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       </div>
     );
   }
-
   return (
     <div
       className="relative w-full h-full flex flex-col items-center justify-center"
@@ -348,85 +366,13 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     >
       {/* Main Dice */}
       <motion.div
-        key={`dice-face-${displayNumber}`}
         className="dice-face"
         variants={rollingVariants}
         animate={shouldRollDice ? 'rolling' : 'static'}
         data-rolling={shouldRollDice ? 'true' : 'false'}
-        initial={{
-          scale: 0.9,
-        }}
-        whileInView={{
-          scale: 1,
-          transition: {
-            type: 'spring',
-            stiffness: 260,
-            damping: 20,
-          },
-        }}
       >
         {renderDiceFace(displayNumber)}
       </motion.div>
-
-      {/* Shadow */}
-      <motion.div
-        className="w-28 h-5 rounded-full bg-black/15 mt-4 blur-sm"
-        animate={{
-          scale: shouldRollDice ? [0.95, 1.05, 0.95] : 1,
-          opacity: shouldRollDice ? 0.5 : 0.3,
-        }}
-        transition={{
-          repeat: shouldRollDice ? 3 : 0, // Match the dice animation repeat count
-          duration: shouldRollDice ? 4 : 0.3, // Match the dice animation duration
-          repeatType: 'mirror',
-          maxDuration: 15, // Maximum duration of 15 seconds
-        }}
-      />
-
-      {/* Confetti Animation */}
-      {showConfetti && <div className="absolute inset-0 pointer-events-none" />}
-
-      {/* Result Notification */}
-      <AnimatePresence>
-        {showResultAnimation &&
-          betOutcome &&
-          (!processingVrf || vrfElapsed > 10) && (
-            <motion.div
-              className={`result-notification ${
-                betOutcome === 'win'
-                  ? 'bg-green-600'
-                  : betOutcome === 'lose'
-                    ? 'bg-red-600'
-                    : 'bg-gray-600'
-              }`}
-              variants={resultVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-            >
-              {betOutcome === 'win' && (
-                <div className="flex flex-col items-center">
-                  <span className="text-lg font-bold">You Won!</span>
-                  <span className="text-sm">
-                    {result?.payout
-                      ? `${ethers.formatEther(result.payout)} Tokens`
-                      : ''}
-                  </span>
-                </div>
-              )}
-
-              {betOutcome === 'lose' && <span>You Lost</span>}
-
-              {betOutcome === 'recovered' && <span>Game Recovered</span>}
-
-              {betOutcome === 'stopped' && <span>Game Stopped</span>}
-
-              {betOutcome === 'unknown' && vrfElapsed > 10 && (
-                <span>Result Unavailable</span>
-              )}
-            </motion.div>
-          )}
-      </AnimatePresence>
     </div>
   );
 };

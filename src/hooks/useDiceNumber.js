@@ -3,12 +3,12 @@ import { useContractConstants } from './useContractConstants';
 import { usePollingService } from '../services/pollingService.jsx';
 
 /**
- * Custom hook to manage reactive dice number display
+ * Simplified custom hook to manage dice number display
  *
  * @param {Object|null} result - The game result object
  * @param {Number|null} chosenNumber - The number chosen by the player
  * @param {Boolean} isRolling - Whether the dice is currently rolling
- * @returns {Object} - State and methods for dice number display
+ * @returns {Object} - The dice number to display
  */
 export const useDiceNumber = (result, chosenNumber, isRolling) => {
   const { constants } = useContractConstants();
@@ -18,19 +18,10 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
   const [randomDiceNumber, setRandomDiceNumber] = useState(1);
   const [rolledNumber, setRolledNumber] = useState(null);
   const [lastRolledNumber, setLastRolledNumber] = useState(null);
-  const [betOutcome, setBetOutcome] = useState(null);
-  const [showResultAnimation, setShowResultAnimation] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
-  const [processingVrf, setProcessingVrf] = useState(false);
 
   // Initialize state from game status on component mount
   useEffect(() => {
     if (gameStatus && gameStatus.isActive) {
-      // If there's an active request that's not processed, we're waiting for VRF
-      if (gameStatus.requestExists && !gameStatus.requestProcessed) {
-        setProcessingVrf(true);
-      }
-
       // If we have a chosen number from contract, update state
       if (gameStatus.chosenNumber) {
         // Store the chosen number as the last rolled number if we don't have a result yet
@@ -64,10 +55,6 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
       timeoutId = setTimeout(() => {
         if (intervalId) {
           clearInterval(intervalId);
-        }
-        // If we still don't have a result after 15 seconds, use the last random number
-        if (!rolledNumber) {
-          setProcessingVrf(false);
         }
       }, 15000); // 15 seconds maximum
     }
@@ -103,29 +90,13 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
         resultNumber = result;
       }
 
-      // Check if result indicates request is fulfilled
-      const isRequestFulfilled = result.requestFulfilled === true;
-
       // Validate the result number is not NaN
       if (isNaN(resultNumber)) {
         resultNumber = null;
       }
 
-      // Only stop VRF processing when we have a conclusive result
-      // (valid rolledNumber or explicitly marked as fulfilled)
-      if (
-        (resultNumber !== null && resultNumber >= 1 && resultNumber <= 6) ||
-        isRequestFulfilled
-      ) {
-        setProcessingVrf(false);
-      }
-      // Don't stop VRF if result explicitly indicates it's pending VRF
-      else if (result.vrfPending) {
-        setProcessingVrf(true);
-      }
-
-      // Only update the rolled number if we have a valid result or fulfilled request
-      if (resultNumber !== null || isRequestFulfilled) {
+      // Only update the rolled number if we have a valid result
+      if (resultNumber !== null) {
         setRolledNumber(resultNumber);
       }
 
@@ -136,45 +107,11 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
       ) {
         setLastRolledNumber(resultNumber);
       }
-
-      // Determine win/lose status after a short delay
-      setTimeout(() => {
-        // Check if the result is a special code
-        if (resultNumber === constants.RESULT_RECOVERED) {
-          setBetOutcome('recovered');
-        } else if (resultNumber === constants.RESULT_FORCE_STOPPED) {
-          setBetOutcome('stopped');
-        }
-        // Check for normal rolls (1-6)
-        else if (
-          resultNumber >= constants.MIN_DICE_NUMBER &&
-          resultNumber <= constants.MAX_DICE_NUMBER
-        ) {
-          if (resultNumber === chosenNumber) {
-            setBetOutcome('win');
-            setShowConfetti(true);
-          } else {
-            setBetOutcome('lose');
-          }
-        }
-        // Any other unknown result
-        else if (resultNumber !== null || isRequestFulfilled) {
-          setBetOutcome('unknown');
-        }
-
-        // Always show result animation if we have a result or fulfilled request
-        if (resultNumber !== null || isRequestFulfilled) {
-          setShowResultAnimation(true);
-        }
-      }, 100);
     } else {
       // Reset state when no result, but keep lastRolledNumber
       setRolledNumber(null);
-      setShowConfetti(false);
-      setShowResultAnimation(false);
-      setBetOutcome(null);
     }
-  }, [result, chosenNumber, constants]);
+  }, [result, constants]);
 
   // Function to get the number to display on the dice
   const getDisplayNumber = () => {
@@ -242,18 +179,7 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
   };
 
   return {
-    // Current state
+    // Only return the display number, everything else is now managed by the component
     displayNumber: getDisplayNumber(),
-    rolledNumber,
-    betOutcome,
-    showResultAnimation,
-    showConfetti,
-    processingVrf,
-
-    // Setters for external control
-    setShowResultAnimation,
-    setShowConfetti,
-    setBetOutcome,
-    setProcessingVrf,
   };
 };

@@ -405,8 +405,7 @@ export const handleRpcError = async (error, provider, addToast = null) => {
     errorMessage.includes('timeout') ||
     errorMessage.includes('connection error') ||
     errorMessage.includes('too many requests') ||
-    errorMessage.includes('rate limit') ||
-    errorMessage.includes('CORS');
+    errorMessage.includes('rate limit');
 
   if (!isRpcIssue) return false;
 

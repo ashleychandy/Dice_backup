@@ -179,20 +179,10 @@ export const WalletProvider = ({ children }) => {
 
       // Show warnings if RPC endpoints are down
       if (!mainnetHealth.ok && !apothemHealth.ok) {
-        if (
-          mainnetHealth.error?.includes('blocked by CORS policy') ||
-          apothemHealth.error?.includes('blocked by CORS policy')
-        ) {
-          addToast(
-            'Network connection issues detected (CORS error). This is a browser security restriction. Try using a browser extension like CORS Unblock or run the app with the correct proxy settings.',
-            'error'
-          );
-        } else {
-          addToast(
-            'XDC network RPC endpoints are not responding. Please try again later or check your internet connection.',
-            'error'
-          );
-        }
+        addToast(
+          'XDC network RPC endpoints are not responding. Please try again later or check your internet connection.',
+          'error'
+        );
       }
 
       return newHealthState;
@@ -323,15 +313,6 @@ export const WalletProvider = ({ children }) => {
   // Enhanced error handler that shows meaningful messages
   const handleErrorWithToast = useCallback(
     (error, _context = '') => {
-      // CORS-related errors
-      if (error?.message && error.message.includes('CORS')) {
-        addToast(
-          'Network connection blocked by browser security (CORS). Please use a CORS proxy or browser extension.',
-          'error'
-        );
-        return;
-      }
-
       // Handle missing revert data errors (common RPC issue)
       if (error?.message && error.message.includes('missing revert data')) {
         addToast(

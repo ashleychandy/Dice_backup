@@ -99,22 +99,8 @@ export default defineConfig(({ command, mode }) => {
     server: {
       port: 3000,
       open: true,
-      cors: true,
       hmr: {
         overlay: true, // Show errors as overlay
-      },
-      proxy: {
-        // Proxy XDC RPC endpoints to avoid CORS issues in development
-        '/rpc/mainnet': {
-          target: 'https://rpc.xinfin.network',
-          changeOrigin: true,
-          rewrite: path => path.replace(/^\/rpc\/mainnet/, ''),
-        },
-        '/rpc/apothem': {
-          target: 'https://rpc.apothem.network',
-          changeOrigin: true,
-          rewrite: path => path.replace(/^\/rpc\/apothem/, ''),
-        },
       },
     },
 
@@ -122,7 +108,6 @@ export default defineConfig(({ command, mode }) => {
     preview: {
       port: 3000,
       open: true,
-      cors: true,
     },
 
     // Improve resolve performance

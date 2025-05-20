@@ -3,35 +3,11 @@
  * Centralizes environment variables and other config
  */
 
-// Use CORS proxy for development environments
-const isDev = import.meta.env.MODE === 'development';
-const useLocalProxy = isDev;
-const corsProxyUrl = 'https://corsproxy.io/?';
-
-// Helper to apply proxy in development
-const applyProxy = url => {
-  // For local development, use the vite server proxy
-  if (useLocalProxy && url.includes('rpc.xinfin.network')) {
-    return '/rpc/mainnet';
-  }
-  if (useLocalProxy && url.includes('rpc.apothem.network')) {
-    return '/rpc/apothem';
-  }
-
-  // For external CORS proxy (fallback)
-  if (isDev && !useLocalProxy && url.startsWith('http')) {
-    return corsProxyUrl + encodeURIComponent(url);
-  }
-
-  return url;
-};
-
 // Network configuration
 export const NETWORK_CONFIG = {
   mainnet: {
-    rpcUrl: applyProxy(
-      import.meta.env.VITE_XDC_MAINNET_RPC || 'https://rpc.xinfin.network'
-    ),
+    rpcUrl:
+      import.meta.env.VITE_XDC_MAINNET_RPC || 'https://rpc.xinfin.network',
     chainId: 50,
     name: 'XDC Mainnet',
     contracts: {
@@ -43,9 +19,8 @@ export const NETWORK_CONFIG = {
     dexUrl: 'https://app.weswap.io/#/swap',
   },
   apothem: {
-    rpcUrl: applyProxy(
-      import.meta.env.VITE_XDC_APOTHEM_RPC || 'https://rpc.apothem.network'
-    ),
+    rpcUrl:
+      import.meta.env.VITE_XDC_APOTHEM_RPC || 'https://rpc.apothem.network',
     chainId: 51,
     name: 'XDC Apothem Testnet',
     contracts: {

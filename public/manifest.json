@@ -1,11 +1,11 @@
 {
-  "short_name": "GAMA Roulette",
-  "name": "GAMA Roulette Game",
+  "short_name": "GAMA Dice",
+  "name": "GAMA Dice Game",
   "icons": [
     {
-      "src": "assets/ms-icon-310x310.png",
+      "src": "assets/gama-logo-mark.svg",
       "sizes": "310x310",
-      "type": "image/png"
+      "type": "image/svg+xml"
     }
   ],
   "start_url": ".",

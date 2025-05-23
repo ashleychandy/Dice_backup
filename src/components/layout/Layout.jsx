@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import React, { useState } from 'react';
 import Navbar from './Navbar';
 import NetworkWarning from '../ui/NetworkWarning';
@@ -44,6 +45,32 @@ const Layout = ({ children, showNetworkWarning = true }) => {
 
         {/* Global VRF Status Notification */}
         <VrfStatusGlobal onOpenRecovery={handleOpenRecovery} />
+        {/* Footer */}
+        <motion.div
+          className="relative z-10 py-8 text-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+        >
+          <div className="space-y-2">
+            <p className="text-gray-600 text-sm">
+              Crafted with <span className="text-[#22AD74] mx-1">♥</span> and
+              built on{' '}
+              <a
+                href="https://xdc.org/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-[#22AD74] hover:text-[#1a8f5e] transition-colors cursor-pointer"
+              >
+                XDC
+              </a>
+            </p>
+            <p className="text-gray-500 text-xs">
+              GAMA © 2025. Open source, for everyone.{' '}
+              <span className="text-[#22AD74]">#BuildOnXDC</span>
+            </p>
+          </div>
+        </motion.div>
       </div>
 
       {/* VRF Recovery Modal */}

@@ -525,32 +525,6 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                 className="overflow-hidden relative z-0"
               >
                 <div className="px-6 pb-6">
-                  <div className="flex justify-end mb-4">
-                    <motion.button
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => refreshData()}
-                      className="px-4 py-2 bg-[#22AD74]/10 hover:bg-[#22AD74]/20 text-[#22AD74] rounded-xl font-medium flex items-center gap-2 border border-[#22AD74]/20"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                        />
-                      </svg>
-                      Refresh History
-                    </motion.button>
-                  </div>
                   <GameHistory
                     account={account}
                     diceContract={contracts?.dice}

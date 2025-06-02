@@ -128,7 +128,7 @@ const Navbar = () => {
               isScrolled ? 'text-gray-600' : 'text-white'
             } hover:text-[#22AD74] transition-all duration-300 flex items-center gap-2 font-medium hover:-translate-y-0.5`}
           >
-            Buy GAMA
+            Get GAMA
           </button>
 
           <div

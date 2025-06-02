@@ -421,9 +421,6 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                 </motion.button>
 
                 {/* VRF Recovery Button */}
-                {/* Note: This button can potentially be removed in a future update
-                    since we now have the global VRF notification in the Layout component
-                    with recovery functionality. Keeping it for now for backward compatibility. */}
                 {showVrfButton && (
                   <motion.button
                     whileHover={{ scale: 1.02 }}

@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion';
 import React, { useState } from 'react';
 import Navbar from './Navbar';
-import NetworkWarning from '../ui/NetworkWarning';
 import { useWallet } from '../wallet/WalletProvider';
 import { useNetwork } from '../../contexts/NetworkContext';
 import { VrfStatusGlobal, VrfRecoveryModal } from '../vrf';
@@ -34,8 +33,6 @@ const Layout = ({ children, showNetworkWarning = true }) => {
       />
 
       <div className="relative z-10 flex flex-col min-h-screen">
-        {showNetworkWarning && isUnsupportedNetwork && <NetworkWarning />}
-
         <Navbar account={account} chainId={chainId} />
 
         {/* Content area with transparent background */}

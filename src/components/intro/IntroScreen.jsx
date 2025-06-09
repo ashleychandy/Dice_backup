@@ -155,10 +155,9 @@ const IntroScreen = ({ onComplete }) => {
   };
 
   const contentVariants = {
-    hidden: { opacity: 0, y: 20 },
+    hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      y: 0,
       transition: {
         duration: 0.6,
         staggerChildren: 0.1,
@@ -166,7 +165,6 @@ const IntroScreen = ({ onComplete }) => {
     },
     exit: {
       opacity: 0,
-      y: -20,
       transition: {
         duration: 0.4,
       },
@@ -174,8 +172,8 @@ const IntroScreen = ({ onComplete }) => {
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0 },
+    hidden: { opacity: 0 },
+    visible: { opacity: 1 },
   };
 
   // Content for each step
@@ -188,7 +186,7 @@ const IntroScreen = ({ onComplete }) => {
       content: (
         <motion.div variants={itemVariants} className="text-center">
           <motion.div
-            className="w-32 h-32 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-400/20 backdrop-blur-md flex items-center justify-center text-5xl text-[#22AD74] border border-emerald-500/30 shadow-lg"
+            className="w-28 h-28 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-400/20 backdrop-blur-md flex items-center justify-center text-4xl text-[#22AD74] border border-emerald-500/30 shadow-lg"
             animate={{
               rotate: [0, 5, 0, -5, 0],
               scale: [1, 1.05, 1],
@@ -201,7 +199,7 @@ const IntroScreen = ({ onComplete }) => {
           >
             <FontAwesomeIcon icon={faDice} />
           </motion.div>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Enter the future of blockchain gaming with GAMA - where fairness is
             guaranteed by code and every bet creates deflationary pressure on
             the token supply.
@@ -267,29 +265,28 @@ const IntroScreen = ({ onComplete }) => {
       content: (
         <motion.div
           variants={itemVariants}
-          className="flex flex-col md:flex-row gap-6 items-center"
+          className="flex flex-col md:flex-row gap-4 items-center"
         >
           <div className="flex-1">
-            <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20 shadow-xl">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500/30 to-teal-400/20 flex items-center justify-center text-[#22AD74]">
+            <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20 shadow-xl">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500/30 to-teal-400/20 flex items-center justify-center text-[#22AD74]">
                   <FontAwesomeIcon icon={faFire} />
                 </div>
-                <h3 className="text-2xl font-bold text-emerald-800">
+                <h3 className="text-xl font-bold text-emerald-800">
                   100% Token Burning
                 </h3>
               </div>
-              <p className="text-gray-600 leading-relaxed">
-                <strong>Every single token</strong> you bet is permanently{' '}
-                <strong>burned</strong> from circulation. This creates constant
-                deflationary pressure, potentially increasing the value of
-                remaining tokens over time.
+              <p className="text-sm text-gray-600 leading-relaxed">
+                <strong>Every token</strong> you bet is permanently{' '}
+                <strong>burned</strong> from circulation, creating constant
+                deflationary pressure.
               </p>
             </div>
           </div>
           <div className="flex-1">
             <motion.div
-              className="relative w-full aspect-square max-w-xs"
+              className="relative w-full aspect-square max-w-[160px] mx-auto"
               animate={{
                 rotate: [0, 360],
               }}
@@ -303,7 +300,7 @@ const IntroScreen = ({ onComplete }) => {
                 <div className="w-3/4 h-3/4 rounded-full border-4 border-dashed border-emerald-500/30"></div>
               </div>
               <motion.div
-                className="absolute top-1/2 left-1/2 w-16 h-16 -ml-8 -mt-8 bg-gradient-to-br from-orange-500/90 to-red-600/90 rounded-full flex items-center justify-center text-white shadow-lg"
+                className="absolute top-1/2 left-1/2 w-12 h-12 -ml-6 -mt-6 bg-gradient-to-br from-orange-500/90 to-red-600/90 rounded-full flex items-center justify-center text-white shadow-lg"
                 animate={{
                   scale: [1, 1.1, 1],
                   filter: ['brightness(1)', 'brightness(1.2)', 'brightness(1)'],
@@ -314,7 +311,7 @@ const IntroScreen = ({ onComplete }) => {
                   repeatType: 'reverse',
                 }}
               >
-                <FontAwesomeIcon icon={faFire} size="lg" />
+                <FontAwesomeIcon icon={faFire} />
               </motion.div>
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-1/2 h-1/2 rounded-full border-2 border-dashed border-emerald-500/20"></div>
@@ -336,14 +333,14 @@ const IntroScreen = ({ onComplete }) => {
       content: (
         <motion.div
           variants={itemVariants}
-          className="flex flex-col md:flex-row gap-6 items-center"
+          className="flex flex-col md:flex-row gap-4 items-center"
         >
           <div className="flex-1 order-2 md:order-1">
-            <motion.div className="relative w-full aspect-square max-w-xs mx-auto">
+            <motion.div className="relative w-full aspect-square max-w-[160px] mx-auto">
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="relative w-3/4 h-3/4">
                   <div className="absolute inset-0 rounded-full bg-gradient-to-br from-emerald-500/20 to-transparent border border-emerald-500/30"></div>
-                  <div className="absolute inset-0 flex items-center justify-center text-emerald-800 text-5xl font-bold">
+                  <div className="absolute inset-0 flex items-center justify-center text-emerald-800 text-4xl font-bold">
                     0%
                   </div>
                 </div>
@@ -351,20 +348,19 @@ const IntroScreen = ({ onComplete }) => {
             </motion.div>
           </div>
           <div className="flex-1 order-1 md:order-2">
-            <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20 shadow-xl">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500/30 to-teal-400/20 flex items-center justify-center text-[#22AD74]">
+            <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20 shadow-xl">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500/30 to-teal-400/20 flex items-center justify-center text-[#22AD74]">
                   <FontAwesomeIcon icon={faPercentage} />
                 </div>
-                <h3 className="text-2xl font-bold text-emerald-800">
+                <h3 className="text-xl font-bold text-emerald-800">
                   0% House Edge
                 </h3>
               </div>
-              <p className="text-gray-600 leading-relaxed">
+              <p className="text-sm text-gray-600 leading-relaxed">
                 Unlike traditional casinos that take a percentage, GAMA operates
                 with <strong>absolutely no house edge</strong>. 100% of
-                potential winnings go back to players, giving you better odds
-                than any traditional casino.
+                potential winnings go back to players.
               </p>
             </div>
           </div>
@@ -479,14 +475,14 @@ const IntroScreen = ({ onComplete }) => {
 
   return (
     <motion.div
-      className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden"
+      className="fixed inset-0 z-[9999] overflow-hidden"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
       exit="exit"
     >
       {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-emerald-50 to-white">
+      <div className="absolute inset-0 bg-gradient-to-b from-emerald-50 to-white overflow-hidden">
         {/* Dynamic background pattern based on current step */}
         {currentStepData.backgroundType === 'Gradient' && (
           <BackgroundPatterns.Gradient />
@@ -505,10 +501,10 @@ const IntroScreen = ({ onComplete }) => {
         <AnimatedShapes />
       </div>
 
-      {/* Main content container */}
-      <div className="relative z-30 w-full max-w-7xl mx-auto px-4 py-8 min-h-screen flex flex-col">
-        {/* Header with logo/title */}
-        <div className="flex justify-between items-center mb-8">
+      {/* Main content container with fixed layout structure */}
+      <div className="relative z-30 w-full max-w-7xl mx-auto h-screen flex flex-col overflow-hidden">
+        {/* Header with logo/title - fixed at top */}
+        <header className="fixed top-0 left-0 right-0 max-w-7xl mx-auto px-6 py-4 flex justify-between items-center z-40">
           <div className="flex items-center">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center text-white mr-3">
               <FontAwesomeIcon icon={faDice} />
@@ -525,63 +521,69 @@ const IntroScreen = ({ onComplete }) => {
               </button>
             ) : null}
           </div>
-        </div>
+        </header>
 
-        {/* Main content area */}
-        <div className="flex-1 flex flex-col justify-center">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`step-${currentStep}`}
-              variants={contentVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              className="py-8"
-            >
-              <motion.h2
-                variants={itemVariants}
-                className="text-4xl md:text-5xl font-bold text-emerald-800 mb-3 text-center"
+        {/* Main content area with fixed height to prevent layout shifts */}
+        <div className="flex-1 flex flex-col justify-center px-6 pt-16 pb-28 overflow-hidden">
+          <div className="flex flex-col justify-center overflow-hidden">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`step-${currentStep}`}
+                variants={contentVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className="py-2 overflow-hidden"
               >
-                {currentStepData.title}
-              </motion.h2>
+                <motion.h2
+                  variants={itemVariants}
+                  className="text-3xl md:text-4xl font-bold text-emerald-800 mb-2 text-center"
+                >
+                  {currentStepData.title}
+                </motion.h2>
 
-              <motion.p
-                variants={itemVariants}
-                className="text-xl text-gray-600 mb-10 text-center"
-              >
-                {currentStepData.subtitle}
-              </motion.p>
+                <motion.p
+                  variants={itemVariants}
+                  className="text-base md:text-lg text-gray-600 mb-4 text-center"
+                >
+                  {currentStepData.subtitle}
+                </motion.p>
 
-              <motion.div variants={itemVariants} className="mb-12">
-                {currentStepData.content}
-              </motion.div>
-
-              {currentStep < totalSteps && (
                 <motion.div
                   variants={itemVariants}
-                  className="flex justify-center mt-4"
+                  className="mb-4 overflow-hidden"
                 >
-                  <motion.button
-                    className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl shadow-lg text-lg font-medium flex items-center gap-3"
-                    whileHover={{
-                      scale: 1.05,
-                      boxShadow: '0 10px 25px -5px rgba(34, 173, 116, 0.4)',
-                    }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={nextStep}
-                    disabled={isAnimating}
-                  >
-                    Continue
-                    <FontAwesomeIcon icon={faArrowRight} />
-                  </motion.button>
+                  {currentStepData.content}
                 </motion.div>
-              )}
-            </motion.div>
-          </AnimatePresence>
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
 
-        {/* Progress indicator */}
-        <div className="flex justify-center gap-2 py-6">
+        {/* Continue button - fixed position above page indicators */}
+        {currentStep < totalSteps && (
+          <div className="fixed bottom-14 left-0 right-0 flex justify-center z-40">
+            <motion.button
+              className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl shadow-lg text-base font-medium flex items-center gap-2"
+              whileHover={{
+                scale: 1.05,
+                boxShadow: '0 10px 25px -5px rgba(34, 173, 116, 0.4)',
+              }}
+              whileTap={{ scale: 0.98 }}
+              onClick={nextStep}
+              disabled={isAnimating}
+              variants={itemVariants}
+              initial="hidden"
+              animate="visible"
+            >
+              Continue
+              <FontAwesomeIcon icon={faArrowRight} />
+            </motion.button>
+          </div>
+        )}
+
+        {/* Progress indicator - fixed at bottom */}
+        <div className="fixed bottom-0 left-0 right-0 flex justify-center gap-2 py-3 z-40 bg-gradient-to-t from-white/90 to-transparent pt-8 pb-3">
           {steps.map((_, index) => (
             <motion.button
               key={index}

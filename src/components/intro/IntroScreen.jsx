@@ -13,7 +13,6 @@ import {
   faRandom,
   faPlay,
   faInfoCircle,
-  faDice,
   faFire,
   faBolt,
 } from '@fortawesome/free-solid-svg-icons';
@@ -99,24 +98,6 @@ const AnimatedShapes = () => (
         delay: 2,
       }}
     />
-
-    {/* Dice shape */}
-    <motion.div
-      className="absolute right-40 top-40 w-24 h-24 rounded-lg bg-[#22AD74]/20 backdrop-blur-md border border-[#22AD74]/30"
-      animate={{
-        rotate: [0, 10, 0, -10, 0],
-        y: [0, -10, 0],
-      }}
-      transition={{
-        duration: 10,
-        repeat: Infinity,
-        repeatType: 'loop',
-      }}
-    >
-      <div className="absolute inset-0 flex items-center justify-center text-[#22AD74]">
-        <FontAwesomeIcon icon={faDice} size="lg" />
-      </div>
-    </motion.div>
   </>
 );
 
@@ -197,7 +178,7 @@ const IntroScreen = ({ onComplete }) => {
               repeatType: 'reverse',
             }}
           >
-            <FontAwesomeIcon icon={faDice} />
+            <FontAwesomeIcon icon={faCubes} />
           </motion.div>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Enter the future of blockchain gaming with GAMA - where fairness is
@@ -220,7 +201,7 @@ const IntroScreen = ({ onComplete }) => {
         >
           {[
             {
-              icon: faDice,
+              icon: faCubes,
               title: 'Choose Your Number',
               description: 'Select any number from 1 to 6 for your bet.',
             },
@@ -507,7 +488,7 @@ const IntroScreen = ({ onComplete }) => {
         <header className="fixed top-0 left-0 right-0 max-w-7xl mx-auto px-6 py-4 flex justify-between items-center z-40">
           <div className="flex items-center">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center text-white mr-3">
-              <FontAwesomeIcon icon={faDice} />
+              {/* <FontAwesomeIcon icon={faDice} /> */}
             </div>
             <span className="text-2xl font-bold text-emerald-800">GAMA</span>
           </div>

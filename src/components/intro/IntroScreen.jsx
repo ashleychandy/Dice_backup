@@ -916,8 +916,30 @@ const IntroScreen = ({ onComplete }) => {
                     transformStyle: 'preserve-3d',
                     transform: `rotateY(${mousePosition.x * 20}deg) rotateX(${-mousePosition.y * 20}deg)`,
                   }}
+                  animate={{
+                    rotateY: 360,
+                    y: [0, -10, 0, 10, 0],
+                  }}
+                  transition={{
+                    rotateY: {
+                      duration: 8,
+                      ease: 'linear',
+                      repeat: Infinity,
+                    },
+                    y: {
+                      duration: 5,
+                      ease: 'easeInOut',
+                      repeat: Infinity,
+                    },
+                  }}
                 >
-                  <FloatingToken className="w-full h-full" />
+                  <div className="w-full h-full rounded-full flex items-center justify-center overflow-hidden">
+                    <img
+                      src="/assets/gama.png"
+                      alt="GAMA Coin"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
                 </motion.div>
                 <motion.div
                   className="absolute inset-0 rounded-full opacity-50 blur-lg"
@@ -1452,13 +1474,10 @@ const IntroScreen = ({ onComplete }) => {
             transition={{ duration: 0.5, delay: 0.2 }}
           >
             <img
-              src="Gama_logo.png"
+              src="/assets/gama-logo.svg"
               alt="GAMA"
-              className="w-7 h-7 sm:w-8 sm:h-8 mr-2 object-contain"
+              className="h-8 sm:h-10 object-contain"
             />
-            <span className="text-lg sm:text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-700 to-teal-600">
-              GAMA
-            </span>
           </motion.div>
           <motion.div
             className="text-emerald-800"

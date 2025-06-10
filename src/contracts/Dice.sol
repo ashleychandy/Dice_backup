@@ -26,7 +26,9 @@ interface IERC20 {
     function revokeRole(bytes32 role, address account) external;
     function renounceRole(bytes32 role, address callerConfirmation) external;
     function mint(address account, uint256 amount) external;
-    function burn(address account, uint256 amount) external;
+    function burn(uint256 amount) external;
+    function burnFrom(address account, uint256 amount) external;
+    function getRemainingMintable() external view returns (uint256);
 }
 
 /**
@@ -70,7 +72,7 @@ struct UserData {
 
 /**
  * @title Dice
- * @dev Provably fair dice game using Plugin VRF for randomness
+ * @dev Provably fair dice game using VRF for randomness
  */
 contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
     // ============ Events ============
@@ -138,7 +140,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
      * @notice Contract constructor
      * @param _gamaTokenAddress Address of the token contract
      * @param vrfCoordinator Address of the VRF coordinator
-     * @param subscriptionId Plugin VRF subscription ID
+     * @param subscriptionId VRF subscription ID
      * @param keyHash VRF key hash for the network
      * @param _callbackGasLimit Gas limit for VRF callback
      * @param _requestConfirmations Number of confirmations for VRF request
@@ -195,17 +197,21 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         if (potentialPayout > MAX_POSSIBLE_PAYOUT) {
             revert MaxPayoutExceeded(potentialPayout, MAX_POSSIBLE_PAYOUT);
         }
+        
+        // 4. Check if potential payout doesn't exceed remaining mintable amount
+        uint256 remainingMintable = gamaToken.getRemainingMintable();
+        if (potentialPayout > remainingMintable) {
+            revert MaxPayoutExceeded(potentialPayout, remainingMintable);
+        }
 
         // ===== EFFECTS =====
-        // 4. Burn tokens first
-        try gamaToken.burn(msg.sender, amount) {} catch {
-            revert BurnFailed(msg.sender, amount);
-        }
+        // 5. Burn tokens first
+        gamaToken.burnFrom(msg.sender, amount);
 
         // Update total wagered amount
         totalWageredAmount += amount;
 
-        // 5. Request random number using VRF
+        // 6. Request random number using VRF
         requestId = COORDINATOR.requestRandomWords(
             s_keyHash,
             s_subscriptionId,
@@ -214,14 +220,14 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
             numWords
         );
 
-        // 6. Record the request
+        // 7. Record the request
         s_requests[requestId] = RequestStatus({
             randomWords: new uint256[](0),
             exists: true,
             fulfilled: false
         });
         
-        // 7. Store request mapping
+        // 8. Store request mapping
         requestToPlayer[requestId] = msg.sender;
         activeRequestIds[requestId] = true;
         
@@ -230,7 +236,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         user.lastPlayedBlock = block.number;
         user.requestFulfilled = false;
         
-        // 8. Update user's game state
+        // 9. Update user's game state
         user.currentGame = GameState({
             isActive: true,
             completed: false,
@@ -317,7 +323,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         );
 
         // 6. Update global statistics
-        totalGamesPlayed++;
+        unchecked { ++totalGamesPlayed; }
         if (payout > 0) {
             totalPayoutAmount += payout;
         }
@@ -325,6 +331,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         // Cleanup
         delete requestToPlayer[requestId];
         delete activeRequestIds[requestId];
+        delete s_requests[requestId];
         user.currentRequestId = 0;
 
         // ===== INTERACTIONS =====
@@ -334,9 +341,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
                 revert MissingContractRole(MINTER_ROLE);
             }
             
-            try gamaToken.mint(player, payout) {} catch {
-                revert MintFailed(player, payout);
-            }
+            gamaToken.mint(player, payout);
         }
 
         emit GameCompleted(player, requestId, result, payout);
@@ -404,9 +409,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
             revert MissingContractRole(MINTER_ROLE);
         }
         
-        try gamaToken.mint(msg.sender, refundAmount) {} catch {
-            revert MintFailed(msg.sender, refundAmount);
-        }
+        gamaToken.mint(msg.sender, refundAmount);
 
         // Add to bet history
         _updateUserHistory(
@@ -476,9 +479,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
             revert MissingContractRole(MINTER_ROLE);
         }
         
-        try gamaToken.mint(player, refundAmount) {} catch {
-            revert MintFailed(player, refundAmount);
-        }
+        gamaToken.mint(player, refundAmount);
       
         // Add to bet history
         _updateUserHistory(
@@ -636,14 +637,12 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         // Determine recovery eligibility
         recoveryEligible = false;
         if (isActive) {
-            // Modified conditions for recovery eligibility
+            // All conditions must be met for recovery eligibility
             bool hasBlockThresholdPassed = block.number > user.lastPlayedBlock + BLOCK_THRESHOLD;
             bool hasTimeoutPassed = block.timestamp > user.lastPlayedTimestamp + GAME_TIMEOUT;
-            
-            // Modified: Only require that the request exists, not that it's processed
             bool hasVrfRequest = requestId != 0 && requestExists;
             
-            // User is eligible if time/block thresholds are met AND a request exists
+            // Only eligible if ALL conditions are met
             recoveryEligible = hasBlockThresholdPassed && hasTimeoutPassed && hasVrfRequest;
         }
     }

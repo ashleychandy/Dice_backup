@@ -346,9 +346,9 @@ const FloatingToken = ({ className }) => {
 // Animated VRF visualization component
 const VrfVisualization = () => {
   return (
-    <div className="relative w-full h-64 mx-auto">
+    <div className="relative h-full mx-auto flex flex-col justify-center items-center">
       <motion.div
-        className="absolute left-0 top-1/2 -translate-y-1/2 w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-xl"
+        className="absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-xl"
         animate={{
           x: [0, 20, 0],
           rotateZ: [0, 5, -5, 0],
@@ -359,17 +359,17 @@ const VrfVisualization = () => {
           repeatType: 'reverse',
         }}
       >
-        <FontAwesomeIcon icon={faDice} size="lg" />
+        <FontAwesomeIcon icon={faDice} className="text-sm sm:text-base" />
       </motion.div>
 
       {/* Blockchain nodes */}
-      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-center items-center">
+      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-center items-center py-4">
         {[0, 1, 2, 3, 4].map(i => (
           <motion.div
             key={i}
-            className="w-10 h-10 mx-3 rounded-lg bg-white border border-emerald-500/30 shadow-md flex items-center justify-center text-emerald-600"
+            className="w-8 h-8 mx-1 sm:mx-2 rounded-lg bg-white border border-emerald-500/30 shadow-md flex items-center justify-center text-emerald-600"
             animate={{
-              y: [0, i % 2 === 0 ? -5 : 5, 0],
+              y: [0, i % 2 === 0 ? -3 : 3, 0],
               boxShadow: [
                 '0 4px 6px -1px rgba(16, 185, 129, 0.1)',
                 '0 10px 15px -3px rgba(16, 185, 129, 0.2)',
@@ -383,7 +383,7 @@ const VrfVisualization = () => {
               repeatType: 'reverse',
             }}
           >
-            <FontAwesomeIcon icon={faDatabase} />
+            <FontAwesomeIcon icon={faDatabase} className="text-xs" />
           </motion.div>
         ))}
       </div>
@@ -392,6 +392,7 @@ const VrfVisualization = () => {
       <svg
         className="absolute inset-0 w-full h-full z-0 pointer-events-none"
         viewBox="0 0 400 100"
+        preserveAspectRatio="none"
       >
         <motion.path
           d="M 50,50 H 350"
@@ -412,7 +413,7 @@ const VrfVisualization = () => {
 
       {/* VRF result */}
       <motion.div
-        className="absolute right-0 top-1/2 -translate-y-1/2 w-14 h-14 rounded-xl bg-white border-2 border-emerald-500/50 flex items-center justify-center text-emerald-600 font-bold text-xl shadow-lg"
+        className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white border-2 border-emerald-500/50 flex items-center justify-center text-emerald-600 font-bold text-lg shadow-lg"
         animate={{
           x: [20, 0, 20],
           boxShadow: [
@@ -672,10 +673,10 @@ const AnimatedCard = ({ icon, title, description, className }) => {
 // Zero House Edge visualization component
 const ZeroHouseEdgeVisualization = () => {
   return (
-    <div className="relative h-64 w-full mx-auto">
+    <div className="relative h-full w-full mx-auto flex flex-col justify-center">
       <div className="absolute inset-0 flex items-center justify-center">
         <motion.div
-          className="relative w-40 h-40 rounded-full bg-white border-2 border-emerald-500/30 flex items-center justify-center shadow-xl overflow-hidden"
+          className="relative w-32 h-32 sm:w-36 sm:h-36 rounded-full bg-white border-2 border-emerald-500/30 flex items-center justify-center shadow-xl overflow-hidden"
           animate={{
             boxShadow: [
               '0 10px 25px -5px rgba(16, 185, 129, 0.2)',
@@ -691,11 +692,11 @@ const ZeroHouseEdgeVisualization = () => {
         >
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-white"></div>
           <div className="relative z-10 flex flex-col items-center">
-            <span className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-600 to-teal-500">
+            <span className="text-5xl sm:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-600 to-teal-500">
               0
             </span>
-            <span className="text-2xl font-bold text-emerald-800">%</span>
-            <span className="text-sm text-emerald-700 mt-1 font-medium">
+            <span className="text-xl font-bold text-emerald-800">%</span>
+            <span className="text-xs sm:text-sm text-emerald-700 mt-1 font-medium">
               House Edge
             </span>
           </div>
@@ -722,14 +723,14 @@ const ZeroHouseEdgeVisualization = () => {
         </motion.div>
       </div>
 
-      {/* Player representations */}
+      {/* Player representations - positioned at the bottom */}
       <div className="absolute inset-x-0 bottom-0 flex justify-around">
         {[1, 2, 3].map(i => (
           <motion.div
             key={i}
-            className="w-14 h-14 rounded-full bg-white border border-emerald-500/30 shadow-md flex items-center justify-center text-emerald-600"
+            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white border border-emerald-500/30 shadow-md flex items-center justify-center text-emerald-600"
             animate={{
-              y: [0, -5, 0],
+              y: [0, -3, 0],
               boxShadow: [
                 '0 4px 6px -1px rgba(16, 185, 129, 0.1)',
                 '0 10px 15px -3px rgba(16, 185, 129, 0.2)',
@@ -743,27 +744,27 @@ const ZeroHouseEdgeVisualization = () => {
               repeatType: 'reverse',
             }}
           >
-            <FontAwesomeIcon icon={faWallet} />
+            <FontAwesomeIcon icon={faWallet} className="text-xs" />
           </motion.div>
         ))}
       </div>
 
-      {/* Connecting arrows */}
-      <div className="absolute inset-0">
+      {/* Connecting arrows - adjusted to not overlap */}
+      <div className="absolute inset-0 top-8">
         {[1, 2, 3].map(i => (
           <motion.div
             key={i}
-            className="absolute left-1/2 bottom-1/3"
+            className="absolute left-1/2 bottom-1/4"
             style={{
               width: '2px',
-              height: '60px',
+              height: '40px',
               backgroundColor: 'rgba(16, 185, 129, 0.3)',
               transformOrigin: 'bottom center',
-              transform: `translateX(${(i - 2) * 80}px) rotate(${(i - 2) * 15}deg)`,
+              transform: `translateX(${(i - 2) * 60}px) rotate(${(i - 2) * 15}deg)`,
             }}
             animate={{
               opacity: [0.3, 0.6, 0.3],
-              height: ['60px', '65px', '60px'],
+              height: ['40px', '45px', '40px'],
             }}
             transition={{
               duration: 2,
@@ -773,9 +774,9 @@ const ZeroHouseEdgeVisualization = () => {
             }}
           >
             <motion.div
-              className="absolute -top-3 -left-3 w-6 h-6 flex items-center justify-center text-emerald-600"
+              className="absolute -top-2 -left-2 w-4 h-4 flex items-center justify-center text-emerald-600"
               animate={{
-                y: [0, -5, 0],
+                y: [0, -3, 0],
               }}
               transition={{
                 duration: 1,
@@ -784,7 +785,7 @@ const ZeroHouseEdgeVisualization = () => {
                 repeatType: 'reverse',
               }}
             >
-              <FontAwesomeIcon icon={faCoins} />
+              <FontAwesomeIcon icon={faCoins} className="text-xs" />
             </motion.div>
           </motion.div>
         ))}
@@ -827,7 +828,7 @@ const IntroScreen = ({ onComplete }) => {
   const nextStep = () => {
     setIsAnimating(true);
     setTimeout(() => {
-      if (currentStep < totalSteps) {
+      if (currentStep < totalSteps - 1) {
         setCurrentStep(currentStep + 1);
       } else {
         onComplete();
@@ -1389,19 +1390,6 @@ const IntroScreen = ({ onComplete }) => {
               ))}
             </div>
           </div>
-
-          <motion.button
-            className="px-5 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl shadow-lg text-sm sm:text-base font-medium flex items-center gap-2 mx-auto"
-            whileHover={{
-              scale: 1.05,
-              boxShadow: '0 20px 30px -10px rgba(16, 185, 129, 0.5)',
-            }}
-            whileTap={{ scale: 0.98 }}
-            onClick={onComplete}
-          >
-            Enter GAMA
-            <FontAwesomeIcon icon={faArrowRight} />
-          </motion.button>
         </motion.div>
       ),
       backgroundType: 'HeroBg',
@@ -1549,7 +1537,9 @@ const IntroScreen = ({ onComplete }) => {
               initial="hidden"
               animate="visible"
             >
-              <span>Continue</span>
+              <span>
+                {currentStep === totalSteps - 1 ? 'Enter GAMA' : 'Continue'}
+              </span>
               <motion.div
                 animate={{ x: [0, 5, 0] }}
                 transition={{

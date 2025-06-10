@@ -653,16 +653,16 @@ const AnimatedCard = ({ icon, title, description, className }) => {
         scale: 1.03,
         backgroundColor: 'rgba(255,255,255,0.25)',
         boxShadow: '0 25px 50px -12px rgba(16, 185, 129, 0.25)',
-        y: -5,
+        y: -3,
       }}
       style={{ transformStyle: 'preserve-3d' }}
     >
-      <div className="p-6">
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500/30 to-lime-400/20 flex items-center justify-center text-emerald-600 text-2xl mb-4 border border-emerald-500/30 group-hover:border-emerald-500/50 group-hover:from-emerald-500/40 group-hover:to-lime-400/30 transition-all duration-300 shadow-md">
+      <div className="p-3 sm:p-4">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500/30 to-lime-400/20 flex items-center justify-center text-emerald-600 text-sm mb-2 border border-emerald-500/30 group-hover:border-emerald-500/50 group-hover:from-emerald-500/40 group-hover:to-lime-400/30 transition-all duration-300 shadow-md mx-auto">
           <FontAwesomeIcon icon={icon} />
         </div>
-        <h3 className="text-xl font-bold mb-2 text-emerald-800">{title}</h3>
-        <p className="text-gray-600">{description}</p>
+        <h3 className="text-sm font-bold mb-1 text-emerald-800">{title}</h3>
+        <p className="text-xs text-gray-600">{description}</p>
       </div>
       <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-emerald-500/5 via-transparent to-lime-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
     </motion.div>
@@ -903,11 +903,11 @@ const IntroScreen = ({ onComplete }) => {
         'The revolutionary gaming token with zero house edge and 100% token burning.',
       content: (
         <motion.div variants={itemVariants} className="text-center">
-          <div className="flex flex-col md:flex-row items-center justify-center gap-8 max-w-4xl mx-auto">
-            <div className="flex-1 max-w-xs mx-auto md:max-w-none mb-6 md:mb-0">
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4 sm:gap-6 md:gap-8 max-w-4xl mx-auto">
+            <div className="flex-1 max-w-xs mx-auto md:max-w-none mb-4 md:mb-0">
               <div
                 className="relative mx-auto"
-                style={{ width: '160px', height: '160px' }}
+                style={{ width: '140px', height: '140px' }}
               >
                 <motion.div
                   className="absolute inset-0"
@@ -937,11 +937,11 @@ const IntroScreen = ({ onComplete }) => {
               </div>
             </div>
             <div className="flex-1">
-              <p className="text-lg text-emerald-800 mx-auto mb-6 text-center md:text-left font-medium">
+              <p className="text-lg text-emerald-800 mx-auto mb-4 text-center md:text-left font-medium">
                 GAMA Coin revolutionizes blockchain gaming with three core
                 innovations:
               </p>
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2 md:gap-4">
                 {[
                   {
                     icon: faRandom,
@@ -961,7 +961,7 @@ const IntroScreen = ({ onComplete }) => {
                 ].map((item, i) => (
                   <motion.div
                     key={i}
-                    className="flex items-center gap-4 bg-white/40 backdrop-blur-sm p-3 rounded-lg border border-emerald-200/50 shadow-sm"
+                    className="flex items-center gap-3 bg-white/40 backdrop-blur-sm p-2 sm:p-3 rounded-lg border border-emerald-200/50 shadow-sm"
                     whileHover={{
                       backgroundColor: 'rgba(255, 255, 255, 0.6)',
                       y: -2,
@@ -969,14 +969,17 @@ const IntroScreen = ({ onComplete }) => {
                     }}
                     transition={{ duration: 0.2 }}
                   >
-                    <div className="w-10 h-10 shrink-0 rounded-full bg-gradient-to-br from-emerald-500/80 to-teal-400/80 flex items-center justify-center text-white">
-                      <FontAwesomeIcon icon={item.icon} />
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-full bg-gradient-to-br from-emerald-500/80 to-teal-400/80 flex items-center justify-center text-white">
+                      <FontAwesomeIcon
+                        icon={item.icon}
+                        className="text-xs sm:text-sm"
+                      />
                     </div>
                     <div>
-                      <h3 className="text-base font-bold text-emerald-800">
+                      <h3 className="text-sm sm:text-base font-bold text-emerald-800">
                         {item.title}
                       </h3>
-                      <p className="text-sm text-emerald-700">{item.desc}</p>
+                      <p className="text-xs text-emerald-700">{item.desc}</p>
                     </div>
                   </motion.div>
                 ))}
@@ -995,28 +998,28 @@ const IntroScreen = ({ onComplete }) => {
       content: (
         <motion.div
           variants={itemVariants}
-          className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto"
+          className="grid md:grid-cols-2 gap-4 md:gap-6 max-w-4xl mx-auto h-full"
         >
           <div className="flex flex-col justify-center">
-            <div className="bg-white/30 backdrop-blur-xl rounded-xl p-4 sm:p-6 border border-white/30 shadow-xl">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-emerald-500/80 to-teal-500/80 flex items-center justify-center text-white shadow-md shrink-0">
+            <div className="bg-white/30 backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-white/30 shadow-xl">
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-emerald-500/80 to-teal-500/80 flex items-center justify-center text-white shadow-md shrink-0">
                   <FontAwesomeIcon
                     icon={faRandom}
-                    className="text-sm sm:text-base"
+                    className="text-xs sm:text-sm"
                   />
                 </div>
-                <h3 className="text-lg sm:text-xl font-bold text-emerald-800">
+                <h3 className="text-base sm:text-lg font-bold text-emerald-800">
                   Verifiable Random Function
                 </h3>
               </div>
-              <p className="text-sm sm:text-base text-gray-600 mb-4">
+              <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3">
                 GAMA leverages blockchain's native{' '}
                 <strong>VRF (Verifiable Random Function)</strong> to generate
                 truly random and tamper-proof results for each game.
               </p>
 
-              <div className="space-y-3 mt-4">
+              <div className="space-y-2 mt-2 sm:mt-3">
                 {[
                   {
                     icon: faServer,
@@ -1039,20 +1042,20 @@ const IntroScreen = ({ onComplete }) => {
                 ].map((item, index) => (
                   <motion.div
                     key={index}
-                    className="flex items-start gap-3 p-2 sm:p-3 rounded-lg bg-white/40 backdrop-blur-sm border border-emerald-100/50"
+                    className="flex items-start gap-2 p-1.5 sm:p-2 rounded-lg bg-white/40 backdrop-blur-sm border border-emerald-100/50"
                     whileHover={{
                       backgroundColor: 'rgba(255, 255, 255, 0.6)',
-                      y: -2,
+                      y: -1,
                     }}
                   >
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500/20 to-teal-400/20 flex items-center justify-center text-emerald-600 shrink-0">
-                      <FontAwesomeIcon icon={item.icon} />
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500/20 to-teal-400/20 flex items-center justify-center text-emerald-600 shrink-0">
+                      <FontAwesomeIcon icon={item.icon} className="text-xs" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-emerald-800">
+                      <h4 className="text-xs font-bold text-emerald-800">
                         {item.title}
                       </h4>
-                      <p className="text-xs text-gray-600">
+                      <p className="text-xs text-gray-600 leading-tight">
                         {item.description}
                       </p>
                     </div>
@@ -1064,18 +1067,20 @@ const IntroScreen = ({ onComplete }) => {
 
           <div className="flex items-center justify-center">
             <motion.div
-              className="w-full max-w-md bg-white/30 backdrop-blur-xl rounded-xl border border-white/30 shadow-xl p-4 sm:p-6 overflow-hidden"
+              className="w-full max-w-md bg-white/30 backdrop-blur-xl rounded-xl border border-white/30 shadow-xl p-3 sm:p-4 overflow-hidden"
               whileHover={{
                 boxShadow: '0 25px 50px -12px rgba(16, 185, 129, 0.25)',
               }}
             >
-              <h3 className="text-base sm:text-lg font-bold text-emerald-800 mb-4">
+              <h3 className="text-sm sm:text-base font-bold text-emerald-800 mb-2 sm:mb-3">
                 How VRF Works on GAMA
               </h3>
 
-              <VrfVisualization />
+              <div className="h-40 sm:h-48 md:h-52">
+                <VrfVisualization />
+              </div>
 
-              <div className="mt-4 text-xs sm:text-sm text-center text-gray-600">
+              <div className="mt-2 text-xs text-center text-gray-600">
                 <p>
                   Blockchain-verified randomness ensures fairness with each roll
                 </p>
@@ -1095,24 +1100,24 @@ const IntroScreen = ({ onComplete }) => {
       content: (
         <motion.div
           variants={itemVariants}
-          className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto"
+          className="grid md:grid-cols-2 gap-4 md:gap-6 max-w-4xl mx-auto h-full"
         >
           <div className="flex items-center justify-center order-2 md:order-1">
             <motion.div
-              className="w-full max-w-md bg-white/30 backdrop-blur-xl rounded-xl border border-white/30 shadow-xl p-4 sm:p-6 overflow-hidden"
+              className="w-full max-w-md bg-white/30 backdrop-blur-xl rounded-xl border border-white/30 shadow-xl p-3 sm:p-4 overflow-hidden"
               whileHover={{
                 boxShadow: '0 25px 50px -12px rgba(16, 185, 129, 0.25)',
               }}
             >
-              <h3 className="text-base sm:text-lg font-bold text-emerald-800 mb-4">
+              <h3 className="text-sm sm:text-base font-bold text-emerald-800 mb-2 sm:mb-3">
                 Token Burning Mechanics
               </h3>
 
-              <div className="h-64 sm:h-72">
+              <div className="h-40 sm:h-48 md:h-52">
                 <TokenBurningAnimation />
               </div>
 
-              <div className="mt-4 text-xs sm:text-sm text-center text-gray-600">
+              <div className="mt-2 text-xs text-center text-gray-600">
                 <p>
                   As supply decreases through burns, token value naturally
                   increases
@@ -1122,25 +1127,25 @@ const IntroScreen = ({ onComplete }) => {
           </div>
 
           <div className="flex flex-col justify-center order-1 md:order-2">
-            <div className="bg-white/30 backdrop-blur-xl rounded-xl p-4 sm:p-6 border border-white/30 shadow-xl">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-emerald-500/80 to-teal-500/80 flex items-center justify-center text-white shadow-md shrink-0">
+            <div className="bg-white/30 backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-white/30 shadow-xl">
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-emerald-500/80 to-teal-500/80 flex items-center justify-center text-white shadow-md shrink-0">
                   <FontAwesomeIcon
                     icon={faFire}
-                    className="text-sm sm:text-base"
+                    className="text-xs sm:text-sm"
                   />
                 </div>
-                <h3 className="text-lg sm:text-xl font-bold text-emerald-800">
+                <h3 className="text-base sm:text-lg font-bold text-emerald-800">
                   100% Token Burning
                 </h3>
               </div>
-              <p className="text-sm sm:text-base text-gray-600 mb-4">
+              <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3">
                 <strong>Every token you bet is permanently burned</strong> from
                 circulation, creating continuous deflationary pressure on the
                 GAMA supply.
               </p>
 
-              <div className="space-y-3 mt-4">
+              <div className="space-y-2 mt-2 sm:mt-3">
                 {[
                   {
                     icon: faChartPie,
@@ -1163,20 +1168,20 @@ const IntroScreen = ({ onComplete }) => {
                 ].map((item, index) => (
                   <motion.div
                     key={index}
-                    className="flex items-start gap-3 p-2 sm:p-3 rounded-lg bg-white/40 backdrop-blur-sm border border-emerald-100/50"
+                    className="flex items-start gap-2 p-1.5 sm:p-2 rounded-lg bg-white/40 backdrop-blur-sm border border-emerald-100/50"
                     whileHover={{
                       backgroundColor: 'rgba(255, 255, 255, 0.6)',
-                      y: -2,
+                      y: -1,
                     }}
                   >
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500/20 to-teal-400/20 flex items-center justify-center text-emerald-600 shrink-0">
-                      <FontAwesomeIcon icon={item.icon} />
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500/20 to-teal-400/20 flex items-center justify-center text-emerald-600 shrink-0">
+                      <FontAwesomeIcon icon={item.icon} className="text-xs" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-emerald-800">
+                      <h4 className="text-xs font-bold text-emerald-800">
                         {item.title}
                       </h4>
-                      <p className="text-xs text-gray-600">
+                      <p className="text-xs text-gray-600 leading-tight">
                         {item.description}
                       </p>
                     </div>
@@ -1197,28 +1202,28 @@ const IntroScreen = ({ onComplete }) => {
       content: (
         <motion.div
           variants={itemVariants}
-          className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto"
+          className="grid md:grid-cols-2 gap-4 md:gap-6 max-w-4xl mx-auto h-full"
         >
           <div className="flex flex-col justify-center">
-            <div className="bg-white/30 backdrop-blur-xl rounded-xl p-4 sm:p-6 border border-white/30 shadow-xl">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-emerald-500/80 to-teal-500/80 flex items-center justify-center text-white shadow-md shrink-0">
+            <div className="bg-white/30 backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-white/30 shadow-xl">
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-emerald-500/80 to-teal-500/80 flex items-center justify-center text-white shadow-md shrink-0">
                   <FontAwesomeIcon
                     icon={faPercentage}
-                    className="text-sm sm:text-base"
+                    className="text-xs sm:text-sm"
                   />
                 </div>
-                <h3 className="text-lg sm:text-xl font-bold text-emerald-800">
+                <h3 className="text-base sm:text-lg font-bold text-emerald-800">
                   0% House Edge
                 </h3>
               </div>
-              <p className="text-sm sm:text-base text-gray-600 mb-4">
+              <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3">
                 Unlike traditional casinos that take a percentage of bets, GAMA
                 operates with <strong>absolutely no house edge</strong>. 100% of
                 potential winnings go directly to players.
               </p>
 
-              <div className="space-y-3 mt-4">
+              <div className="space-y-2 mt-2 sm:mt-3">
                 {[
                   {
                     icon: faCoins,
@@ -1241,20 +1246,20 @@ const IntroScreen = ({ onComplete }) => {
                 ].map((item, index) => (
                   <motion.div
                     key={index}
-                    className="flex items-start gap-3 p-2 sm:p-3 rounded-lg bg-white/40 backdrop-blur-sm border border-emerald-100/50"
+                    className="flex items-start gap-2 p-1.5 sm:p-2 rounded-lg bg-white/40 backdrop-blur-sm border border-emerald-100/50"
                     whileHover={{
                       backgroundColor: 'rgba(255, 255, 255, 0.6)',
-                      y: -2,
+                      y: -1,
                     }}
                   >
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500/20 to-teal-400/20 flex items-center justify-center text-emerald-600 shrink-0">
-                      <FontAwesomeIcon icon={item.icon} />
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500/20 to-teal-400/20 flex items-center justify-center text-emerald-600 shrink-0">
+                      <FontAwesomeIcon icon={item.icon} className="text-xs" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-emerald-800">
+                      <h4 className="text-xs font-bold text-emerald-800">
                         {item.title}
                       </h4>
-                      <p className="text-xs text-gray-600">
+                      <p className="text-xs text-gray-600 leading-tight">
                         {item.description}
                       </p>
                     </div>
@@ -1266,20 +1271,20 @@ const IntroScreen = ({ onComplete }) => {
 
           <div className="flex items-center justify-center">
             <motion.div
-              className="w-full max-w-md bg-white/30 backdrop-blur-xl rounded-xl border border-white/30 shadow-xl p-4 sm:p-6 overflow-hidden"
+              className="w-full max-w-md bg-white/30 backdrop-blur-xl rounded-xl border border-white/30 shadow-xl p-3 sm:p-4 overflow-hidden"
               whileHover={{
                 boxShadow: '0 25px 50px -12px rgba(16, 185, 129, 0.25)',
               }}
             >
-              <h3 className="text-base sm:text-lg font-bold text-emerald-800 mb-4">
+              <h3 className="text-sm sm:text-base font-bold text-emerald-800 mb-2 sm:mb-3">
                 Player-First Economics
               </h3>
 
-              <div className="h-64 sm:h-72">
+              <div className="h-40 sm:h-48 md:h-52">
                 <ZeroHouseEdgeVisualization />
               </div>
 
-              <div className="mt-4 text-xs sm:text-sm text-center text-gray-600">
+              <div className="mt-2 text-xs text-center text-gray-600">
                 <p>
                   Traditional casinos: 1-15% house edge. GAMA: 0% house edge.
                 </p>
@@ -1300,70 +1305,71 @@ const IntroScreen = ({ onComplete }) => {
           variants={itemVariants}
           className="text-center w-full max-w-4xl mx-auto px-4"
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-5">
             <AnimatedCard
               icon={faRandom}
               title="Fair & Random"
               description="Blockchain-powered VRF guarantees tamper-proof random results with every game."
+              className="sm:text-xs"
             />
             <AnimatedCard
               icon={faFire}
               title="Token Burning"
-              description="100% of tokens used in games are permanently burned, decreasing total supply forever."
+              description="100% of tokens used in games are burned, decreasing total supply forever."
+              className="sm:text-xs"
             />
             <AnimatedCard
               icon={faPercentage}
               title="Zero House Edge"
               description="No rake, no fees, no house advantage. 100% of winnings go to players."
-              className="sm:col-span-2 md:col-span-1 sm:max-w-sm sm:mx-auto md:max-w-none"
+              className="sm:text-xs"
             />
           </div>
 
-          <div className="w-full max-w-xl mx-auto bg-white/40 backdrop-blur-xl rounded-xl border border-white/30 shadow-xl p-4 sm:p-6 mb-8">
-            <h3 className="text-lg sm:text-xl font-bold text-emerald-800 mb-4">
+          <div className="w-full max-w-xl mx-auto bg-white/40 backdrop-blur-xl rounded-xl border border-white/30 shadow-xl p-2.5 sm:p-4 mb-4 sm:mb-6">
+            <h3 className="text-base sm:text-lg font-bold text-emerald-800 mb-2 sm:mb-3">
               Join the Future of Gaming
             </h3>
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-3 text-left text-emerald-700">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center text-white shadow-md shrink-0">
-                  <FontAwesomeIcon icon={faCheckCircle} />
+            <div className="flex flex-col gap-2">
+              {[
+                {
+                  icon: faCheckCircle,
+                  title: 'XDC Chain Compatible',
+                  desc: 'Fast, secure, and low-fee transactions on the XDC network',
+                },
+                {
+                  icon: faCheckCircle,
+                  title: 'Beautiful Interface',
+                  desc: 'User-friendly design with smooth animations and intuitive controls',
+                },
+                {
+                  icon: faCheckCircle,
+                  title: 'Community Owned',
+                  desc: 'No central authority - the system is fully governed by smart contracts',
+                },
+              ].map((item, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 text-left text-emerald-700"
+                >
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center text-white shadow-md shrink-0">
+                    <FontAwesomeIcon icon={item.icon} className="text-xs" />
+                  </div>
+                  <div>
+                    <span className="text-xs sm:text-sm font-medium">
+                      {item.title}
+                    </span>
+                    <p className="text-xs text-emerald-600 leading-tight">
+                      {item.desc}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <span className="font-medium">XDC Chain Compatible</span>
-                  <p className="text-xs sm:text-sm text-emerald-600">
-                    Fast, secure, and low-fee transactions on the XDC network
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 text-left text-emerald-700">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center text-white shadow-md shrink-0">
-                  <FontAwesomeIcon icon={faCheckCircle} />
-                </div>
-                <div>
-                  <span className="font-medium">Beautiful Interface</span>
-                  <p className="text-xs sm:text-sm text-emerald-600">
-                    User-friendly design with smooth animations and intuitive
-                    controls
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 text-left text-emerald-700">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center text-white shadow-md shrink-0">
-                  <FontAwesomeIcon icon={faCheckCircle} />
-                </div>
-                <div>
-                  <span className="font-medium">Community Owned</span>
-                  <p className="text-xs sm:text-sm text-emerald-600">
-                    No central authority - the system is fully governed by smart
-                    contracts
-                  </p>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
           <motion.button
-            className="px-6 py-3 sm:px-8 sm:py-4 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl shadow-lg text-lg sm:text-xl font-medium flex items-center gap-3 mx-auto"
+            className="px-5 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl shadow-lg text-sm sm:text-base font-medium flex items-center gap-2 mx-auto"
             whileHover={{
               scale: 1.05,
               boxShadow: '0 20px 30px -10px rgba(16, 185, 129, 0.5)',
@@ -1438,17 +1444,19 @@ const IntroScreen = ({ onComplete }) => {
       {/* Main content container with fixed layout structure */}
       <div className="relative z-30 w-full max-w-7xl mx-auto h-screen flex flex-col overflow-hidden">
         {/* Enhanced header with modern design */}
-        <header className="fixed top-0 left-0 right-0 max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center z-40 backdrop-blur-sm bg-white/20">
+        <header className="fixed top-0 left-0 right-0 max-w-7xl mx-auto px-3 sm:px-4 py-2 flex justify-between items-center z-40 backdrop-blur-sm bg-white/20">
           <motion.div
             className="flex items-center"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center text-white mr-2 sm:mr-3 shadow-lg">
-              <FontAwesomeIcon icon={faDice} className="text-sm sm:text-base" />
-            </div>
-            <span className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-700 to-teal-600">
+            <img
+              src="Gama_logo.png"
+              alt="GAMA"
+              className="w-7 h-7 sm:w-8 sm:h-8 mr-2 object-contain"
+            />
+            <span className="text-lg sm:text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-700 to-teal-600">
               GAMA
             </span>
           </motion.div>
@@ -1461,7 +1469,7 @@ const IntroScreen = ({ onComplete }) => {
             {currentStep < totalSteps ? (
               <button
                 onClick={onComplete}
-                className="text-xs sm:text-sm font-medium px-2 py-1 sm:px-3 sm:py-1 rounded-md hover:bg-white/30 transition-colors duration-200"
+                className="text-xs font-medium px-2 py-1 rounded-md hover:bg-white/30 transition-colors duration-200"
               >
                 Skip Intro
               </button>
@@ -1470,8 +1478,8 @@ const IntroScreen = ({ onComplete }) => {
         </header>
 
         {/* Main content area with enhanced animations */}
-        <div className="flex-1 flex flex-col justify-center px-4 sm:px-6 pt-16 pb-28 overflow-auto">
-          <div className="flex flex-col justify-center my-auto">
+        <div className="flex-1 flex flex-col justify-center px-3 sm:px-4 pt-12 pb-20 overflow-hidden">
+          <div className="flex flex-col justify-center min-h-0 h-full">
             <AnimatePresence mode="wait">
               <motion.div
                 key={`step-${currentStep}`}
@@ -1479,25 +1487,25 @@ const IntroScreen = ({ onComplete }) => {
                 initial="hidden"
                 animate="visible"
                 exit="exit"
-                className="py-2 overflow-visible"
+                className="py-2 h-full flex flex-col"
               >
                 <motion.h2
                   variants={itemVariants}
-                  className="text-2xl sm:text-3xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-700 to-teal-600 mb-2 text-center"
+                  className="text-xl sm:text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-700 to-teal-600 mb-1 sm:mb-2 text-center"
                 >
                   {currentStepData.title}
                 </motion.h2>
 
                 <motion.p
                   variants={itemVariants}
-                  className="text-sm sm:text-base md:text-xl text-emerald-700 mb-4 sm:mb-8 text-center max-w-3xl mx-auto"
+                  className="text-xs sm:text-sm md:text-base text-emerald-700 mb-3 text-center max-w-3xl mx-auto"
                 >
                   {currentStepData.subtitle}
                 </motion.p>
 
                 <motion.div
                   variants={itemVariants}
-                  className="mb-4 overflow-visible"
+                  className="flex-1 flex items-center"
                 >
                   {currentStepData.content}
                 </motion.div>
@@ -1508,9 +1516,9 @@ const IntroScreen = ({ onComplete }) => {
 
         {/* Enhanced continue button with modern design */}
         {currentStep < totalSteps && (
-          <div className="fixed bottom-12 sm:bottom-16 left-0 right-0 flex justify-center z-40">
+          <div className="fixed bottom-10 left-0 right-0 flex justify-center z-40">
             <motion.button
-              className="px-5 py-2.5 sm:px-6 sm:py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl shadow-lg text-sm sm:text-base font-medium flex items-center gap-2 backdrop-blur-sm"
+              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl shadow-lg text-xs sm:text-sm font-medium flex items-center gap-2 backdrop-blur-sm"
               whileHover={{
                 scale: 1.05,
                 boxShadow: '0 20px 30px -10px rgba(16, 185, 129, 0.4)',
@@ -1538,11 +1546,11 @@ const IntroScreen = ({ onComplete }) => {
         )}
 
         {/* Enhanced progress indicator with modern design */}
-        <div className="fixed bottom-0 left-0 right-0 flex justify-center gap-1.5 sm:gap-2 py-3 z-40 bg-gradient-to-t from-white/90 to-transparent pt-8 pb-3">
+        <div className="fixed bottom-0 left-0 right-0 flex justify-center gap-1 sm:gap-1.5 py-2 z-40 bg-gradient-to-t from-white/90 to-transparent pt-6 pb-2">
           {steps.map((_, index) => (
             <motion.button
               key={index}
-              className="w-7 sm:w-10 h-1 sm:h-1.5 rounded-full bg-emerald-800/20 focus:outline-none overflow-hidden"
+              className="w-5 sm:w-7 h-1 rounded-full bg-emerald-800/20 focus:outline-none overflow-hidden"
               animate={{
                 backgroundColor:
                   index === currentStep

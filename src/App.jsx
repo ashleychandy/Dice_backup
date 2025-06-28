@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AnimatePresence } from 'framer-motion';
@@ -41,6 +41,17 @@ function App() {
       },
     },
   });
+
+  // Effect to reset body overflow styles when transitioning from intro to main app
+  useEffect(() => {
+    if (hasSeenIntro) {
+      // Reset overflow styles to ensure scrolling works after intro
+      document.body.style.overflow = 'auto';
+      document.documentElement.style.overflow = 'auto';
+      document.body.style.height = 'auto';
+      document.documentElement.style.height = 'auto';
+    }
+  }, [hasSeenIntro]);
 
   // Don't render anything until we've checked localStorage
   if (isLoading) {

@@ -25,7 +25,7 @@ const Layout = ({ children, showNetworkWarning = true }) => {
   };
 
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-screen relative overflow-auto">
       {/* Background image covering the entire page */}
       <div
         className="fixed top-0 left-0 w-full h-full bg-cover bg-center z-0"
@@ -36,7 +36,7 @@ const Layout = ({ children, showNetworkWarning = true }) => {
         <Navbar account={account} chainId={chainId} />
 
         {/* Content area with transparent background */}
-        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow">
+        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow overflow-auto">
           {children}
         </main>
 

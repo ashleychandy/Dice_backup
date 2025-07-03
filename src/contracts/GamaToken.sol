@@ -1,121 +1,141 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
-contract GamaToken is ERC20, AccessControl, Pausable, ERC20Burnable {
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    bytes32 public constant SUB_ADMIN_ROLE = keccak256("SUB_ADMIN_ROLE");
-    bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
-
+contract GamaToken is Initializable, ERC20Upgradeable, PausableUpgradeable, ERC20BurnableUpgradeable, OwnableUpgradeable {
     mapping(address => bool) public isBlacklisted;
-    mapping(address => uint256) public subAdminMinted;
-    mapping(address => uint256) public subAdminMintLimit;
+    mapping(address => bool) public isGame;
+    mapping(address => uint256) public gameMintLimit;
+    mapping(address => uint256) public gameMinted;
 
     uint256 private _maxMintable;
     uint256 private _totalMinted;
 
     event Blacklisted(address indexed account, bool value);
-    event SubAdminLimitUpdated(address indexed subAdmin, uint256 newLimit);
+    event GameWhitelisted(address indexed game, uint256 limit);
+    event GameLimitUpdated(address indexed game, uint256 newLimit);
     event Airdrop(address indexed recipient, uint256 amount);
 
-    constructor(uint256 maxMintable_) ERC20("Gama Token", "GAMA") {
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(MINTER_ROLE, msg.sender);
-        _grantRole(PAUSER_ROLE, msg.sender);
-        _grantRole(BURNER_ROLE, msg.sender);
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(uint256 maxMintable_, address owner_) public initializer {
+        __ERC20_init("Gama Token", "GAMA");
+        __Ownable_init(owner_);
+        __Pausable_init();
+        __ERC20Burnable_init();
+
         _maxMintable = maxMintable_;
     }
 
-    function pause() public onlyRole(PAUSER_ROLE) {
+    modifier onlyGame() {
+        require(isGame[msg.sender], "Not authorized game contract");
+        _;
+    }
+
+    function pause() external onlyOwner {
         _pause();
     }
 
-    function unpause() public onlyRole(PAUSER_ROLE) {
+    function unpause() external onlyOwner {
         _unpause();
     }
 
-    function mint(address to, uint256 amount) public whenNotPaused {
-        require(!isBlacklisted[to], "Recipient is blacklisted");
-        require(!isBlacklisted[msg.sender], "Sender is blacklisted");
-
-        if (hasRole(SUB_ADMIN_ROLE, msg.sender)) {
-            uint256 newMintedAmount = subAdminMinted[msg.sender] + amount;
-            require(newMintedAmount <= subAdminMintLimit[msg.sender], "Sub-admin mint limit exceeded");
-            subAdminMinted[msg.sender] = newMintedAmount;
-        } else {
-            require(hasRole(MINTER_ROLE, msg.sender), "Caller is not a minter or sub-admin");
-        }
-
-        require(_totalMinted + amount <= _maxMintable, "Max mintable limit exceeded");
-        _totalMinted += amount;
-        _mint(to, amount);
-    }
-
-    function _update(address from, address to, uint256 value) internal override(ERC20) {
-        require(!paused(), "Token transfer while paused");
-        require(!isBlacklisted[from], "Sender is blacklisted");
-        require(!isBlacklisted[to], "Recipient is blacklisted");
-        super._update(from, to, value);
-    }
-
-    function approve(address spender, uint256 amount) public override returns (bool) {
-        require(!paused(), "Approve while paused");
-        require(!isBlacklisted[msg.sender], "Approver is blacklisted");
-        require(!isBlacklisted[spender], "Spender is blacklisted");
-        return super.approve(spender, amount);
-    }
-
-    function burn(uint256 amount) public override whenNotPaused {
-        super.burn(amount);
-        require(_totalMinted >= amount, "Burn exceeds minted total");
-        _totalMinted -= amount;
-    }
-
-    function burnFrom(address account, uint256 amount) public override whenNotPaused {
-        super.burnFrom(account, amount);
-        require(_totalMinted >= amount, "Burn exceeds minted total");
-        _totalMinted -= amount;
-    }
-
-    function setBlacklist(address account, bool value) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setBlacklist(address account, bool value) external onlyOwner {
         isBlacklisted[account] = value;
         emit Blacklisted(account, value);
     }
 
-    function setSubAdminLimit(address subAdmin, uint256 limit) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        subAdminMintLimit[subAdmin] = limit;
-        emit SubAdminLimitUpdated(subAdmin, limit);
+    function whitelistGame(address game, uint256 limit) external onlyOwner {
+        require(game != address(0), "Invalid address");
+        isGame[game] = true;
+        gameMintLimit[game] = limit;
+        emit GameWhitelisted(game, limit);
     }
 
-    function airdrop(address[] memory recipients, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) whenNotPaused {
+    function updateGameLimit(address game, uint256 newLimit) external onlyOwner {
+        require(isGame[game], "Game not whitelisted");
+        gameMintLimit[game] = newLimit;
+        emit GameLimitUpdated(game, newLimit);
+    }
+
+    function mint(address to, uint256 amount) external whenNotPaused onlyGame {
+        require(!isBlacklisted[to] && !isBlacklisted[msg.sender], "Blacklisted address");
+
+        uint256 newMintedByGame = gameMinted[msg.sender] + amount;
+        require(newMintedByGame <= gameMintLimit[msg.sender], "Game mint limit exceeded");
+
+        uint256 newTotalMinted = _totalMinted + amount;
+        require(newTotalMinted <= _maxMintable, "Global mint limit exceeded");
+
+        gameMinted[msg.sender] = newMintedByGame;
+        _totalMinted = newTotalMinted;
+
+        _mint(to, amount);
+    }
+
+    function burn(uint256 amount) public override whenNotPaused onlyGame {
+        super.burn(amount);
+        require(_totalMinted >= amount, "Burn exceeds total minted");
+        _totalMinted -= amount;
+    }
+
+    function burnFrom(address account, uint256 amount) public override whenNotPaused onlyGame {
+        super.burnFrom(account, amount);
+        require(_totalMinted >= amount, "Burn exceeds total minted");
+        _totalMinted -= amount;
+    }
+
+    function airdrop(address[] calldata recipients, uint256[] calldata amounts) external onlyOwner whenNotPaused {
+        require(recipients.length == amounts.length, "Length mismatch");
+
+        uint256 total = 0;
         for (uint256 i = 0; i < recipients.length; i++) {
-            address recipient = recipients[i];
-            require(!isBlacklisted[recipient], "Recipient is blacklisted");
-            _mint(recipient, amount);
-            _totalMinted += amount;
-            emit Airdrop(recipient, amount);
+            require(!isBlacklisted[recipients[i]], "Recipient is blacklisted");
+            total += amounts[i];
         }
+
+        require(_totalMinted + total <= _maxMintable, "Global mint limit exceeded");
+
+        for (uint256 i = 0; i < recipients.length; i++) {
+            _mint(recipients[i], amounts[i]);
+            emit Airdrop(recipients[i], amounts[i]);
+        }
+
+        _totalMinted += total;
     }
 
-    function setMaxMintable(uint256 newMaxMintable) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newMaxMintable >= _totalMinted, "New limit cannot be less than already minted");
-        _maxMintable = newMaxMintable;
+    function _update(address from, address to, uint256 value) internal override {
+        require(!paused(), "Token transfers paused");
+        require(!isBlacklisted[from] && !isBlacklisted[to], "Blacklisted address");
+        super._update(from, to, value);
     }
 
-    function getMaxMintable() external view onlyRole(MINTER_ROLE) returns (uint256) {
+    // View Functions
+    function getMaxMintable() external view returns (uint256) {
         return _maxMintable;
     }
 
-    function getTotalMinted() external view onlyRole(MINTER_ROLE) returns (uint256) {
+    function getTotalMinted() external view returns (uint256) {
         return _totalMinted;
     }
 
-    function getRemainingMintable() external view onlyRole(MINTER_ROLE) returns (uint256) {
+    function getRemainingMintable() external view returns (uint256) {
         return _maxMintable - _totalMinted;
+    }
+
+    function getGameMinted(address game) external view returns (uint256) {
+        return gameMinted[game];
+    }
+
+    function getGameLimit(address game) external view returns (uint256) {
+        return gameMintLimit[game];
     }
 }

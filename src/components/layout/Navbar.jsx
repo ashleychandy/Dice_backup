@@ -116,8 +116,8 @@ const Navbar = () => {
   }, []);
 
   const navbarClasses = isScrolled
-    ? 'px-6 border-b border-[#22AD74]/20 bg-white sticky top-0 z-50 shadow-md w-full transition-all duration-300'
-    : 'px-6 sticky top-0 z-50 w-full bg-transparent transition-all duration-300';
+    ? 'px-6 border-b border-[#22AD74]/20 bg-white fixed top-0 left-0 z-50 shadow-md w-full transition-all duration-300'
+    : 'px-6 fixed top-0 left-0 z-50 w-full bg-transparent transition-all duration-300';
 
   return (
     <header className={navbarClasses}>

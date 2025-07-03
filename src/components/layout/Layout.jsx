@@ -25,18 +25,19 @@ const Layout = ({ children, showNetworkWarning = true }) => {
   };
 
   return (
-    <div className="min-h-screen relative overflow-auto">
+    <div className="min-h-screen relative">
       {/* Background image covering the entire page */}
       <div
         className="fixed top-0 left-0 w-full h-full bg-cover bg-center z-0"
         style={{ backgroundImage: `url(${gamaBg})` }}
       />
 
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <Navbar account={account} chainId={chainId} />
+      {/* Navbar is now outside the relative container */}
+      <Navbar account={account} chainId={chainId} />
 
+      <div className="relative z-10 flex flex-col min-h-screen pt-16">
         {/* Content area with transparent background */}
-        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow overflow-auto">
+        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow">
           {children}
         </main>
 

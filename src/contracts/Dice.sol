@@ -11,7 +11,7 @@ import "lib/contractsv2/src/v0.8/VRFConsumerBaseV2.sol";
 
 /**
  * @title IERC20
- * @dev ERC20 interface with role-based functionality
+ * @dev ERC20 interface for token interactions
  */
 interface IERC20 {
     function totalSupply() external view returns (uint256);
@@ -20,11 +20,6 @@ interface IERC20 {
     function allowance(address owner, address spender) external view returns (uint256);
     function approve(address spender, uint256 amount) external returns (bool);
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-    function hasRole(bytes32 role, address account) external view returns (bool);
-    function getRoleAdmin(bytes32 role) external view returns (bytes32);
-    function grantRole(bytes32 role, address account) external;
-    function revokeRole(bytes32 role, address account) external;
-    function renounceRole(bytes32 role, address callerConfirmation) external;
     function mint(address account, uint256 amount) external;
     function burn(uint256 amount) external;
     function burnFrom(address account, uint256 amount) external;
@@ -88,7 +83,6 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
     error MintFailed(address account, uint256 amount);
     error PayoutCalculationError(string message);
     error InsufficientAllowance(uint256 required, uint256 allowed);
-    error MissingContractRole(bytes32 role);
     error GameError(string reason);
     error VRFError(string reason);
     error MaxPayoutExceeded(uint256 potentialPayout, uint256 maxAllowed);
@@ -101,8 +95,6 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
     uint256 public constant MAX_POSSIBLE_PAYOUT = 60_000_000 * 10**18; // 10M * 6
     uint32 private constant GAME_TIMEOUT = 1 hours;
     uint256 private constant BLOCK_THRESHOLD = 300;
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
     
     // Special result values
     uint8 public constant RESULT_FORCE_STOPPED = 254;
@@ -188,7 +180,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         if (user.currentGame.isActive) revert GameError("User has an active game");
         if (user.currentRequestId != 0) revert GameError("User has a pending request");
 
-        // 3. Balance, allowance, and role checks
+        // 3. Balance, allowance
         _checkBalancesAndAllowances(msg.sender, amount);
 
         // Calculate potential payout
@@ -337,10 +329,6 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         // ===== INTERACTIONS =====
         // Process payout if player won
         if (payout > 0) {
-            if (!gamaToken.hasRole(MINTER_ROLE, address(this))) {
-                revert MissingContractRole(MINTER_ROLE);
-            }
-            
             gamaToken.mint(player, payout);
         }
 
@@ -405,10 +393,6 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
 
         // ===== INTERACTIONS =====
         // Refund player
-        if (!gamaToken.hasRole(MINTER_ROLE, address(this))) {
-            revert MissingContractRole(MINTER_ROLE);
-        }
-        
         gamaToken.mint(msg.sender, refundAmount);
 
         // Add to bet history
@@ -475,10 +459,6 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
 
         // ===== INTERACTIONS =====
         // Refund player
-        if (!gamaToken.hasRole(MINTER_ROLE, address(this))) {
-            revert MissingContractRole(MINTER_ROLE);
-        }
-        
         gamaToken.mint(player, refundAmount);
       
         // Add to bet history
@@ -649,9 +629,9 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
 
     // ============ Private Functions ============
     /**
-     * @dev Verify token balances and allowances
-     * @param player Player address
-     * @param amount Amount to verify
+     * @dev Check if user has sufficient balance and allowance
+     * @param player User address
+     * @param amount Bet amount
      */
     function _checkBalancesAndAllowances(address player, uint256 amount) private view {
         if (gamaToken.balanceOf(player) < amount) {
@@ -662,13 +642,6 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
             revert InsufficientAllowance(amount, gamaToken.allowance(player, address(this)));
         }
 
-        if (!gamaToken.hasRole(BURNER_ROLE, address(this))) {
-            revert MissingContractRole(BURNER_ROLE);
-        }
-
-        if (!gamaToken.hasRole(MINTER_ROLE, address(this))) {
-            revert MissingContractRole(MINTER_ROLE);
-        }
     }
 
     /**

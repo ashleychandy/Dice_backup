@@ -56,7 +56,7 @@ const WelcomeBanner = ({ onConnectClick }) => (
 
         <p className="text-gray-700 mb-5 text-lg">
           Choose your number, place your bet, and roll the dice for a chance to
-          win up to 6x your stake!
+          Win!
         </p>
 
         <div className="bg-white/70 backdrop-blur-sm p-4 rounded-xl border border-[#22AD74]/15 mb-4 shadow-sm">

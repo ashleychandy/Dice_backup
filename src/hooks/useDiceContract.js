@@ -31,9 +31,6 @@ export const useDiceContract = () => {
           currentNetwork.contracts?.token || currentNetwork.tokenAddress;
 
         if (!diceAddress) {
-          console.warn(
-            `Dice contract address not configured for network: ${currentNetwork.name}`
-          );
           setError(
             new Error(
               `Dice contract address not configured for network: ${currentNetwork.name}`
@@ -45,7 +42,6 @@ export const useDiceContract = () => {
         }
 
         if (!TokenABI?.abi) {
-          console.warn('Token ABI not found');
           setError(new Error('Token ABI not available'));
           setIsLoading(false);
           return;
@@ -64,7 +60,6 @@ export const useDiceContract = () => {
           );
           setContract(diceContract);
         } catch (diceError) {
-          console.error('Error initializing dice contract:', diceError);
           setError(
             new Error(
               `Dice contract initialization failed: ${diceError.message}`
@@ -83,12 +78,10 @@ export const useDiceContract = () => {
             );
             setTokenContract(token);
           } catch (tokenError) {
-            console.error('Error initializing token contract:', tokenError);
             setTokenContract(null);
           }
         }
       } catch (err) {
-        console.error('Contract initialization error:', err);
         setError(err);
         setContract(null);
         setTokenContract(null);
@@ -99,18 +92,6 @@ export const useDiceContract = () => {
 
     initContracts();
   }, [provider, account, currentNetwork]);
-
-  // Debug logging on state changes
-  useEffect(() => {
-    console.log('Contract initialization result:', {
-      dice: contract,
-      token: tokenContract,
-      network: currentNetwork?.name,
-      isLoading,
-      hasError: !!error,
-      errorMessage: error?.message,
-    });
-  }, [contract, tokenContract, currentNetwork, isLoading, error]);
 
   return {
     contract,

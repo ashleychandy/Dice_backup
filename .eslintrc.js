@@ -9,9 +9,7 @@ module.exports = {
     'plugin:react/recommended',
     'plugin:react-hooks/recommended',
     'plugin:prettier/recommended',
-    'plugin:@typescript-eslint/recommended',
   ],
-  parser: '@typescript-eslint/parser',
   parserOptions: {
     ecmaFeatures: {
       jsx: true,
@@ -19,16 +17,13 @@ module.exports = {
     ecmaVersion: 'latest',
     sourceType: 'module',
   },
-  plugins: ['react', 'react-hooks', '@typescript-eslint'],
+  plugins: ['react', 'react-hooks'],
   rules: {
     // Detect unused code
-    'no-unused-vars': [
-      'warn',
-      {
-        varsIgnorePattern: '^_',
-        argsIgnorePattern: '^_',
-      },
-    ],
+    'no-unused-vars': ['warn', { 
+      varsIgnorePattern: '^_', 
+      argsIgnorePattern: '^_' 
+    }],
     // Prevent duplicate imports
     'no-duplicate-imports': 'error',
     // Prevent unnecessary useEffect dependencies
@@ -41,14 +36,6 @@ module.exports = {
     'react/prop-types': 'off',
     // Line endings
     'prettier/prettier': ['error', { endOfLine: 'auto' }],
-    // TypeScript specific rules
-    '@typescript-eslint/no-unused-vars': [
-      'warn',
-      {
-        varsIgnorePattern: '^_',
-        argsIgnorePattern: '^_',
-      },
-    ],
   },
   settings: {
     react: {
@@ -56,8 +43,8 @@ module.exports = {
     },
     'import/resolver': {
       node: {
-        extensions: ['.js', '.jsx', '.ts', '.tsx'],
+        extensions: ['.js', '.jsx'],
       },
     },
   },
-};
+}; 

@@ -1,7 +1,14 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import React, { useCallback, useEffect, useState } from 'react';
-import { faRandom } from '@fortawesome/free-solid-svg-icons';
+import {
+  faRandom,
+  faDice,
+  faCubes,
+  faChartLine,
+  faChevronDown,
+  faChevronUp,
+} from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 // Import components
@@ -11,73 +18,141 @@ import DiceVisualizer from '../components/dice/DiceVisualizer';
 import LatestBet from '../components/dice/LatestBet';
 import GameHistory from '../components/dice/GameHistory';
 import NumberSelector from '../components/dice/NumberSelector';
-import FilterButton from '../components/ui/FilterButton';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { VrfRecoveryModal } from '../components/vrf';
+import { useWallet } from '../components/wallet/WalletProvider.jsx';
+import ApprovalGuide from '../components/dice/ApprovalGuide';
 
 // Import custom hooks
 import useGameLogic from '../hooks/useGameLogic';
-import { useGameStatus } from '../hooks/useGameStatus';
+
+// Import the pollingService to force a refresh when page loads
+import { usePollingService } from '../services/pollingService.jsx';
 
 import '../index.css';
+
+const WelcomeBanner = ({ onConnectClick }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.5 }}
+    className="backdrop-blur-md bg-white/40 rounded-2xl p-8 shadow-lg border border-[#22AD74]/20 mb-8 relative overflow-hidden"
+  >
+    {/* Decorative elements that complement the site's green-to-white gradient */}
+    <div className="absolute top-0 right-0 w-64 h-64 bg-[#22AD74]/10 rounded-full blur-3xl -mr-32 -mt-32 opacity-60"></div>
+    <div className="absolute bottom-0 left-0 w-40 h-40 bg-[#22AD74]/15 rounded-full blur-2xl -ml-20 -mb-20 opacity-60"></div>
+    <div className="absolute top-1/2 left-1/3 w-20 h-20 bg-[#22AD74]/10 rounded-full blur-xl opacity-40"></div>
+
+    <div className="flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
+      <div>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2.5 bg-[#22AD74]/30 backdrop-blur-sm rounded-full shadow-sm">
+            <FontAwesomeIcon icon={faDice} className="text-[#22AD74] text-xl" />
+          </div>
+          <h2 className="text-3xl font-bold text-[#22AD74] bg-clip-text text-transparent bg-gradient-to-r from-[#22AD74] to-[#22AD74]/70">
+            Welcome to GAMA Dice
+          </h2>
+        </div>
+
+        <p className="text-gray-700 mb-5 text-lg">
+          Choose your number, place your bet, and roll the dice for a chance to
+          Win!
+        </p>
+
+        <div className="bg-white/70 backdrop-blur-sm p-4 rounded-xl border border-[#22AD74]/15 mb-4 shadow-sm">
+          <h3 className="font-semibold text-[#22AD74] mb-3 flex items-center gap-2">
+            <FontAwesomeIcon icon={faCubes} className="text-[#22AD74]" />
+            How to Play:
+          </h3>
+          <ul className="grid gap-2.5 text-gray-600">
+            <li className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-[#22AD74]/20 flex items-center justify-center text-xs text-[#22AD74] font-bold shadow-inner">
+                1
+              </div>
+              <span>Connect your wallet to start playing</span>
+            </li>
+            <li className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-[#22AD74]/20 flex items-center justify-center text-xs text-[#22AD74] font-bold shadow-inner">
+                2
+              </div>
+              <span>Bet with GAMA tokens on your chosen number</span>
+            </li>
+            <li className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-[#22AD74]/20 flex items-center justify-center text-xs text-[#22AD74] font-bold shadow-inner">
+                3
+              </div>
+              <span>Win instantly when the dice rolls your number</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="flex-shrink-0">
+        <motion.button
+          onClick={onConnectClick}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="px-8 py-4 bg-gradient-to-r from-[#22AD74] to-[#22AD74]/80 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-medium flex items-center gap-3"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2.22l.123.489.804.804A1 1 0 0113 18H7a1 1 0 01-.707-1.707l.804-.804L7.22 15H5a2 2 0 01-2-2V5zm5.771 7H5V5h10v7H8.771z"
+              clipRule="evenodd"
+            />
+          </svg>
+          Connect Wallet
+        </motion.button>
+      </div>
+    </div>
+  </motion.div>
+);
 
 const DicePage = ({ contracts, account, onError, addToast }) => {
   const [lastBetAmount, setLastBetAmount] = useState(null);
   const [lastBetDetails, setLastBetDetails] = useState(null);
   const queryClient = useQueryClient();
   const [isVrfModalOpen, setIsVrfModalOpen] = useState(false);
+  const { connectWallet, isWalletConnected } = useWallet();
 
-  // Get game status for VRF recovery
-  const { gameStatus, refetch: refetchGameStatus } = useGameStatus();
+  // Get game status for VRF recovery and use the refreshData function
+  const {
+    gameStatus,
+    refreshData,
+    isLoading: _isStatusLoading,
+  } = usePollingService();
+
+  // Force refresh data when component mounts to ensure VRF state is current
+  useEffect(() => {
+    // Immediately refresh data when the component mounts
+    refreshData();
+
+    // Set up a periodic refresh every 10 seconds to keep the VRF state current
+    const refreshInterval = setInterval(() => {
+      if (
+        gameStatus?.isActive &&
+        gameStatus?.requestExists &&
+        !gameStatus?.requestProcessed
+      ) {
+        refreshData();
+      }
+    }, 10000);
+
+    return () => clearInterval(refreshInterval);
+  }, [refreshData, gameStatus]);
 
   // Determine if the VRF recovery button should be shown
   const showVrfButton =
     gameStatus?.isActive &&
     (gameStatus?.recoveryEligible ||
       (gameStatus?.lastPlayTimestamp &&
-        Math.floor(Date.now() / 1000) - gameStatus.lastPlayTimestamp > 120));
-
-  // Create a global function to invalidate game history
-  useEffect(() => {
-    // Centralized function to refresh all data after wallet connection
-    window.refreshAllData = accountAddress => {
-      // If no account is provided, use the current one
-      const targetAccount = accountAddress || account;
-      if (targetAccount) {
-        console.log('Refreshing all data for account:', targetAccount);
-
-        // Refresh game history
-        queryClient.invalidateQueries(['gameHistory', targetAccount]);
-
-        // Refresh balance data
-        queryClient.invalidateQueries(['balance', targetAccount]);
-      }
-    };
-
-    // Individual refresh functions for specific data
-    window.invalidateGameHistory = accountAddress => {
-      // If no account is provided, use the current one
-      const targetAccount = accountAddress || account;
-      if (targetAccount) {
-        console.log('Invalidating game history for account:', targetAccount);
-        queryClient.invalidateQueries(['gameHistory', targetAccount]);
-      }
-    };
-
-    return () => {
-      // Clean up global functions
-      delete window.invalidateGameHistory;
-      delete window.refreshAllData;
-    };
-  }, [account, queryClient]);
-
-  // Refresh all data when account or contracts change
-  useEffect(() => {
-    if (account && contracts) {
-      console.log('Account or contracts changed, refreshing all data');
-      window.refreshAllData(account);
-    }
-  }, [account, contracts, queryClient]);
+        gameStatus?.requestExists &&
+        !gameStatus?.requestProcessed));
 
   // Use our custom game logic hook
   const {
@@ -98,20 +173,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
 
   // When bet is placed, immediately update UI with the result
   useEffect(() => {
-    if (gameState.lastResult && window.addNewGameResult) {
-      // Add this game to history for instant display
-      window.addNewGameResult({
-        timestamp: Math.floor(Date.now() / 1000).toString(),
-        chosenNumber: chosenNumber?.toString() || '0',
-        rolledNumber: gameState.lastResult.rolledNumber?.toString() || '0',
-        amount: betAmount.toString(),
-        payout: gameState.lastResult.payout?.toString() || '0',
-        isWin: gameState.lastResult.isWin,
-        isRecovered: false,
-        isForceStopped: false,
-        isSpecialResult: false,
-      });
-
+    if (gameState.lastResult) {
       // Store last bet details for LatestBet component
       setLastBetDetails({
         result: gameState.lastResult,
@@ -135,19 +197,6 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
     }
   }, [lastBetAmount, setBetAmount]);
 
-  // Debug logging for gameState.lastResult
-  useEffect(() => {
-    if (gameState.lastResult) {
-      console.log('Dice Page - gameState.lastResult:', gameState.lastResult);
-      console.log('Structure:', Object.keys(gameState.lastResult));
-      console.log(
-        'rolledNumber type:',
-        typeof gameState.lastResult.rolledNumber
-      );
-      console.log('rolledNumber value:', gameState.lastResult.rolledNumber);
-    }
-  }, [gameState.lastResult]);
-
   // Store last bet details when placing a bet
   const handlePlaceBetWithTracking = useCallback(() => {
     // Store the current bet details before placing the bet
@@ -163,6 +212,10 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
     // Call the original bet handler
     handlePlaceBet();
   }, [handlePlaceBet, chosenNumber, betAmount, gameState.lastResult]);
+
+  // Add state for dropdown sections
+  const [isRulesOpen, setIsRulesOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(true);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -181,6 +234,11 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
             your bet amount.
           </p>
         </div>
+
+        {/* Show welcome banner only for users who haven't connected their wallet */}
+        {(!isWalletConnected || !account) && (
+          <WelcomeBanner onConnectClick={connectWallet} />
+        )}
 
         {balanceLoading && (
           <div className="bg-white p-4 rounded-lg border border-secondary-200 shadow-sm">
@@ -261,52 +319,52 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
               </div>
 
               <div className="flex flex-col gap-4">
-                {needsApproval && (
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                {/* Add ApprovalGuide when approval is needed and wallet is connected */}
+                {isWalletConnected &&
+                  account &&
+                  needsApproval &&
+                  !hasNoTokens &&
+                  !isBetting &&
+                  !isApproving && (
+                    <ApprovalGuide
+                      onApproveClick={handleApproveToken}
+                      isApproving={isApproving}
+                    />
+                  )}
+
+                {/* Keep existing approval button but wrapped in a div that's hidden on mobile */}
+                <div
+                  className={`${needsApproval && !hasNoTokens && !isBetting && !isApproving ? '' : 'hidden'}`}
+                >
+                  <button
+                    disabled={isApproving}
                     onClick={handleApproveToken}
-                    disabled={gameState.isProcessing || isApproving}
-                    className="h-14 w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-medium rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                    className={`w-full py-3 rounded-lg font-medium transition-all ${
+                      isApproving
+                        ? 'bg-purple-200/70 text-purple-700 cursor-not-allowed'
+                        : 'bg-purple-500/80 hover:bg-purple-600 text-white backdrop-blur-sm'
+                    }`}
                   >
-                    {gameState.isProcessing || isApproving ? (
-                      <span className="flex items-center justify-center">
-                        <LoadingSpinner size="small" />
-                        <span className="ml-2">
-                          {isApproving
-                            ? 'Approval in Progress...'
-                            : 'Approving Tokens...'}
-                        </span>
-                      </span>
+                    {isApproving ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-5 h-5 border-2 border-purple-700/30 border-t-purple-700 rounded-full animate-spin"></div>
+                        Approving tokens...
+                      </div>
                     ) : (
-                      <span className="flex items-center justify-center">
-                        <svg
-                          className="w-5 h-5 mr-2"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                          ></path>
-                        </svg>
-                        Approve Tokens
-                      </span>
+                      'Approve tokens for betting'
                     )}
-                  </motion.button>
-                )}
+                  </button>
+                </div>
 
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handlePlaceBetWithTracking}
                   disabled={
-                    gameState.isProcessing ||
-                    gameState.isRolling ||
+                    (gameState.isProcessing && !gameState.lastResult) ||
+                    (gameState.isRolling &&
+                      gameStatus?.isActive &&
+                      !gameStatus?.isCompleted) ||
                     isApproving ||
                     isBetting ||
                     !chosenNumber ||
@@ -315,21 +373,26 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                   }
                   className="h-14 w-full bg-gradient-to-r from-gaming-primary to-gaming-accent hover:from-gaming-primary/90 hover:to-gaming-accent/90 font-medium rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {gameState.isProcessing || gameState.isRolling ? (
+                  {(gameState.isProcessing && !gameState.lastResult) ||
+                  (gameState.isRolling &&
+                    gameStatus?.isActive &&
+                    !gameStatus?.isCompleted) ? (
                     <span className="flex items-center justify-center">
                       <LoadingSpinner size="small" />
                       <span className="ml-2">
-                        {gameState.isRolling
-                          ? 'Rolling Dice...'
-                          : 'Processing...'}
+                        {gameState.isRolling &&
+                        gameStatus?.isActive &&
+                        !gameStatus?.isCompleted
+                          ? 'Rolling dice...'
+                          : 'Processing your bet...'}
                       </span>
                     </span>
                   ) : hasNoTokens ? (
-                    'Insufficient Token Balance'
+                    'Not enough tokens for betting'
                   ) : needsApproval ? (
-                    'Approve Tokens First'
+                    'Approve tokens first'
                   ) : !chosenNumber ? (
-                    'Choose a Number'
+                    'Choose a number to bet on'
                   ) : (
                     <span className="flex items-center justify-center">
                       <svg
@@ -363,12 +426,12 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setIsVrfModalOpen(true)}
-                    className="h-14 mt-4 w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-medium rounded-lg transition-all shadow-lg flex items-center justify-center"
+                    className="h-14 mt-4 w-full bg-gradient-to-r from-purple-600/80 to-purple-700/80 hover:from-purple-700/90 hover:to-purple-800/90 text-white font-medium rounded-lg transition-all shadow-lg flex items-center justify-center backdrop-blur-sm"
                   >
                     <FontAwesomeIcon icon={faRandom} className="mr-2" />
                     {gameStatus?.recoveryEligible
-                      ? 'Recover Game'
-                      : 'VRF Status'}
+                      ? 'Recover your bet'
+                      : 'Check roll status'}
                   </motion.button>
                 )}
               </div>
@@ -411,70 +474,380 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
           </div>
         </div>
 
-        {/* Game History & Stats */}
+        {/* Game History & Stats - with dropdown */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.5 }}
-          className="bg-white backdrop-blur-md rounded-xl border border-secondary-200 p-6 shadow-xl"
+          className="bg-white backdrop-blur-md rounded-xl border border-secondary-200 shadow-xl overflow-hidden"
+          data-section="game-history"
         >
-          <h2 className="text-2xl font-bold text-secondary-800 mb-6">
-            Game History
-          </h2>
+          <div
+            className="p-6 flex justify-between items-center cursor-pointer relative z-10 hover:bg-gray-50/50 transition-colors duration-200"
+            onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+            role="button"
+            aria-expanded={isHistoryOpen}
+            tabIndex={0}
+            onKeyPress={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                setIsHistoryOpen(!isHistoryOpen);
+              }
+            }}
+          >
+            <h2 className="text-2xl font-bold text-secondary-800">
+              Game History
+            </h2>
+            <motion.div
+              animate={{ rotate: isHistoryOpen ? 180 : 0 }}
+              transition={{ duration: 0.3 }}
+              className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 hover:text-gray-700"
+            >
+              <FontAwesomeIcon icon={faChevronDown} />
+            </motion.div>
 
-          <GameHistory
-            account={account}
-            diceContract={contracts?.dice}
-            onError={onError}
-          />
+            {/* Invisible overlay to increase clickable area */}
+            <div
+              className="absolute inset-0 z-0"
+              onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+            ></div>
+          </div>
+
+          <AnimatePresence>
+            {isHistoryOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="overflow-hidden relative z-0"
+              >
+                <div className="px-6 pb-6">
+                  <GameHistory
+                    account={account}
+                    diceContract={contracts?.dice}
+                    onError={onError}
+                    hideHeading={true}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
 
-        {/* Game rules and odds */}
+        {/* Game rules and odds - Enhanced & Modernized with dropdown */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.6 }}
-          className="bg-white backdrop-blur-md rounded-xl border border-secondary-200 p-6 shadow-xl"
+          className="bg-white/90 backdrop-blur-md rounded-xl border border-[#22AD74]/20 shadow-xl relative overflow-hidden"
         >
-          <h2 className="text-2xl font-bold mb-4 text-secondary-800">
-            Game Rules & Odds
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-xl font-semibold mb-2 text-gaming-primary">
-                How to Play
-              </h3>
-              <ul className="list-disc list-inside space-y-2 text-secondary-700">
-                <li>Choose a number between 1 and 6</li>
-                <li>Enter your bet amount</li>
-                <li>Click &quot;Roll Dice&quot; to play</li>
-                <li>
-                  If the dice rolls your number, you win 6x your bet amount
-                </li>
-                <li>
-                  The game uses on-chain randomness for fair and transparent
-                  results
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-xl font-semibold mb-2 text-gaming-primary">
-                Odds & Payouts
-              </h3>
-              <div className="space-y-2 text-secondary-700">
-                <p>
-                  For each number, you have a 1 in 6 chance of winning (16.67%).
-                </p>
-                <p>
-                  Winning rolls pay 6x your bet amount, giving the game a 0%
-                  house edge.
-                </p>
-                <p className="text-sm text-secondary-500 italic">
-                  Note: Blockchain transaction fees apply to all bets.
-                </p>
-              </div>
-            </div>
+          {/* Decorative elements */}
+          <div className="absolute -top-16 -right-16 w-40 h-40 bg-[#22AD74]/10 rounded-full opacity-30 blur-2xl pointer-events-none"></div>
+          <div className="absolute -bottom-20 -left-20 w-52 h-52 bg-[#22AD74]/10 rounded-full opacity-30 blur-3xl pointer-events-none"></div>
+
+          <div
+            className="p-8 flex justify-between items-center cursor-pointer relative z-10 hover:bg-[#22AD74]/5 transition-colors duration-200"
+            onClick={() => setIsRulesOpen(!isRulesOpen)}
+            role="button"
+            aria-expanded={isRulesOpen}
+            tabIndex={0}
+            onKeyPress={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                setIsRulesOpen(!isRulesOpen);
+              }
+            }}
+          >
+            <h2 className="text-2xl font-bold text-[#22AD74] bg-clip-text text-transparent bg-gradient-to-r from-[#22AD74] to-[#22AD74]/70">
+              Game Rules & Odds
+            </h2>
+            <motion.div
+              animate={{ rotate: isRulesOpen ? 180 : 0 }}
+              transition={{ duration: 0.3 }}
+              className="w-10 h-10 bg-[#22AD74]/10 rounded-full flex items-center justify-center text-[#22AD74] hover:bg-[#22AD74]/20"
+            >
+              <FontAwesomeIcon icon={faChevronDown} className="text-lg" />
+            </motion.div>
+
+            {/* Invisible overlay to increase clickable area */}
+            <div
+              className="absolute inset-0 z-0"
+              onClick={() => setIsRulesOpen(!isRulesOpen)}
+            ></div>
           </div>
+
+          <AnimatePresence>
+            {isRulesOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                className="overflow-hidden relative z-0"
+              >
+                <div className="px-8 pb-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* How to Play */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="bg-white/60 backdrop-blur-sm rounded-xl border border-[#22AD74]/10 p-6 shadow-sm transition-all hover:shadow-md hover:border-[#22AD74]/30"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-[#22AD74]/10 flex items-center justify-center mb-4">
+                        <FontAwesomeIcon
+                          icon={faDice}
+                          className="text-[#22AD74] text-xl"
+                        />
+                      </div>
+                      <h3 className="text-xl font-semibold mb-4 text-[#22AD74]">
+                        How to Play
+                      </h3>
+                      <ul className="space-y-3.5 text-gray-700">
+                        <li className="flex items-start gap-3">
+                          <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
+                            1
+                          </div>
+                          <span>Choose a number between 1 and 6</span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                          <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
+                            2
+                          </div>
+                          <span>Enter your bet amount in GAMA tokens</span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                          <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
+                            3
+                          </div>
+                          <span>
+                            Click &quot;Roll Dice&quot; to place your bet
+                          </span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                          <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
+                            4
+                          </div>
+                          <span>Wait for the blockchain verification</span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                          <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
+                            5
+                          </div>
+                          <span>
+                            If the dice rolls your number, you win instantly!
+                          </span>
+                        </li>
+                      </ul>
+                    </motion.div>
+
+                    {/* Odds & Payouts */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="bg-white/60 backdrop-blur-sm rounded-xl border border-[#22AD74]/10 p-6 shadow-sm transition-all hover:shadow-md hover:border-[#22AD74]/30"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-[#22AD74]/10 flex items-center justify-center mb-4">
+                        <FontAwesomeIcon
+                          icon={faChartLine}
+                          className="text-[#22AD74] text-xl"
+                        />
+                      </div>
+                      <h3 className="text-xl font-semibold mb-4 text-[#22AD74]">
+                        Odds & Payouts
+                      </h3>
+                      <div className="space-y-3 text-gray-700">
+                        <table className="w-full">
+                          <tbody>
+                            <tr className="border-b border-gray-100">
+                              <td className="py-2.5">Win Probability:</td>
+                              <td className="py-2.5 text-right font-semibold">
+                                16.67% (1/6)
+                              </td>
+                            </tr>
+                            <tr className="border-b border-gray-100">
+                              <td className="py-2.5">Payout Multiplier:</td>
+                              <td className="py-2.5 text-right font-semibold text-[#22AD74]">
+                                6x
+                              </td>
+                            </tr>
+                            <tr className="border-b border-gray-100">
+                              <td className="py-2.5">House Edge:</td>
+                              <td className="py-2.5 text-right font-semibold">
+                                0%
+                              </td>
+                            </tr>
+                            <tr className="border-b border-gray-100">
+                              <td className="py-2.5">Dice Outcome Range:</td>
+                              <td className="py-2.5 text-right font-semibold">
+                                1-6
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        <div className="pt-3 mt-1">
+                          <p className="text-sm text-gray-600">
+                            For each dice roll, you choose one number from 1 to
+                            6. When you win (the roll matches your chosen
+                            number), you receive 6x your bet amount, giving the
+                            game a true 0% house edge with fair odds.
+                          </p>
+                          <p className="text-xs text-[#22AD74] italic mt-2">
+                            Note: Blockchain transaction fees apply to all bets
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* Blockchain Verification */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                      className="bg-white/60 backdrop-blur-sm rounded-xl border border-[#22AD74]/10 p-6 shadow-sm transition-all hover:shadow-md hover:border-[#22AD74]/30"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-[#22AD74]/10 flex items-center justify-center mb-4">
+                        <FontAwesomeIcon
+                          icon={faRandom}
+                          className="text-[#22AD74] text-xl"
+                        />
+                      </div>
+                      <h3 className="text-xl font-semibold mb-4 text-[#22AD74]">
+                        Verifiable Fairness
+                      </h3>
+                      <div className="space-y-3.5 text-gray-700">
+                        <p>
+                          GAMA Dice uses{' '}
+                          <span className="font-medium">
+                            Plugin&apos;s Verifiable Random Function (VRF)
+                          </span>{' '}
+                          to ensure complete fairness and transparency.
+                        </p>
+                        <div className="bg-[#22AD74]/5 rounded-lg p-4 text-sm">
+                          <p className="font-medium mb-2">How VRF works:</p>
+                          <ol className="list-decimal list-inside space-y-2 text-gray-600">
+                            <li>
+                              When you place a bet, GAMA tokens are burned from
+                              your wallet
+                            </li>
+                            <li>
+                              Your bet generates a secure random number request
+                              via Plugin VRF
+                            </li>
+                            <li>
+                              The VRF oracle provides cryptographically secure
+                              randomness
+                            </li>
+                            <li>
+                              The dice result is determined transparently
+                              on-chain
+                            </li>
+                            <li>
+                              If you win, your payout is minted directly to your
+                              wallet
+                            </li>
+                          </ol>
+                        </div>
+                        <p className="text-sm">
+                          In rare cases where VRF confirmation takes longer than
+                          usual, a recovery option becomes available after the
+                          required conditions are met. This allows you to
+                          recover your original bet amount safely.
+                        </p>
+                      </div>
+                    </motion.div>
+                  </div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="mt-8 p-5 bg-[#22AD74]/5 rounded-xl border border-[#22AD74]/10"
+                  >
+                    <h4 className="font-semibold text-[#22AD74] mb-4 flex items-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 mr-2"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      Important Game Information
+                    </h4>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Left Column */}
+                      <div className="space-y-4">
+                        <div className="bg-white/40 rounded-lg p-4 shadow-sm">
+                          <h5 className="font-medium text-[#22AD74] mb-2 text-sm">
+                            Betting Limits
+                          </h5>
+                          <table className="w-full text-sm">
+                            <tbody>
+                              <tr className="border-b border-gray-100">
+                                <td className="py-1.5 text-gray-700">
+                                  Minimum Bet:
+                                </td>
+                                <td className="py-1.5 text-right font-medium text-gray-800">
+                                  1 GAMA
+                                </td>
+                              </tr>
+                              <tr className="border-b border-gray-100">
+                                <td className="py-1.5 text-gray-700">
+                                  Maximum Bet:
+                                </td>
+                                <td className="py-1.5 text-right font-medium text-gray-800">
+                                  10,000,000 GAMA
+                                </td>
+                              </tr>
+                              <tr>
+                                <td className="py-1.5 text-gray-700">
+                                  Maximum Win:
+                                </td>
+                                <td className="py-1.5 text-right font-medium text-gray-800">
+                                  60,000,000 GAMA
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Right Column */}
+                      <div className="space-y-4">
+                        <div className="bg-white/40 rounded-lg p-4 shadow-sm h-full">
+                          <h5 className="font-medium text-[#22AD74] mb-2 text-sm">
+                            Recovery System
+                          </h5>
+                          <p className="text-sm text-gray-700 mb-2">
+                            Bets become eligible for refund when both conditions
+                            are met:
+                          </p>
+                          <ul className="list-disc ml-5 space-y-1.5 text-sm text-gray-700">
+                            <li>
+                              At least 1 hour has passed since placing bet
+                            </li>
+                            <li>At least 300 blocks have been mined</li>
+                          </ul>
+                          <p className="text-xs text-gray-500 mt-3 italic">
+                            Recovery can be initiated from the game interface
+                            when eligible
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </motion.div>
 

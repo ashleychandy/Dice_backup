@@ -1,3 +1,5 @@
+import { DEFAULT_NETWORK } from '../config';
+
 /**
  * Contract addresses for different networks
  * These addresses should be updated when deploying to different networks
@@ -22,11 +24,11 @@ export const TOKEN_CONTRACT_ADDRESS_LOCAL =
 
 // Default addresses based on environment
 export const DICE_CONTRACT_ADDRESS =
-  import.meta.env.VITE_NETWORK === 'mainnet'
+  DEFAULT_NETWORK === 'mainnet'
     ? DICE_CONTRACT_ADDRESS_MAINNET
     : DICE_CONTRACT_ADDRESS_APOTHEM;
 
 export const TOKEN_CONTRACT_ADDRESS =
-  import.meta.env.VITE_NETWORK === 'mainnet'
+  DEFAULT_NETWORK === 'mainnet'
     ? TOKEN_CONTRACT_ADDRESS_MAINNET
     : TOKEN_CONTRACT_ADDRESS_APOTHEM;

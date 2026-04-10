@@ -43,7 +43,6 @@ const AppRoutes = () => {
   const mappedContracts = useMemo(() => {
     // Handle case where contracts is null/undefined
     if (!contracts) {
-      console.warn('No contracts available');
       return { token: null, dice: null };
     }
 
@@ -63,26 +62,6 @@ const AppRoutes = () => {
       diceContract = contracts.dice;
     }
 
-    // Add the placeBet method to the dice contract if it has playDice but not placeBet
-    if (
-      diceContract &&
-      typeof diceContract.playDice === 'function' &&
-      typeof diceContract.placeBet !== 'function'
-    ) {
-      console.log('Adding placeBet method to dice contract in AppRoutes');
-      diceContract.placeBet = diceContract.playDice.bind(diceContract);
-    }
-
-    // Add the playDice method to the dice contract if it has placeBet but not playDice
-    if (
-      diceContract &&
-      typeof diceContract.placeBet === 'function' &&
-      typeof diceContract.playDice !== 'function'
-    ) {
-      console.log('Adding playDice method to dice contract in AppRoutes');
-      diceContract.playDice = diceContract.placeBet.bind(diceContract);
-    }
-
     return {
       token: tokenContract,
       dice: diceContract,
@@ -91,8 +70,13 @@ const AppRoutes = () => {
 
   // Function to check contracts and display appropriate warning
   const checkContracts = useCallback(() => {
-    if (!isWalletConnected && account) {
-      // Don't show warnings if wallet is intentionally not connected
+    // Don't show warnings if wallet is intentionally not connected
+    if (!isWalletConnected) {
+      return;
+    }
+
+    if (!account) {
+      // Don't show warnings if no account is available
       return;
     }
 
@@ -103,8 +87,6 @@ const AppRoutes = () => {
 
     // Show warning if no contracts are available
     if (!mappedContracts.token && !mappedContracts.dice) {
-      console.warn('No token or dice contracts available');
-
       if (account && !contractCheckDone) {
         // Show network-specific error message
         if (networkName === 'unknown') {
@@ -131,7 +113,6 @@ const AppRoutes = () => {
 
     // Show specific warnings for missing contracts
     if (!mappedContracts.token && mappedContracts.dice) {
-      console.warn('Token contract not available');
       if (account && !contractCheckDone) {
         addToast(
           'Token contract not available. Some features may not work.',
@@ -142,7 +123,6 @@ const AppRoutes = () => {
     }
 
     if (mappedContracts.token && !mappedContracts.dice) {
-      console.warn('Dice contract not available');
       if (account && !contractCheckDone) {
         addToast(
           'Dice contract not available. Game features will not work.',

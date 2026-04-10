@@ -1,59 +1,43 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
-contract GamaCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControl, ReentrancyGuard {
-    using EnumerableSet for EnumerableSet.AddressSet;
+contract GamaToken is Initializable, ERC20Upgradeable, PausableUpgradeable, ERC20BurnableUpgradeable, OwnableUpgradeable {
+    mapping(address => bool) public isBlacklisted;
+    mapping(address => bool) public isGame;
+    mapping(address => uint256) public gameMintLimit;
+    mapping(address => uint256) public gameMinted;
 
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
-    bytes32 public constant GAME_CONTRACT_ROLE = keccak256("GAME_CONTRACT_ROLE");
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    uint256 private _maxMintable;
+    uint256 private _totalMinted;
 
-    EnumerableSet.AddressSet private _blacklist;
-    address private _owner;
+    event Blacklisted(address indexed account, bool value);
+    event GameWhitelisted(address indexed game, uint256 limit);
+    event GameLimitUpdated(address indexed game, uint256 newLimit);
+    event Airdrop(address indexed recipient, uint256 amount);
 
-    // Events
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-    event AddressBlacklisted(address indexed account);
-    event AddressUnblacklisted(address indexed account);
-    event TokensAirdropped(address indexed recipient, uint256 amount);
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
-    modifier onlyOwner() {
-        require(msg.sender == _owner, "Only the owner can perform this action");
+    function initialize(uint256 maxMintable_, address owner_) public initializer {
+        __ERC20_init("Gama Token", "GAMA");
+        __Ownable_init(owner_);
+        __Pausable_init();
+        __ERC20Burnable_init();
+
+        _maxMintable = maxMintable_;
+    }
+
+    modifier onlyGame() {
+        require(isGame[msg.sender], "Not authorized game contract");
         _;
-    }
-
-    constructor() ERC20("GAMA Coin", "Gama") {
-        _owner = msg.sender;
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(MINTER_ROLE, msg.sender);
-        _grantRole(BURNER_ROLE, msg.sender);
-        _grantRole(GAME_CONTRACT_ROLE, msg.sender);
-        _grantRole(ADMIN_ROLE, msg.sender);
-    }
-
-    function transferOwnership(address newOwner) external onlyOwner {
-        require(newOwner != address(0), "New owner is zero address");
-        require(newOwner != _owner, "New owner must be different");
-        emit OwnershipTransferred(_owner, newOwner);
-        _owner = newOwner;
-    }
-
-    function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) nonReentrant {
-        _mint(to, amount);
-    }
-
-    function burn(address from, uint256 amount) external onlyRole(BURNER_ROLE) nonReentrant {
-        uint256 balance = balanceOf(from);
-        require(balance >= amount, "Insufficient balance");
-        _burn(from, amount);
     }
 
     function pause() external onlyOwner {
@@ -64,50 +48,94 @@ contract GamaCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControl, Reentra
         _unpause();
     }
 
-    function blacklistAddress(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(!_blacklist.contains(account), "Already blacklisted");
-        _blacklist.add(account);
-        emit AddressBlacklisted(account);
+    function setBlacklist(address account, bool value) external onlyOwner {
+        isBlacklisted[account] = value;
+        emit Blacklisted(account, value);
     }
 
-    function unblacklistAddress(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_blacklist.contains(account), "Not blacklisted");
-        _blacklist.remove(account);
-        emit AddressUnblacklisted(account);
+    function whitelistGame(address game, uint256 limit) external onlyOwner {
+        require(game != address(0), "Invalid address");
+        isGame[game] = true;
+        gameMintLimit[game] = limit;
+        emit GameWhitelisted(game, limit);
     }
 
-    function isBlacklisted(address account) public view returns (bool) {
-        return _blacklist.contains(account);
+    function updateGameLimit(address game, uint256 newLimit) external onlyOwner {
+        require(isGame[game], "Game not whitelisted");
+        gameMintLimit[game] = newLimit;
+        emit GameLimitUpdated(game, newLimit);
     }
 
-    function decimals() public view virtual override returns (uint8) {
-        return 18;
+    function mint(address to, uint256 amount) external whenNotPaused onlyGame {
+        require(!isBlacklisted[to] && !isBlacklisted[msg.sender], "Blacklisted address");
+
+        uint256 newMintedByGame = gameMinted[msg.sender] + amount;
+        require(newMintedByGame <= gameMintLimit[msg.sender], "Game mint limit exceeded");
+
+        uint256 newTotalMinted = _totalMinted + amount;
+        require(newTotalMinted <= _maxMintable, "Global mint limit exceeded");
+
+        gameMinted[msg.sender] = newMintedByGame;
+        _totalMinted = newTotalMinted;
+
+        _mint(to, amount);
     }
 
-    function _update(address from, address to, uint256 value)
-        internal
-        override(ERC20, ERC20Pausable)
-    {
-        require(!paused(), "Token transfers are paused");
-        require(!isBlacklisted(from), "Sender is blacklisted");
-        require(!isBlacklisted(to), "Recipient is blacklisted");
+    function burn(uint256 amount) public override whenNotPaused onlyGame {
+        super.burn(amount);
+        require(_totalMinted >= amount, "Burn exceeds total minted");
+        _totalMinted -= amount;
+    }
+
+    function burnFrom(address account, uint256 amount) public override whenNotPaused onlyGame {
+        super.burnFrom(account, amount);
+        require(_totalMinted >= amount, "Burn exceeds total minted");
+        _totalMinted -= amount;
+    }
+
+    function airdrop(address[] calldata recipients, uint256[] calldata amounts) external onlyOwner whenNotPaused {
+        require(recipients.length == amounts.length, "Length mismatch");
+
+        uint256 total = 0;
+        for (uint256 i = 0; i < recipients.length; i++) {
+            require(!isBlacklisted[recipients[i]], "Recipient is blacklisted");
+            total += amounts[i];
+        }
+
+        require(_totalMinted + total <= _maxMintable, "Global mint limit exceeded");
+
+        for (uint256 i = 0; i < recipients.length; i++) {
+            _mint(recipients[i], amounts[i]);
+            emit Airdrop(recipients[i], amounts[i]);
+        }
+
+        _totalMinted += total;
+    }
+
+    function _update(address from, address to, uint256 value) internal override {
+        require(!paused(), "Token transfers paused");
+        require(!isBlacklisted[from] && !isBlacklisted[to], "Blacklisted address");
         super._update(from, to, value);
     }
 
-    /// @notice Airdrop tokens to multiple addresses
-    /// @param recipients List of addresses to receive tokens
-    /// @param amounts Corresponding amounts for each recipient
-    function airdropTokens(address[] calldata recipients, uint256[] calldata amounts)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-        nonReentrant
-    {
-        require(recipients.length == amounts.length, "Length mismatch");
+    // View Functions
+    function getMaxMintable() external view returns (uint256) {
+        return _maxMintable;
+    }
 
-        for (uint256 i = 0; i < recipients.length; i++) {
-            require(!isBlacklisted(recipients[i]), "Recipient is blacklisted");
-            _mint(recipients[i], amounts[i]);
-            emit TokensAirdropped(recipients[i], amounts[i]);
-        }
+    function getTotalMinted() external view returns (uint256) {
+        return _totalMinted;
+    }
+
+    function getRemainingMintable() external view returns (uint256) {
+        return _maxMintable - _totalMinted;
+    }
+
+    function getGameMinted(address game) external view returns (uint256) {
+        return gameMinted[game];
+    }
+
+    function getGameLimit(address game) external view returns (uint256) {
+        return gameMintLimit[game];
     }
 }

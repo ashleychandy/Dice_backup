@@ -6,12 +6,12 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "lib/contractsv2/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
-import "lib/contractsv2/src/v0.8/VRFConsumerBaseV2.sol";
+import "@goplugin/contracts2_3/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
+import "@goplugin/contracts2_3/src/v0.8/VRFConsumerBaseV2.sol";
 
 /**
  * @title IERC20
- * @dev ERC20 interface with role-based functionality
+ * @dev ERC20 interface for token interactions
  */
 interface IERC20 {
     function totalSupply() external view returns (uint256);
@@ -20,13 +20,10 @@ interface IERC20 {
     function allowance(address owner, address spender) external view returns (uint256);
     function approve(address spender, uint256 amount) external returns (bool);
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-    function hasRole(bytes32 role, address account) external view returns (bool);
-    function getRoleAdmin(bytes32 role) external view returns (bytes32);
-    function grantRole(bytes32 role, address account) external;
-    function revokeRole(bytes32 role, address account) external;
-    function renounceRole(bytes32 role, address callerConfirmation) external;
     function mint(address account, uint256 amount) external;
-    function burn(address account, uint256 amount) external;
+    function burn(uint256 amount) external;
+    function burnFrom(address account, uint256 amount) external;
+    function getRemainingMintable() external view returns (uint256);
 }
 
 /**
@@ -65,31 +62,38 @@ struct UserData {
     uint32 lastPlayedTimestamp;
     uint256 lastPlayedBlock;
     uint8 historyIndex;
+    bool requestFulfilled;
 }
 
 /**
  * @title Dice
- * @dev Provably fair dice game using Chainlink VRF for randomness
+ * @dev Provably fair dice game using VRF for randomness
  */
 contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
+    // ============ Events ============
+    event BetPlaced(address indexed player, uint256 requestId, uint8 chosenNumber, uint256 amount);
+    event GameCompleted(address indexed player, uint256 requestId, uint8 result, uint256 payout);
+    event GameRecovered(address indexed player, uint256 requestId, uint256 refundAmount);
+
     // ============ Custom Errors ============
     error InvalidBetParameters(string reason);
     error InsufficientUserBalance(uint256 required, uint256 available);
-    error TransferFailed(string reason);
+    error TransferFailed(address from, address to, uint256 amount);
+    error BurnFailed(address account, uint256 amount);
+    error MintFailed(address account, uint256 amount);
     error PayoutCalculationError(string message);
     error InsufficientAllowance(uint256 required, uint256 allowed);
-    error MissingContractRole(bytes32 role);
     error GameError(string reason);
     error VRFError(string reason);
+    error MaxPayoutExceeded(uint256 potentialPayout, uint256 maxAllowed);
 
     // ============ Constants ============
     uint8 private constant MAX_NUMBER = 6;
     uint8 public constant MAX_HISTORY_SIZE = 10;
     uint256 public constant MAX_BET_AMOUNT = 10_000_000 * 10**18;
+    uint256 public constant MAX_POSSIBLE_PAYOUT = 60_000_000 * 10**18; // 10M * 6
     uint32 private constant GAME_TIMEOUT = 1 hours;
     uint256 private constant BLOCK_THRESHOLD = 300;
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
     
     // Special result values
     uint8 public constant RESULT_FORCE_STOPPED = 254;
@@ -123,6 +127,16 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
     mapping(uint256 => bool) private activeRequestIds;
 
     // ============ Constructor ============
+    /**
+     * @notice Contract constructor
+     * @param _gamaTokenAddress Address of the token contract
+     * @param vrfCoordinator Address of the VRF coordinator
+     * @param subscriptionId VRF subscription ID
+     * @param keyHash VRF key hash for the network
+     * @param _callbackGasLimit Gas limit for VRF callback
+     * @param _requestConfirmations Number of confirmations for VRF request
+     * @param _numWords Number of random words to request
+     */
     constructor(
         address _gamaTokenAddress,
         address vrfCoordinator,
@@ -132,10 +146,10 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         uint16 _requestConfirmations,
         uint8 _numWords
     ) VRFConsumerBaseV2(vrfCoordinator) Ownable(msg.sender) {
-        if (_gamaTokenAddress == address(0)) revert InvalidBetParameters("Token address cannot be zero");
-        if (vrfCoordinator == address(0)) revert InvalidBetParameters("VRF coordinator address cannot be zero");
-        if (_callbackGasLimit == 0) revert InvalidBetParameters("Callback gas limit cannot be zero");
-        if (_numWords == 0) revert InvalidBetParameters("Number of words cannot be zero");
+        require(_gamaTokenAddress != address(0), "Token address cannot be zero");
+        require(vrfCoordinator != address(0), "VRF coordinator cannot be zero");
+        require(_callbackGasLimit > 0, "Callback gas limit cannot be zero");
+        require(_numWords > 0, "Number of words cannot be zero");
         
         gamaToken = IERC20(_gamaTokenAddress);
         COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
@@ -154,6 +168,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
      * @return requestId VRF request ID
      */
     function playDice(uint8 chosenNumber, uint256 amount) external nonReentrant whenNotPaused returns (uint256 requestId) {
+        // ===== CHECKS =====
         // 1. Basic input validation
         if (amount == 0) revert InvalidBetParameters("Bet amount cannot be zero");
         if (amount > MAX_BET_AMOUNT) revert InvalidBetParameters("Bet amount too large");
@@ -162,16 +177,32 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         // 2. Check if user has an active game
         UserData storage user = userData[msg.sender];
         if (user.currentGame.isActive) revert GameError("User has an active game");
+        if (user.currentRequestId != 0) revert GameError("User has a pending request");
 
-        // 3. Balance, allowance, and role checks
+        // 3. Balance, allowance
         _checkBalancesAndAllowances(msg.sender, amount);
 
-        // 4. Burn tokens first
-        try gamaToken.burn(msg.sender, amount) {} catch {
-            revert TransferFailed("Token burn failed");
+        // Calculate potential payout
+        uint256 potentialPayout = amount * 6;
+        if (potentialPayout / 6 != amount) revert PayoutCalculationError("Payout calculation overflow");
+        if (potentialPayout > MAX_POSSIBLE_PAYOUT) {
+            revert MaxPayoutExceeded(potentialPayout, MAX_POSSIBLE_PAYOUT);
+        }
+        
+        // 4. Check if potential payout doesn't exceed remaining mintable amount
+        uint256 remainingMintable = gamaToken.getRemainingMintable();
+        if (potentialPayout > remainingMintable) {
+            revert MaxPayoutExceeded(potentialPayout, remainingMintable);
         }
 
-        // 5. Request random number using VRF
+        // ===== EFFECTS =====
+        // 5. Burn tokens first
+        gamaToken.burnFrom(msg.sender, amount);
+
+        // Update total wagered amount
+        totalWageredAmount += amount;
+
+        // 6. Request random number using VRF
         requestId = COORDINATOR.requestRandomWords(
             s_keyHash,
             s_subscriptionId,
@@ -180,22 +211,23 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
             numWords
         );
 
-        // 6. Record the request
+        // 7. Record the request
         s_requests[requestId] = RequestStatus({
             randomWords: new uint256[](0),
             exists: true,
             fulfilled: false
         });
         
-        // 7. Store request mapping
+        // 8. Store request mapping
         requestToPlayer[requestId] = msg.sender;
         activeRequestIds[requestId] = true;
         
         // Update timestamp and block number
         user.lastPlayedTimestamp = uint32(block.timestamp);
         user.lastPlayedBlock = block.number;
+        user.requestFulfilled = false;
         
-        // 8. Update user's game state
+        // 9. Update user's game state
         user.currentGame = GameState({
             isActive: true,
             completed: false,
@@ -206,6 +238,8 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         });
         
         user.currentRequestId = requestId;
+        
+        emit BetPlaced(msg.sender, requestId, chosenNumber, amount);
         
         return requestId;
     }
@@ -218,8 +252,9 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
     function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override nonReentrant {
         // ===== CHECKS =====
         // 1. Validate VRF request
-        if (!s_requests[requestId].exists) revert VRFError("Request not found");
-        if (s_requests[requestId].fulfilled) revert VRFError("Request already fulfilled");
+        RequestStatus storage request = s_requests[requestId];
+        if (!request.exists) revert VRFError("Request not found");
+        if (request.fulfilled) revert VRFError("Request already fulfilled");
         if (randomWords.length != numWords) revert VRFError("Invalid random words length");
 
         // 2. Validate player and game state
@@ -228,18 +263,20 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         
         UserData storage user = userData[player];
         if (user.currentRequestId != requestId) revert GameError("Request ID mismatch");
-        if (!activeRequestIds[requestId]) revert GameError("Request ID not active");
         
         // Mark request as fulfilled to prevent race conditions
-        s_requests[requestId].fulfilled = true;
-        s_requests[requestId].randomWords = randomWords;
+        request.fulfilled = true;
+        request.randomWords = randomWords;
+        user.requestFulfilled = true;
         
         // Check if game is still active
         if (!user.currentGame.isActive) {
-            // Game already recovered or force-stopped
+            // Game already recovered or force-stopped, clean up ALL request data
+            delete s_requests[requestId];
             delete requestToPlayer[requestId];
             delete activeRequestIds[requestId];
-            delete s_requests[requestId];
+            user.currentRequestId = 0;
+            user.requestFulfilled = false;
             return;
         }
 
@@ -254,6 +291,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         // 2. Calculate payout
         uint256 payout = 0;
         if (chosenNumber == result) {
+            // Ensure safe multiplication
             if (betAmount > type(uint256).max / 6) {
                 revert PayoutCalculationError("Bet amount too large for payout calculation");
             }
@@ -276,8 +314,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         );
 
         // 6. Update global statistics
-        totalGamesPlayed++;
-        totalWageredAmount += betAmount;
+        unchecked { ++totalGamesPlayed; }
         if (payout > 0) {
             totalPayoutAmount += payout;
         }
@@ -291,89 +328,71 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         // ===== INTERACTIONS =====
         // Process payout if player won
         if (payout > 0) {
-            if (!gamaToken.hasRole(MINTER_ROLE, address(this))) {
-                revert MissingContractRole(MINTER_ROLE);
-            }
-            
-            try gamaToken.mint(player, payout) {
-            } catch {
-                revert TransferFailed("Token mint failed");
-            }
+            gamaToken.mint(player, payout);
         }
+
+        emit GameCompleted(player, requestId, result, payout);
     }
 
    
     /**
      * @notice Recover from a stuck game and receive refund
      */
-    function recoverOwnStuckGame() external nonReentrant {
+    function recoverOwnStuckGame() external nonReentrant whenNotPaused {
         UserData storage user = userData[msg.sender];
         
+        // ===== CHECKS =====
+        // Check if user has an active bet
         if (!user.currentGame.isActive) revert GameError("No active game");
         
-        // Check if game is stale
-        bool isRequestStale = false;
+        uint256 requestId = user.currentRequestId;
         
-        // VRF request pending too long
-        if (block.number > user.lastPlayedBlock + BLOCK_THRESHOLD) {
-            isRequestStale = true;
+        // Ensure there is a request to recover from
+        if (requestId == 0) {
+            revert GameError("No pending request to recover");
         }
-        
-        // Request fulfilled but callback failed
-        if (user.currentRequestId != 0 && s_requests[user.currentRequestId].fulfilled) {
-            isRequestStale = true;
-        }
-        
-        // Fallback timestamp check
-        if (!isRequestStale && block.timestamp > user.lastPlayedTimestamp + GAME_TIMEOUT) {
-            isRequestStale = true;
-        }
-        
-        if (!isRequestStale) revert GameError("Game not eligible for recovery yet");
 
-        // Store amount for statistics
+        // Check for race condition with VRF callback first
+        if (s_requests[requestId].fulfilled && 
+            (block.number <= user.lastPlayedBlock + 10)) {
+            revert GameError("Request just fulfilled, let VRF complete");
+        }
+        
+        // Check if game is stale - with modified conditions
+        bool hasBlockThresholdPassed = block.number > user.lastPlayedBlock + BLOCK_THRESHOLD;
+        bool hasTimeoutPassed = block.timestamp > user.lastPlayedTimestamp + GAME_TIMEOUT;
+        
+        // Modified: Only require that the request exists, not that it's processed
+        bool hasVrfRequest = requestId != 0 && s_requests[requestId].exists;
+        
+        // Check eligibility with modified conditions
+        if (!hasBlockThresholdPassed || !hasTimeoutPassed || !hasVrfRequest) {
+            revert GameError("Game not eligible for recovery yet");
+        }
+
+        // ===== EFFECTS =====
+        // Calculate amount to refund
         uint256 refundAmount = user.currentGame.amount;
         
         if (refundAmount == 0) revert GameError("Nothing to refund");
-
-        uint256 requestId = user.currentRequestId;
         
-        // Prevent race conditions with VRF callback
-        if (requestId != 0) {
-            // Mark as inactive to prevent VRF callback completion
-            user.currentGame.isActive = false;
-            
-            // Check for race condition with VRF callback
-            if (s_requests[requestId].fulfilled && 
-                (block.number <= user.lastPlayedBlock + 10)) {
-                revert GameError("Request just fulfilled, let VRF complete");
-            }
-            
-            // Clean up request mappings
-            delete requestToPlayer[requestId];
-            delete activeRequestIds[requestId];
-            delete s_requests[requestId];
-        }
-
-        // Refund player
-        if (!gamaToken.hasRole(MINTER_ROLE, address(this))) {
-            revert MissingContractRole(MINTER_ROLE);
-        }
+        // Clean up request data
+        delete s_requests[requestId];
+        delete requestToPlayer[requestId];
+        delete activeRequestIds[requestId];
         
-        try gamaToken.mint(msg.sender, refundAmount) {} catch {
-            revert TransferFailed("Token mint failed on refund");
-        }
-
-        // Update statistics
-        totalGamesPlayed++;
-        totalWageredAmount += refundAmount;
-        totalPayoutAmount += refundAmount;
-
-        // Reset game state
+        // Update game state
         user.currentGame.completed = true;
+        user.currentGame.isActive = false;
         user.currentGame.result = RESULT_RECOVERED;
         user.currentGame.payout = refundAmount;
+        
         user.currentRequestId = 0;
+        user.requestFulfilled = false;
+
+        // ===== INTERACTIONS =====
+        // Refund player
+        gamaToken.mint(msg.sender, refundAmount);
 
         // Add to bet history
         _updateUserHistory(
@@ -383,6 +402,8 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
             refundAmount,
             refundAmount
         );
+
+        emit GameRecovered(msg.sender, requestId, refundAmount);
     }
 
     /**
@@ -392,48 +413,53 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
     function forceStopGame(address player) external onlyOwner nonReentrant {
         UserData storage user = userData[player];
         
+        // ===== CHECKS =====
         if (!user.currentGame.isActive) revert GameError("No active game");
+
+        uint256 requestId = user.currentRequestId;
+
+        // Check for race condition with VRF callback first
+        if (requestId != 0 && s_requests[requestId].fulfilled && 
+            (block.number <= user.lastPlayedBlock + 10)) {
+            revert GameError("Request just fulfilled, let VRF complete");
+        }
+
+        // Check if game is stale - with modified conditions
+        bool hasBlockThresholdPassed = block.number > user.lastPlayedBlock + BLOCK_THRESHOLD;
+        bool hasTimeoutPassed = block.timestamp > user.lastPlayedTimestamp + GAME_TIMEOUT;
+        
+        // Modified: Only require that the request exists, not that it's processed
+        bool hasVrfRequest = requestId != 0 && s_requests[requestId].exists;
+        
+        // Check eligibility with modified conditions
+        if (!hasBlockThresholdPassed || !hasTimeoutPassed || !hasVrfRequest) {
+            revert GameError("Game not eligible for force stop yet");
+        }
 
         uint256 refundAmount = user.currentGame.amount;
         
         if (refundAmount == 0) revert GameError("Nothing to refund");
 
-        uint256 requestId = user.currentRequestId;
-        
-        // Prevent race conditions
+        // ===== EFFECTS =====
+        // Clean up request data
         if (requestId != 0) {
-            user.currentGame.isActive = false;
-            
-            if (s_requests[requestId].fulfilled && 
-                (block.number <= user.lastPlayedBlock + 10)) {
-                revert GameError("Request just fulfilled, let VRF complete");
-            }
-            
             delete requestToPlayer[requestId];
             delete activeRequestIds[requestId];
             delete s_requests[requestId];
         }
 
-        // Refund player
-        if (!gamaToken.hasRole(MINTER_ROLE, address(this))) {
-            revert MissingContractRole(MINTER_ROLE);
-        }
-        
-        try gamaToken.mint(player, refundAmount) {} catch {
-            revert TransferFailed("Token mint failed on force stop");
-        }
-
-        // Update statistics
-        totalGamesPlayed++;
-        totalWageredAmount += refundAmount;
-        totalPayoutAmount += refundAmount;
-
-        // Reset game state
+        // Mark game as completed
         user.currentGame.completed = true;
+        user.currentGame.isActive = false;
         user.currentGame.result = RESULT_FORCE_STOPPED;
         user.currentGame.payout = refundAmount;
         user.currentRequestId = 0;
+        user.requestFulfilled = false;
 
+        // ===== INTERACTIONS =====
+        // Refund player
+        gamaToken.mint(player, refundAmount);
+      
         // Add to bet history
         _updateUserHistory(
             user,
@@ -442,19 +468,21 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
             refundAmount,
             refundAmount
         );
+
+        emit GameRecovered(player, requestId, refundAmount);
     }
 
     /**
      * @notice Pause contract operations
      */
-    function pause() external onlyOwner {
+    function pause() external onlyOwner nonReentrant {
         _pause();
     }
 
     /**
      * @notice Resume contract operations
      */
-    function unpause() external onlyOwner {
+    function unpause() external onlyOwner nonReentrant {
         _unpause();
     }
 
@@ -476,7 +504,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         );
     }
 
-    /**
+    /*
      * @notice Get player's bet history
      * @param player Player address
      * @return Array of past bets (newest to oldest)
@@ -588,32 +616,21 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         // Determine recovery eligibility
         recoveryEligible = false;
         if (isActive) {
-            bool isRequestStale = false;
+            // All conditions must be met for recovery eligibility
+            bool hasBlockThresholdPassed = block.number > user.lastPlayedBlock + BLOCK_THRESHOLD;
+            bool hasTimeoutPassed = block.timestamp > user.lastPlayedTimestamp + GAME_TIMEOUT;
+            bool hasVrfRequest = requestId != 0 && requestExists;
             
-            // Check block threshold
-            if (block.number > user.lastPlayedBlock + BLOCK_THRESHOLD) {
-                isRequestStale = true;
-            }
-            
-            // Check for fulfilled but unprocessed request
-            if (requestId != 0 && requestExists && requestProcessed) {
-                isRequestStale = true;
-            }
-            
-            // Fallback timestamp check
-            if (!isRequestStale && block.timestamp > user.lastPlayedTimestamp + GAME_TIMEOUT) {
-                isRequestStale = true;
-            }
-            
-            recoveryEligible = isRequestStale;
+            // Only eligible if ALL conditions are met
+            recoveryEligible = hasBlockThresholdPassed && hasTimeoutPassed && hasVrfRequest;
         }
     }
 
     // ============ Private Functions ============
     /**
-     * @dev Verify token balances and allowances
-     * @param player Player address
-     * @param amount Amount to verify
+     * @dev Check if user has sufficient balance and allowance
+     * @param player User address
+     * @param amount Bet amount
      */
     function _checkBalancesAndAllowances(address player, uint256 amount) private view {
         if (gamaToken.balanceOf(player) < amount) {
@@ -624,13 +641,6 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
             revert InsufficientAllowance(amount, gamaToken.allowance(player, address(this)));
         }
 
-        if (!gamaToken.hasRole(BURNER_ROLE, address(this))) {
-            revert MissingContractRole(BURNER_ROLE);
-        }
-
-        if (!gamaToken.hasRole(MINTER_ROLE, address(this))) {
-            revert MissingContractRole(MINTER_ROLE);
-        }
     }
 
     /**

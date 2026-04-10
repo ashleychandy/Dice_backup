@@ -33,9 +33,6 @@ export const useRequestTracking = requestId => {
           ) {
             player = await contract.getPlayerForRequest(requestId);
           } else {
-            console.warn(
-              'getPlayerForRequest method not available on contract'
-            );
             return {
               exists: false,
               player: null,
@@ -49,10 +46,6 @@ export const useRequestTracking = requestId => {
             playerErr.message &&
             playerErr.message.includes('missing revert data')
           ) {
-            console.warn(
-              'Caught missing revert data error on getPlayerForRequest call:',
-              playerErr.message
-            );
             return {
               exists: false,
               player: null,
@@ -60,7 +53,6 @@ export const useRequestTracking = requestId => {
               error: 'Contract data retrieval error',
             };
           }
-          console.warn('Error fetching player for request:', playerErr);
           return {
             exists: false,
             player: null,
@@ -86,7 +78,6 @@ export const useRequestTracking = requestId => {
             !contract[methodName] ||
             typeof contract[methodName] !== 'function'
           ) {
-            console.warn(`${methodName} method not available on contract`);
             return defaultValue;
           }
 
@@ -95,13 +86,8 @@ export const useRequestTracking = requestId => {
           } catch (err) {
             // Handle specific "missing revert data" error
             if (err.message && err.message.includes('missing revert data')) {
-              console.warn(
-                `Caught missing revert data error on ${methodName} call:`,
-                err.message
-              );
               return defaultValue;
             }
-            console.warn(`Error calling ${methodName}:`, err);
             return defaultValue;
           }
         };
@@ -145,7 +131,6 @@ export const useRequestTracking = requestId => {
           },
         };
       } catch (error) {
-        console.error('Error fetching request info:', error);
         // Return a default state instead of throwing
         return {
           exists: false,
@@ -176,7 +161,6 @@ export const useRequestTracking = requestId => {
             !contract.hasPendingRequest ||
             typeof contract.hasPendingRequest !== 'function'
           ) {
-            console.warn('hasPendingRequest method not available on contract');
             return false;
           }
 
@@ -186,26 +170,20 @@ export const useRequestTracking = requestId => {
           } catch (err) {
             // Handle specific "missing revert data" error
             if (err.message && err.message.includes('missing revert data')) {
-              console.warn(
-                'Caught missing revert data error on hasPendingRequest call:',
-                err.message
-              );
               return false;
             }
-            console.error('Error checking user pending request:', err);
             return false;
           }
         } catch (error) {
-          console.error('Error in userPendingRequest query:', error);
           return false;
         }
       },
       enabled: !!contract && !!account,
-      staleTime: 15000, // Consider data fresh for 15 seconds
-      cacheTime: 30000, // Cache for 30 seconds
-      retry: 1, // Only retry once
-      refetchInterval: 5000, // Refetch every 5 seconds
-      refetchIntervalInBackground: true, // Continue refetching even when tab is not in focus
+      staleTime: 15000,
+      cacheTime: 30000,
+      retry: 1,
+      refetchInterval: 5000,
+      refetchIntervalInBackground: true,
     });
 
   return {
@@ -213,7 +191,9 @@ export const useRequestTracking = requestId => {
     isLoading,
     error,
     refetch,
-    userPendingRequest,
+    userPendingRequest: userPendingRequest || false,
     isLoadingUserRequest,
   };
 };
+
+export default useRequestTracking;

@@ -26,19 +26,11 @@ class GameService {
       throw new Error('Invalid dice contract: missing playDice method');
     }
 
-    // Add placeBet method to the dice contract for compatibility with the frontend
-    // This adapts the playDice method of the contract to the placeBet method expected by the frontend
-    if (!this.diceContract.placeBet) {
-      this.diceContract.placeBet = function (chosenNumber, amount, options) {
-        return this.playDice(chosenNumber, amount, options);
-      };
-    }
-
     return this;
   }
 
-  // Place a bet on the dice game
-  async placeBet(chosenNumber, amount) {
+  // Play dice game
+  async playDice(chosenNumber, amount) {
     if (!this.diceContract) {
       throw new Error('Dice contract not initialized');
     }
@@ -65,11 +57,6 @@ class GameService {
       throw this.parseContractError(error);
     }
   }
-
-  // Recovery and status logic is now handled by hooks (useGameStatus, useGameRecovery)
-  // async recoverStuckGame() {
-  //   ...
-  // }
 
   // Parse contract errors
   parseContractError(error) {
@@ -124,21 +111,6 @@ class GameService {
   calculatePotentialPayout(amount) {
     if (!amount) return BigInt(0);
     return amount * BigInt(2);
-  }
-
-  // Force stop game (admin only)
-  async forceStopGame(playerAddress) {
-    if (!this.diceContract) {
-      throw new Error('Dice contract not initialized');
-    }
-
-    try {
-      const tx = await this.diceContract.forceStopGame(playerAddress);
-      const receipt = await tx.wait();
-      return receipt;
-    } catch (error) {
-      throw this.parseContractError(error);
-    }
   }
 }
 

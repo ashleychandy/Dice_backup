@@ -1,13 +1,21 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from 'react';
 import { useWallet } from '../components/wallet/WalletProvider';
-import { NETWORK_CONFIG, getUserPreferredNetwork } from '../config';
+import { NETWORK_CONFIG } from '../config';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Define available networks - use the same structure as NETWORK_CONFIG
 export const NETWORKS = {
   MAINNET: {
     id: 'mainnet',
     name: 'XDC Mainnet',
-    rpc: NETWORK_CONFIG.mainnet.rpcUrl,
+    rpc: import.meta.env.VITE_XDC_MAINNET_RPC,
     chainId: 50,
     explorer: 'https://explorer.xinfin.network',
     contracts: {
@@ -23,7 +31,7 @@ export const NETWORKS = {
   APOTHEM: {
     id: 'apothem',
     name: 'Apothem Testnet',
-    rpc: NETWORK_CONFIG.apothem.rpcUrl,
+    rpc: import.meta.env.VITE_XDC_APOTHEM_RPC,
     chainId: 51,
     explorer: 'https://explorer.apothem.network',
     contracts: {
@@ -38,54 +46,70 @@ export const NETWORKS = {
   },
 };
 
-// Storage keys for RPC settings
-const STORAGE_KEYS = {
-  LAST_RPC_UPDATE: 'xdc_dice_last_rpc_update',
-};
-
 // Create the context
 const NetworkContext = createContext(null);
 
 // Provider component
 export const NetworkProvider = ({ children }) => {
-  const { provider } = useWallet();
-  const [currentNetwork, setCurrentNetwork] = useState(
-    // Use the user's preferred network or env setting or default to Apothem
-    NETWORKS[getUserPreferredNetwork().toUpperCase()] ||
-      (import.meta.env.VITE_NETWORK === 'mainnet'
-        ? NETWORKS.MAINNET
-        : NETWORKS.APOTHEM)
-  );
+  const { provider, chainId, account } = useWallet();
+  const [currentNetwork, setCurrentNetwork] = useState(NETWORKS.APOTHEM);
   const [isNetworkSwitching, setIsNetworkSwitching] = useState(false);
   const [networkError, setNetworkError] = useState(null);
+  const [lastChainId, setLastChainId] = useState(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const previousAccountRef = useRef(account);
+  const queryClient = useQueryClient();
 
-  // Check for RPC URL changes on component mount
+  // A function to set the current network based on a chain ID
+  const updateNetworkFromChainId = useCallback(chainId => {
+    if (chainId === 50) {
+      setCurrentNetwork(NETWORKS.MAINNET);
+    } else if (chainId === 51) {
+      setCurrentNetwork(NETWORKS.APOTHEM);
+    } else {
+      // Default to APOTHEM for unrecognized chain IDs
+    }
+    setLastChainId(chainId);
+  }, []);
+
+  // Monitor for account changes and clear cache
   useEffect(() => {
-    const checkRpcChanges = () => {
-      // Update network objects with latest RPC URLs from config
-      NETWORKS.MAINNET.rpc = NETWORK_CONFIG.mainnet.rpcUrl;
-      NETWORKS.APOTHEM.rpc = NETWORK_CONFIG.apothem.rpcUrl;
-
-      // Check if we need to reload the page due to RPC changes
-      const lastUpdate = localStorage.getItem(STORAGE_KEYS.LAST_RPC_UPDATE);
-      const currentTimestamp = Date.now().toString();
-
-      if (lastUpdate) {
-        // If storage has a different RPC URL than what's loaded, reload the page
-        if (
-          NETWORKS.MAINNET.rpc !== NETWORK_CONFIG.mainnet.rpcUrl ||
-          NETWORKS.APOTHEM.rpc !== NETWORK_CONFIG.apothem.rpcUrl
-        ) {
-          localStorage.setItem(STORAGE_KEYS.LAST_RPC_UPDATE, currentTimestamp);
-          window.location.reload();
-        }
-      } else {
-        // First time tracking RPC URLs
-        localStorage.setItem(STORAGE_KEYS.LAST_RPC_UPDATE, currentTimestamp);
+    if (account !== previousAccountRef.current) {
+      // Clear any cached data related to the previous account
+      if (queryClient) {
+        // Invalidate all queries that might have cached data based on the previous account
+        queryClient.invalidateQueries();
       }
-    };
 
-    checkRpcChanges();
+      // Update reference for next comparison
+      previousAccountRef.current = account;
+
+      // If we were in the middle of a network switch, reset
+      if (isNetworkSwitching) {
+        setIsNetworkSwitching(false);
+      }
+
+      // Clear any stored network error state
+      if (networkError) {
+        setNetworkError(null);
+      }
+    }
+  }, [account, queryClient, isNetworkSwitching, networkError]);
+
+  // Set the initial network based on the wallet's chainId
+  useEffect(() => {
+    if (chainId && chainId !== lastChainId) {
+      updateNetworkFromChainId(chainId);
+    }
+  }, [chainId, lastChainId, updateNetworkFromChainId]);
+
+  // Clear initial load flag after component mount
+  useEffect(() => {
+    // Clear initial load flag after 3 seconds
+    const timer = setTimeout(() => {
+      setIsInitialLoad(false);
+    }, 3000);
+    return () => clearTimeout(timer);
   }, []);
 
   // Detect the current network from provider when available
@@ -93,64 +117,229 @@ export const NetworkProvider = ({ children }) => {
     const detectNetwork = async () => {
       if (!provider) return;
 
+      // Check if we're in a potential reload loop
       try {
-        const { chainId } = await provider.getNetwork();
-        // XDC Mainnet is 50, Apothem is 51
-        if (chainId === 50) {
-          setCurrentNetwork(NETWORKS.MAINNET);
-        } else if (chainId === 51) {
-          setCurrentNetwork(NETWORKS.APOTHEM);
+        const recentReload = sessionStorage.getItem('xdc_recent_reload');
+        const reloadTimestamp = parseInt(recentReload || '0');
+        const now = Date.now();
+
+        // If we've reloaded very recently, delay network detection
+        if (recentReload && now - reloadTimestamp < 3000) {
+          // Set a small timeout to check later
+          setTimeout(() => detectNetwork(), 3000);
+          return;
+        }
+      } catch (e) {
+        // Error checking session storage
+      }
+
+      try {
+        const network = await provider.getNetwork();
+        const detectedChainId = network.chainId;
+
+        // Only update if different from the current
+        if (detectedChainId !== lastChainId) {
+          updateNetworkFromChainId(detectedChainId);
         }
       } catch (error) {
-        console.error('Failed to detect network:', error);
+        // Failed to detect network
       }
     };
 
     detectNetwork();
-  }, [provider]);
+  }, [provider, lastChainId, updateNetworkFromChainId]);
 
-  // Switch network function
-  const switchNetwork = async networkId => {
-    if (!provider) {
-      setNetworkError('Wallet not connected');
+  // Listen for chain changes directly from window.ethereum
+  useEffect(() => {
+    if (!window.ethereum) return;
+
+    const handleEthChainChanged = hexChainId => {
+      const newChainId = parseInt(hexChainId, 16);
+
+      if (newChainId !== lastChainId) {
+        updateNetworkFromChainId(newChainId);
+
+        // Reset network switching state if we were in the middle of switching
+        if (isNetworkSwitching) {
+          setIsNetworkSwitching(false);
+        }
+      }
+    };
+
+    window.ethereum.on('chainChanged', handleEthChainChanged);
+    return () => {
+      window.ethereum.removeListener('chainChanged', handleEthChainChanged);
+    };
+  }, [lastChainId, isNetworkSwitching, updateNetworkFromChainId]);
+
+  // Switch network function with improved reliability
+  const switchNetwork = async targetNetworkId => {
+    // Skip network switching during initial page load
+    if (isInitialLoad) {
       return false;
     }
-
-    setIsNetworkSwitching(true);
-    setNetworkError(null);
 
     try {
+      // Start by setting state and clearing errors
+      setIsNetworkSwitching(true);
+      setNetworkError(null);
+
+      // Check if wallet is connected
+      if (!window.ethereum) {
+        throw new Error(
+          'No wallet detected. Please install MetaMask or XDCPay extension.'
+        );
+      }
+
+      // Determine target network
       const targetNetwork =
-        networkId === 'mainnet' ? NETWORKS.MAINNET : NETWORKS.APOTHEM;
+        targetNetworkId === 'mainnet' ? NETWORKS.MAINNET : NETWORKS.APOTHEM;
 
-      // Request network switch via wallet
-      await provider.send('wallet_switchEthereumChain', [
-        { chainId: `0x${targetNetwork.chainId.toString(16)}` },
-      ]);
+      // Validate the target network
+      if (!targetNetwork) {
+        throw new Error(`Invalid network ID: ${targetNetworkId}`);
+      }
 
-      // Update state (the effect above will detect the change too)
-      setCurrentNetwork(targetNetwork);
+      // Prepare chain ID in both formats
+      const chainIdHex = `0x${targetNetwork.chainId.toString(16)}`;
+      const chainIdDecimal = targetNetwork.chainId;
 
-      // Force page reload to ensure all contracts are reinitialized
-      window.location.reload();
+      // Step 1: First try to directly check if we're already on this network
+      let currentChainId;
+      try {
+        currentChainId = await window.ethereum.request({
+          method: 'eth_chainId',
+        });
+        const currentDecimalChainId = parseInt(currentChainId, 16);
 
-      return true;
+        if (currentDecimalChainId === chainIdDecimal) {
+          // Make sure our state is correct
+          updateNetworkFromChainId(chainIdDecimal);
+          setNetworkError(null);
+          setIsNetworkSwitching(false);
+          return true;
+        }
+      } catch (checkError) {
+        // Error checking current chain, will proceed with switch attempt
+      }
+
+      // Step 2: Try switching with the standard method
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: chainIdHex }],
+        });
+
+        // Success! Store preference but DON'T update the network state yet
+        // The chainChanged event will handle that to ensure it's in sync
+        localStorage.setItem('preferredNetwork', targetNetworkId);
+
+        // Set a timeout to prevent the UI from being stuck if the chain change event doesn't fire
+        setTimeout(() => {
+          if (isNetworkSwitching) {
+            updateNetworkFromChainId(chainIdDecimal);
+            setIsNetworkSwitching(false);
+          }
+        }, 3000);
+
+        return true;
+      } catch (switchError) {
+        // Chain not in wallet, need to add it first
+        if (
+          switchError.code === 4902 ||
+          switchError.message.includes('Unrecognized chain')
+        ) {
+          try {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [
+                {
+                  chainId: chainIdHex,
+                  chainName: targetNetwork.name,
+                  nativeCurrency: {
+                    name: 'XDC',
+                    symbol: 'XDC',
+                    decimals: 18,
+                  },
+                  rpcUrls: [targetNetwork.rpc],
+                  blockExplorerUrls: [targetNetwork.explorer],
+                },
+              ],
+            });
+
+            // After adding, try switching again (once)
+            try {
+              await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: chainIdHex }],
+              });
+
+              // Success after adding network
+              localStorage.setItem('preferredNetwork', targetNetworkId);
+
+              // Again, let the chain changed event handle the state update
+              setTimeout(() => {
+                if (isNetworkSwitching) {
+                  updateNetworkFromChainId(chainIdDecimal);
+                  setIsNetworkSwitching(false);
+                }
+              }, 3000);
+
+              return true;
+            } catch (secondSwitchError) {
+              // User may have rejected the second request
+              if (secondSwitchError.code === 4001) {
+                throw new Error(
+                  'Network switch was rejected. Please try again.'
+                );
+              }
+
+              // Other error after adding network
+              throw new Error(
+                `Error switching after adding network: ${secondSwitchError.message}`
+              );
+            }
+          } catch (addError) {
+            // User rejected adding the network
+            if (addError.code === 4001) {
+              throw new Error('Adding network was rejected. Please try again.');
+            }
+
+            // Other error adding network
+            throw new Error(`Error adding network: ${addError.message}`);
+          }
+        }
+
+        // User rejected the switch request
+        if (
+          switchError.code === 4001 ||
+          switchError.message.includes('User rejected')
+        ) {
+          throw new Error('Network switch was rejected. Please try again.');
+        }
+
+        // Other switch errors
+        throw new Error(`Error switching network: ${switchError.message}`);
+      }
     } catch (error) {
-      console.error('Network switch failed:', error);
-      setNetworkError(error.message || 'Failed to switch network');
-      return false;
-    } finally {
+      // Format user-friendly error message
+      let errorMessage = 'Failed to switch network.';
+
+      if (error.message) {
+        if (error.message.includes('rejected')) {
+          errorMessage =
+            'Network switch was rejected. Please approve the request in your wallet.';
+        } else if (error.message.includes('Unrecognized chain')) {
+          errorMessage = `The network is not configured in your wallet. Please add ${targetNetworkId === 'mainnet' ? 'XDC Mainnet' : 'Apothem Testnet'} manually.`;
+        } else {
+          errorMessage = `Error: ${error.message}`;
+        }
+      }
+
+      setNetworkError(errorMessage);
       setIsNetworkSwitching(false);
+      return false;
     }
-  };
-
-  // Function to refresh network configuration when RPC URLs change
-  const refreshNetworkConfig = () => {
-    // Update timestamp to prevent unnecessary reloads
-    localStorage.setItem(STORAGE_KEYS.LAST_RPC_UPDATE, Date.now().toString());
-
-    // Force page reload to apply new RPC URLs
-    window.location.reload();
   };
 
   return (
@@ -161,7 +350,6 @@ export const NetworkProvider = ({ children }) => {
         switchNetwork,
         isNetworkSwitching,
         networkError,
-        refreshNetworkConfig,
       }}
     >
       {children}

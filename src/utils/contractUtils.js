@@ -13,15 +13,6 @@ export const handleContractError = (error, onError, addToast) => {
     return;
   }
 
-  // Log for debugging
-  console.error('Contract error details:', {
-    code: error.code,
-    message: error.message,
-    errorName: error.errorName,
-    reason: error.reason,
-    details: error.details,
-  });
-
   // Handle user rejected transactions (MetaMask, etc.)
   if (
     error.code === 4001 ||
@@ -121,14 +112,6 @@ export const handleContractError = (error, onError, addToast) => {
             'Insufficient token balance. Please make sure your wallet has enough tokens for this bet.',
             'error'
           );
-
-          // Log detailed info for debugging
-          console.info('Balance error details:', {
-            message: error.message,
-            reason: error.reason,
-            code: error.code,
-            data: error.data,
-          });
         } else if (error.message?.includes('paused')) {
           addToast('The game is currently paused', 'info');
         } else {
@@ -146,17 +129,6 @@ export const handleContractError = (error, onError, addToast) => {
   }
 };
 
-/**
- * Safely call a contract method with proper error handling
- * @param {Object} contract - The contract instance
- * @param {String} methodName - The name of the method to call
- * @param {Array} params - Parameters to pass to the method
- * @param {Any} defaultValue - Default value to return if call fails
- * @param {Function} onError - Optional error handler function
- * @param {Function} addToast - Optional toast notification function
- * @param {Object} options - Optional transaction options (for writing methods)
- * @returns {Promise<Any>} - Result of the contract call or defaultValue if failed
- */
 export const safeContractCall = async (
   contract,
   methodName,
@@ -168,14 +140,12 @@ export const safeContractCall = async (
 ) => {
   // Check if contract exists
   if (!contract) {
-    console.warn('Contract is not available for method:', methodName);
     if (addToast) addToast('Contract is not available', 'error');
     return defaultValue;
   }
 
   // Check if method exists on contract
   if (!contract[methodName] || typeof contract[methodName] !== 'function') {
-    console.warn(`Method ${methodName} not found on contract`);
     return defaultValue;
   }
 
@@ -185,15 +155,8 @@ export const safeContractCall = async (
       ? await contract[methodName](...params, options)
       : await contract[methodName](...params);
   } catch (error) {
-    // Log the error for debugging
-    console.error(`Error calling ${methodName}:`, error);
-
     // Handle specific "missing revert data" error separately
     if (error.message && error.message.includes('missing revert data')) {
-      console.warn(
-        `Caught missing revert data error on ${methodName} call:`,
-        error.message
-      );
       if (addToast) {
         addToast(
           'The blockchain returned an incomplete response. Please try again.',
@@ -205,11 +168,7 @@ export const safeContractCall = async (
 
     // Handle other errors if handlers are provided
     if (onError || addToast) {
-      handleContractError(
-        error,
-        onError || console.error,
-        addToast || (() => {})
-      );
+      handleContractError(error, onError || (() => {}), addToast || (() => {}));
     }
 
     return defaultValue;
@@ -292,10 +251,6 @@ export const checkAndApproveToken = async (
               // Try to get gas price, fall back to estimated value if it fails
               gasPrice = await provider.getGasPrice();
             } catch (gasPriceError) {
-              console.warn(
-                'Failed to get gas price, using default:',
-                gasPriceError
-              );
               gasPrice = ethers.parseUnits('50', 'gwei'); // Default fallback
             }
 
@@ -306,15 +261,10 @@ export const checkAndApproveToken = async (
                 ethers.MaxUint256
               );
             } catch (gasEstimateError) {
-              console.warn(
-                'Failed to estimate gas, using default:',
-                gasEstimateError
-              );
               estimatedGas = ethers.parseUnits('100000', 'wei'); // fallback gas estimate
             }
 
-            const requiredGas =
-              (gasPrice * estimatedGas * BigInt(12)) / BigInt(10); // 1.2x for safety margin
+            const requiredGas = gasPrice * estimatedGas; // Use exact estimated gas without buffer
 
             if (balance < requiredGas) {
               if (addToast)
@@ -324,13 +274,8 @@ export const checkAndApproveToken = async (
                 );
               return false;
             }
-          } else {
-            console.warn(
-              'Provider does not support getBalance method, skipping gas check'
-            );
           }
         } catch (gasCheckError) {
-          console.error('Error during gas check:', gasCheckError);
           // Continue with approval anyway since this is just a pre-check
         }
 
@@ -355,7 +300,6 @@ export const checkAndApproveToken = async (
             spenderAddress
           );
         } catch (allowanceError) {
-          console.error('Error checking allowance:', allowanceError);
           if (retryCount === maxRetries) {
             if (addToast) addToast('Failed to check token allowance', 'error');
             return false;
@@ -378,9 +322,7 @@ export const checkAndApproveToken = async (
         const maxApproval = ethers.MaxUint256;
 
         // Request approval with max amount
-        const tx = await tokenContract.approve(spenderAddress, maxApproval, {
-          gasLimit: ethers.parseUnits('300000', 'wei'), // Set a reasonable gas limit
-        });
+        const tx = await tokenContract.approve(spenderAddress, maxApproval);
 
         if (addToast) addToast('Token approval transaction sent', 'info');
 
@@ -530,7 +472,6 @@ export const checkAndApproveToken = async (
 export const parseGameResultEvent = (receipt, contractInterface = null) => {
   try {
     if (!receipt || !receipt.logs) {
-      console.error('Invalid receipt or missing logs:', receipt);
       return null;
     }
 
@@ -629,11 +570,11 @@ export const parseGameResultEvent = (receipt, contractInterface = null) => {
               isSpecialResult: false,
             };
           } catch (dataParseError) {
-            console.error('Error parsing log data:', dataParseError);
+            // Error parsing log data
           }
         }
       } catch (parseError) {
-        console.error('Error parsing GameResult event:', parseError);
+        // Error parsing GameResult event
       }
     }
 
@@ -656,8 +597,6 @@ export const parseGameResultEvent = (receipt, contractInterface = null) => {
 
             // Only consider valid dice numbers
             if (possibleRolledNumber >= 1 && possibleRolledNumber <= 6) {
-              console.warn('Using fallback log parsing to extract game result');
-
               // If we found a valid dice number, make a best guess about the game result
               return {
                 rolledNumber: possibleRolledNumber,
@@ -679,10 +618,8 @@ export const parseGameResultEvent = (receipt, contractInterface = null) => {
     }
 
     // If we get here, we couldn't find or parse a GameResult event
-    console.error('Could not find GameResult event in transaction receipt');
     return null;
   } catch (error) {
-    console.error('Error parsing game result:', error);
     return null;
   }
 };

@@ -76,7 +76,7 @@ const ContractStats = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <StatItem
             label="Total Games Played"
             value={stats?.totalGames || '0'}
@@ -85,11 +85,6 @@ const ContractStats = () => {
           <StatItem
             label="Total Payouts"
             value={formatGAMA(stats?.totalPayout || '0')}
-            isLoading={statsLoading}
-          />
-          <StatItem
-            label="Total Wagered"
-            value={formatGAMA(stats?.totalWagered || '0')}
             isLoading={statsLoading}
           />
         </div>

@@ -12,6 +12,7 @@ export const formatTokenAmount = (value, decimals = 0) => {
   try {
     let bigIntValue;
 
+    // Ensure we have a BigInt
     if (typeof value === 'string') {
       bigIntValue = BigInt(value);
     } else if (typeof value === 'number') {
@@ -19,18 +20,23 @@ export const formatTokenAmount = (value, decimals = 0) => {
     } else if (typeof value === 'bigint') {
       bigIntValue = value;
     } else if (typeof value === 'object' && value.toString) {
+      // Handle objects with toString method (like ethers BigNumber)
       bigIntValue = BigInt(value.toString());
     } else {
+      // Last resort fallback
       bigIntValue = BigInt(0);
     }
 
+    // Format with ethers
     const formatted = ethers.formatEther(bigIntValue);
 
+    // If decimals is 0, return only the whole number part
     if (decimals === 0) {
       const wholePart = formatted.split('.')[0];
       return wholePart;
     }
 
+    // Otherwise, limit decimal places as requested
     const parts = formatted.split('.');
     if (parts.length === 2) {
       return `${parts[0]}.${parts[1].substring(0, decimals)}`;
@@ -47,18 +53,24 @@ export const formatTokenAmount = (value, decimals = 0) => {
  * @param {String} input - Input string representing amount (whole numbers only)
  * @returns {BigInt} Amount in wei
  */
-export const parseTokenAmount = input => {
+export const _parseTokenAmount = input => {
   if (!input || input === '') return BigInt(0);
 
   try {
+    // Convert to string first if not already
     const inputStr = String(input);
+
+    // Only allow digits (whole numbers)
     const sanitized = inputStr.replace(/[^\d]/g, '');
 
+    // Handle empty sanitized string
     if (!sanitized || sanitized === '') {
       return BigInt(0);
     }
 
+    // Convert to whole token amount (no decimals)
     const result = BigInt(sanitized) * BigInt(10) ** BigInt(18);
+
     return result;
   } catch (error) {
     return BigInt(0);
@@ -83,7 +95,6 @@ export const formatTimestamp = timestamp => {
 
     // Validate the date
     if (isNaN(date.getTime()) || date.getFullYear() < 1990) {
-      console.warn('Invalid timestamp detected:', timestamp);
       return 'Invalid date';
     }
 
@@ -97,7 +108,6 @@ export const formatTimestamp = timestamp => {
       second: '2-digit',
     });
   } catch (error) {
-    console.error('Error formatting timestamp:', error);
     return 'Invalid date';
   }
 };
@@ -131,7 +141,6 @@ export const calculatePercentage = (value, percentage) => {
     const bigIntValue = typeof value === 'bigint' ? value : BigInt(value);
     return (bigIntValue * BigInt(Math.floor(percentage * 100))) / BigInt(10000);
   } catch (error) {
-    console.error('Error calculating percentage:', error);
     return BigInt(0);
   }
 };

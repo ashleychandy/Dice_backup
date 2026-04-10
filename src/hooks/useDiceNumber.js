@@ -1,57 +1,82 @@
-import { useState, useEffect } from 'react';
-
-// Constants for special result values
-// These should match the smart contract values (based on gameService.js)
-export const RESULT_RECOVERED = 255;
-export const RESULT_FORCE_STOPPED = 254;
+import { useState, useEffect, useCallback } from 'react';
+import { useContractConstants } from './useContractConstants';
+import { usePollingService } from '../services/pollingService.jsx';
 
 /**
- * Custom hook to manage reactive dice number display
+ * Simplified custom hook to manage dice number display
  *
  * @param {Object|null} result - The game result object
  * @param {Number|null} chosenNumber - The number chosen by the player
  * @param {Boolean} isRolling - Whether the dice is currently rolling
- * @returns {Object} - State and methods for dice number display
+ * @returns {Object} - The dice number to display
  */
 export const useDiceNumber = (result, chosenNumber, isRolling) => {
+  const { constants } = useContractConstants();
+  const { gameStatus } = usePollingService();
+
   // State for dice number management
   const [randomDiceNumber, setRandomDiceNumber] = useState(1);
   const [rolledNumber, setRolledNumber] = useState(null);
   const [lastRolledNumber, setLastRolledNumber] = useState(null);
-  const [betOutcome, setBetOutcome] = useState(null);
-  const [showResultAnimation, setShowResultAnimation] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
 
-  // Get random dice number
-  const getRandomDiceNumber = () => Math.floor(Math.random() * 6) + 1;
+  // Initialize state from game status on component mount
+  useEffect(() => {
+    if (gameStatus && gameStatus.isActive) {
+      // If we have a chosen number from contract, update state
+      if (gameStatus.chosenNumber) {
+        // Store the chosen number as the last rolled number if we don't have a result yet
+        setLastRolledNumber(gameStatus.chosenNumber);
+      }
+    }
+  }, [gameStatus]);
+
+  // Get random dice number within valid range
+  const getRandomDiceNumber = useCallback(
+    () =>
+      Math.floor(
+        Math.random() *
+          (constants.MAX_DICE_NUMBER - constants.MIN_DICE_NUMBER + 1)
+      ) + constants.MIN_DICE_NUMBER,
+    [constants]
+  );
 
   // Update random dice number when rolling
   useEffect(() => {
     let intervalId;
+    let timeoutId;
+
     if (isRolling && !rolledNumber) {
       // Create a rolling effect by changing the number rapidly
       intervalId = setInterval(() => {
         setRandomDiceNumber(getRandomDiceNumber());
       }, 150); // Change number every 150ms for a realistic rolling effect
+
+      // Automatically stop rolling after 15 seconds
+      timeoutId = setTimeout(() => {
+        if (intervalId) {
+          clearInterval(intervalId);
+        }
+      }, 15000); // 15 seconds maximum
     }
 
-    // Clean up interval
+    // Clean up interval and timeout
     return () => {
       if (intervalId) {
         clearInterval(intervalId);
       }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
-  }, [isRolling, rolledNumber]);
+  }, [isRolling, rolledNumber, getRandomDiceNumber]);
 
   // Handle the result when it arrives
   useEffect(() => {
     if (result) {
       // Extract the correct number from the result object
-      // The gameState.lastResult object uses rolledNumber property from the smart contract event
       let resultNumber = null;
 
       if (result.rolledNumber !== undefined) {
-        // Convert to number and ensure it's an integer
         resultNumber =
           typeof result.rolledNumber === 'string'
             ? parseInt(result.rolledNumber, 10)
@@ -70,46 +95,23 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
         resultNumber = null;
       }
 
-      // Immediately update the rolled number to update the dice face
-      setRolledNumber(resultNumber);
-
-      // Store the last valid rolled number (1-6)
-      if (resultNumber >= 1 && resultNumber <= 6) {
-        setLastRolledNumber(resultNumber);
+      // Only update the rolled number if we have a valid result
+      if (resultNumber !== null) {
+        setRolledNumber(resultNumber);
       }
 
-      // Determine win/lose status after a short delay
-      setTimeout(() => {
-        // Check if the result is a special code
-        if (resultNumber === RESULT_RECOVERED) {
-          setBetOutcome('recovered');
-        } else if (resultNumber === RESULT_FORCE_STOPPED) {
-          setBetOutcome('stopped');
-        }
-        // Check for normal rolls (1-6)
-        else if (resultNumber >= 1 && resultNumber <= 6) {
-          if (resultNumber === chosenNumber) {
-            setBetOutcome('win');
-            setShowConfetti(true);
-          } else {
-            setBetOutcome('lose');
-          }
-        }
-        // Any other unknown result
-        else if (resultNumber !== null) {
-          setBetOutcome('unknown');
-        }
-
-        setShowResultAnimation(true);
-      }, 100);
+      // Store the last valid rolled number (1-6)
+      if (
+        resultNumber >= constants.MIN_DICE_NUMBER &&
+        resultNumber <= constants.MAX_DICE_NUMBER
+      ) {
+        setLastRolledNumber(resultNumber);
+      }
     } else {
       // Reset state when no result, but keep lastRolledNumber
       setRolledNumber(null);
-      setShowConfetti(false);
-      setShowResultAnimation(false);
-      setBetOutcome(null);
     }
-  }, [result, chosenNumber]);
+  }, [result, constants]);
 
   // Function to get the number to display on the dice
   const getDisplayNumber = () => {
@@ -117,31 +119,38 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
     if (rolledNumber !== null) {
       // If special result (254 or 255), show a default face or last rolled
       if (
-        rolledNumber === RESULT_RECOVERED ||
-        rolledNumber === RESULT_FORCE_STOPPED
+        rolledNumber === constants.RESULT_RECOVERED ||
+        rolledNumber === constants.RESULT_FORCE_STOPPED
       ) {
         // For special results, use the last valid dice number or default to 1
-        return lastRolledNumber || 1;
+        return lastRolledNumber || constants.MIN_DICE_NUMBER;
       }
 
       // Make sure we only return valid dice numbers (1-6)
-      if (rolledNumber >= 1 && rolledNumber <= 6) {
+      if (
+        rolledNumber >= constants.MIN_DICE_NUMBER &&
+        rolledNumber <= constants.MAX_DICE_NUMBER
+      ) {
         return rolledNumber;
       }
 
       // For any other invalid number, show last valid roll or chosen number
-      // First check if lastRolledNumber is valid (1-6)
-      if (lastRolledNumber >= 1 && lastRolledNumber <= 6) {
+      if (
+        lastRolledNumber >= constants.MIN_DICE_NUMBER &&
+        lastRolledNumber <= constants.MAX_DICE_NUMBER
+      ) {
         return lastRolledNumber;
       }
 
-      // Then check if chosenNumber is valid (1-6)
-      if (chosenNumber >= 1 && chosenNumber <= 6) {
+      if (
+        chosenNumber >= constants.MIN_DICE_NUMBER &&
+        chosenNumber <= constants.MAX_DICE_NUMBER
+      ) {
         return chosenNumber;
       }
 
-      // Last resort - just show 1
-      return 1;
+      // Last resort - show minimum number
+      return constants.MIN_DICE_NUMBER;
     }
 
     // If rolling but no result yet, show random number
@@ -150,54 +159,27 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
     }
 
     // If we have a previous roll, show that number if it's valid
-    if (lastRolledNumber >= 1 && lastRolledNumber <= 6) {
+    if (
+      lastRolledNumber >= constants.MIN_DICE_NUMBER &&
+      lastRolledNumber <= constants.MAX_DICE_NUMBER
+    ) {
       return lastRolledNumber;
     }
 
     // If we have a chosen number, show that if it's valid
-    if (chosenNumber >= 1 && chosenNumber <= 6) {
+    if (
+      chosenNumber >= constants.MIN_DICE_NUMBER &&
+      chosenNumber <= constants.MAX_DICE_NUMBER
+    ) {
       return chosenNumber;
     }
 
-    // Default to 1 as the safest option
-    return 1;
-  };
-
-  // Get text to display for special results
-  const getSpecialResultText = () => {
-    if (rolledNumber === RESULT_RECOVERED) {
-      return 'Game Recovered';
-    }
-    if (rolledNumber === RESULT_FORCE_STOPPED) {
-      return 'Game Stopped';
-    }
-    return 'Unknown Result';
-  };
-
-  // Reset animations and state
-  const resetState = () => {
-    setShowResultAnimation(false);
-    setShowConfetti(false);
-    setBetOutcome(null);
+    // Default to minimum number
+    return constants.MIN_DICE_NUMBER;
   };
 
   return {
-    // Current state
+    // Only return the display number, everything else is now managed by the component
     displayNumber: getDisplayNumber(),
-    rolledNumber,
-    lastRolledNumber,
-    randomDiceNumber,
-    betOutcome,
-    showResultAnimation,
-    showConfetti,
-
-    // Methods
-    getSpecialResultText,
-    resetState,
-
-    // Setters for external control
-    setShowResultAnimation,
-    setShowConfetti,
-    setBetOutcome,
   };
 };

@@ -33,7 +33,6 @@ export const useContractStats = () => {
         const [
           totalGamesResult,
           totalPayoutResult,
-          totalWageredResult,
           maxBetAmountResult,
           maxHistorySizeResult,
         ] = await Promise.allSettled([
@@ -48,12 +47,6 @@ export const useContractStats = () => {
             'totalPayoutAmount',
             [],
             defaultStats.totalPayout
-          ),
-          safeContractCall(
-            contract,
-            'totalWageredAmount',
-            [],
-            defaultStats.totalWagered
           ),
           safeContractCall(
             contract,
@@ -80,11 +73,6 @@ export const useContractStats = () => {
             ? totalPayoutResult.value.toString()
             : defaultStats.totalPayout;
 
-        const totalWagered =
-          totalWageredResult.status === 'fulfilled'
-            ? totalWageredResult.value.toString()
-            : defaultStats.totalWagered;
-
         const maxBetAmount =
           maxBetAmountResult.status === 'fulfilled'
             ? maxBetAmountResult.value.toString()
@@ -95,38 +83,14 @@ export const useContractStats = () => {
             ? Number(maxHistorySizeResult.value)
             : defaultStats.maxHistorySize;
 
-        // Log any errors for debugging
-        [
-          totalGamesResult,
-          totalPayoutResult,
-          totalWageredResult,
-          maxBetAmountResult,
-          maxHistorySizeResult,
-        ]
-          .filter(result => result.status === 'rejected')
-          .forEach((result, index) => {
-            const propertyNames = [
-              'totalGames',
-              'totalPayout',
-              'totalWagered',
-              'maxBetAmount',
-              'maxHistorySize',
-            ];
-            console.error(
-              `Error fetching ${propertyNames[index]}:`,
-              result.reason
-            );
-          });
-
         return {
           totalGames,
           totalPayout,
-          totalWagered,
+          totalWagered: '0', // Remove totalWagered as it's not accessible as a function
           maxBetAmount,
           maxHistorySize,
         };
       } catch (error) {
-        console.error('Error fetching contract stats:', error);
         // Return default values instead of throwing to prevent UI errors
         return defaultStats;
       }
@@ -138,8 +102,7 @@ export const useContractStats = () => {
     refetchInterval: 5000, // Refetch every 5 seconds
     refetchIntervalInBackground: true, // Continue refetching even when tab is not in focus
     onError: err => {
-      console.error('Contract stats query error:', err);
-      // Don't show toast for this error as it might be frequent
+      // Silent error handling
     },
   });
 

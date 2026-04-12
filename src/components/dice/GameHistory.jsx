@@ -1,25 +1,25 @@
-import { AnimatePresence, motion } from 'framer-motion';
-import React, { useState, useEffect, useMemo } from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faHistory,
-  faRandom,
-  faCheckCircle,
-  faTimesCircle,
-  faDice,
   faChartLine,
+  faCheckCircle,
+  faDice,
+  faHistory,
+  faPlayCircle,
+  faRandom,
+  faTimesCircle,
   faTrophy,
   faWallet,
-  faPlayCircle,
 } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { AnimatePresence, motion } from 'framer-motion';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useBetHistory } from '../../hooks/useBetHistory';
 import { useDiceContract } from '../../hooks/useDiceContract';
+import { usePollingService } from '../../services/pollingService.jsx';
+import GameHistoryError from '../error/GameHistoryError';
 import { useWallet } from '../wallet/WalletProvider';
 import EmptyState from './EmptyState';
 import GameHistoryItem from './GameHistoryItem';
 import GameHistoryLoader from './GameHistoryLoader';
-import GameHistoryError from '../error/GameHistoryError';
-import { usePollingService } from '../../services/pollingService.jsx';
 
 // Minimalist pagination component with animations
 const Pagination = ({
@@ -197,7 +197,7 @@ const GameHistory = ({ account, onError, hideHeading = false }) => {
   const { isWalletConnected } = useWallet();
 
   // Get isNewUser state from polling service
-  const { isNewUser, gameStatus } = usePollingService();
+  const { isNewUser, gameStatus, lastUpdated } = usePollingService();
 
   // Use the bet history hook
   const {
@@ -380,21 +380,29 @@ const GameHistory = ({ account, onError, hideHeading = false }) => {
 
     return games;
   }, [filteredGames, gameStatus, filter]);
+  const hasDisplayBets = displayBets.length > 0;
 
-  // Define isDataLoading here so it's available throughout the component
-  const isDataLoading = isLoading && (!betHistory || betHistory.length === 0);
+  // Only show the skeleton before the first successful history fetch.
+  // After that, keep the real history UI mounted during background refreshes.
+  const isDataLoading =
+    isLoading &&
+    lastUpdated === null &&
+    !hasDisplayBets &&
+    !gameStatus?.isActive &&
+    !isNewUser;
 
   // Show empty state only if we have no data to display at all
-  const showEmptyState =
-    !isDataLoading && (!displayBets || displayBets.length === 0);
+  const showEmptyState = !isDataLoading && !hasDisplayBets;
 
-  // For new users without a wallet connection or those who haven't placed bets yet, show a welcome message
-  if (!isWalletConnected || !account) {
-    return <WelcomeNewUser />;
-  }
+  const shouldShowWelcome =
+    isWalletConnected &&
+    account &&
+    isNewUser &&
+    !gameStatus?.isActive &&
+    !gameStatus?.lastPlayTimestamp;
 
   // Show welcome message for users who have connected their wallet but haven't placed any bets
-  if (isWalletConnected && account && isNewUser) {
+  if (shouldShowWelcome) {
     return <WelcomeNewUser />;
   }
 

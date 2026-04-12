@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+import { useNetwork } from '../../contexts/NetworkContext';
 import NetworkSwitcher from '../ui/NetworkSwitcher';
 import { useWallet } from '../wallet/WalletProvider';
-import { useNetwork } from '../../contexts/NetworkContext';
 
 // Define keyframes animation for the pulse effect
 const pulseAnimation = `
@@ -163,14 +163,14 @@ const Navbar = () => {
           ></div>
 
           <a
-            href="https://flipcoin.gamacoin.ai/"
+            href="https://dicecoin.gamacoin.ai/"
             target="_blank"
             rel="noopener noreferrer"
             className={`${
               isScrolled ? 'text-gray-600' : 'text-white'
             } hover:text-[#22AD74] transition-all duration-300 flex items-center gap-2 font-medium hover:-translate-y-0.5`}
           >
-            Flip
+            Dice
           </a>
 
           <div

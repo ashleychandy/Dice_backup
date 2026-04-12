@@ -1,27 +1,25 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
-import React, { useCallback, useEffect, useState } from 'react';
 import {
-  faRandom,
-  faDice,
-  faCubes,
   faChartLine,
   faChevronDown,
-  faChevronUp,
+  faCubes,
+  faDice,
+  faRandom,
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useCallback, useEffect, useState } from 'react';
 
 // Import components
+import ApprovalGuide from '../components/dice/ApprovalGuide';
 import BalancePanel from '../components/dice/BalancePanel';
 import BetInput from '../components/dice/BetInput';
 import DiceVisualizer from '../components/dice/DiceVisualizer';
-import LatestBet from '../components/dice/LatestBet';
 import GameHistory from '../components/dice/GameHistory';
+import LatestBet from '../components/dice/LatestBet';
 import NumberSelector from '../components/dice/NumberSelector';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { VrfRecoveryModal } from '../components/vrf';
 import { useWallet } from '../components/wallet/WalletProvider.jsx';
-import ApprovalGuide from '../components/dice/ApprovalGuide';
 
 // Import custom hooks
 import useGameLogic from '../hooks/useGameLogic';
@@ -116,7 +114,6 @@ const WelcomeBanner = ({ onConnectClick }) => (
 const DicePage = ({ contracts, account, onError, addToast }) => {
   const [lastBetAmount, setLastBetAmount] = useState(null);
   const [lastBetDetails, setLastBetDetails] = useState(null);
-  const queryClient = useQueryClient();
   const [isVrfModalOpen, setIsVrfModalOpen] = useState(false);
   const { connectWallet, isWalletConnected } = useWallet();
 
@@ -149,10 +146,18 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
   // Determine if the VRF recovery button should be shown
   const showVrfButton =
     gameStatus?.isActive &&
+    !gameStatus?.pendingResolution &&
     (gameStatus?.recoveryEligible ||
       (gameStatus?.lastPlayTimestamp &&
         gameStatus?.requestExists &&
         !gameStatus?.requestProcessed));
+
+  const showResolveButton =
+    gameStatus?.isActive &&
+    !gameStatus?.isCompleted &&
+    gameStatus?.pendingResolution;
+
+  const hasPendingGame = gameStatus?.isActive && !gameStatus?.isCompleted;
 
   // Use our custom game logic hook
   const {
@@ -165,10 +170,12 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
     needsApproval,
     isApproving,
     isBetting,
+    isResolving,
     setChosenNumber,
     setBetAmount,
     handleApproveToken,
     handlePlaceBet,
+    handleResolveGame,
   } = useGameLogic(contracts, account, onError, addToast);
 
   // When bet is placed, immediately update UI with the result
@@ -362,10 +369,9 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                   onClick={handlePlaceBetWithTracking}
                   disabled={
                     (gameState.isProcessing && !gameState.lastResult) ||
-                    (gameState.isRolling &&
-                      gameStatus?.isActive &&
-                      !gameStatus?.isCompleted) ||
+                    hasPendingGame ||
                     isApproving ||
+                    isResolving ||
                     isBetting ||
                     !chosenNumber ||
                     needsApproval ||
@@ -373,18 +379,23 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                   }
                   className="h-14 w-full bg-gradient-to-r from-gaming-primary to-gaming-accent hover:from-gaming-primary/90 hover:to-gaming-accent/90 font-medium rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {(gameState.isProcessing && !gameState.lastResult) ||
-                  (gameState.isRolling &&
-                    gameStatus?.isActive &&
-                    !gameStatus?.isCompleted) ? (
+                  {hasPendingGame ? (
                     <span className="flex items-center justify-center">
                       <LoadingSpinner size="small" />
                       <span className="ml-2">
-                        {gameState.isRolling &&
-                        gameStatus?.isActive &&
-                        !gameStatus?.isCompleted
-                          ? 'Rolling dice...'
-                          : 'Processing your bet...'}
+                        {showResolveButton
+                          ? isResolving
+                            ? 'Resolving result...'
+                            : 'Resolve pending result first'
+                          : gameState.isRolling &&
+                              gameStatus?.isActive &&
+                              !gameStatus?.isCompleted
+                            ? 'Rolling Coin...'
+                            : gameState.isProcessing && gameState.lastResult
+                              ? 'Finalizing bet...'
+                              : isBetting
+                                ? 'Confirming transaction...'
+                                : 'Processing your bet...'}
                       </span>
                     </span>
                   ) : hasNoTokens ? (
@@ -419,6 +430,75 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                     </span>
                   )}
                 </motion.button>
+
+                {showResolveButton && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleResolveGame}
+                    disabled={isResolving || isApproving || isBetting}
+                    className="h-14 w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-500/90 hover:to-teal-500/90 text-white font-medium rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {isResolving ? (
+                      <span className="flex items-center justify-center">
+                        <LoadingSpinner size="small" />
+                        <span className="ml-2">Resolving game...</span>
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center">
+                        <FontAwesomeIcon icon={faChartLine} className="mr-2" />
+                        Resolve Game Result
+                      </span>
+                    )}
+                  </motion.button>
+                )}
+
+                {/* Processing Status Message */}
+                {(gameState.isProcessing ||
+                  gameState.isRolling ||
+                  isBetting ||
+                  isResolving ||
+                  showResolveButton) && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-3 bg-blue-50 rounded-lg border border-blue-100 text-center"
+                  >
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                      <span className="font-medium text-gray-800">
+                        {showResolveButton
+                          ? 'Result Ready To Resolve'
+                          : gameState.isRolling &&
+                              gameStatus?.isActive &&
+                              !gameStatus?.isCompleted
+                            ? 'Waiting for Random Number'
+                            : gameState.isProcessing && gameState.lastResult
+                              ? 'Finalizing Bet Result'
+                              : isResolving
+                                ? 'Resolving Result'
+                                : isBetting
+                                  ? 'Confirming Transaction'
+                                  : 'Processing Bet'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-600">
+                      {showResolveButton
+                        ? 'VRF fulfillment has finished. Resolve the game onchain to reveal the outcome.'
+                        : gameState.isRolling &&
+                            gameStatus?.isActive &&
+                            !gameStatus?.isCompleted
+                          ? 'Please wait while we get a secure random result from VRF...'
+                          : gameState.isProcessing && gameState.lastResult
+                            ? 'Your bet has been placed. Waiting for final confirmation...'
+                            : isResolving
+                              ? 'Please confirm the resolve transaction in your wallet...'
+                              : isBetting
+                                ? 'Please confirm the transaction in your wallet...'
+                                : 'Your bet is being processed. Please wait...'}
+                    </p>
+                  </motion.div>
+                )}
 
                 {/* VRF Recovery Button */}
                 {showVrfButton && (
@@ -466,9 +546,11 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
               className="bg-white backdrop-blur-3xl rounded-xl border border-secondary-200 shadow-xl"
             >
               <LatestBet
-                result={lastBetDetails?.result || gameState.lastResult}
+                betResult={lastBetDetails?.result || gameState.lastResult}
                 chosenNumber={lastBetDetails?.chosenNumber || chosenNumber}
                 betAmount={lastBetDetails?.betAmount || betAmount}
+                onResolveClick={handleResolveGame}
+                isResolving={isResolving}
               />
             </motion.div>
           </div>

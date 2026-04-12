@@ -1,26 +1,24 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { ethers } from 'ethers';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ethers } from 'ethers';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // Import utilities and hooks
-import {
-  checkAndApproveToken,
-  parseGameResultEvent,
-} from '../utils/contractUtils';
-import { useLoadingState } from './useLoadingState';
-import { useErrorHandler } from './useErrorHandler';
-import { useDiceContract } from './useDiceContract';
 import { useWallet } from '../components/wallet/WalletProvider';
+import { usePollingService } from '../services/pollingService.jsx';
+import { checkAndApproveToken } from '../utils/contractUtils';
+import { handleContractError } from '../utils/errorHandling';
 import { useContractState } from './useContractState';
 import { useContractStats } from './useContractStats';
+import { useDiceContract } from './useDiceContract';
+import { useErrorHandler } from './useErrorHandler';
+import { useLoadingState } from './useLoadingState';
 import { useRequestTracking } from './useRequestTracking';
-import { handleContractError } from '../utils/errorHandling';
 
 // Custom hook for bet state management
 const useBetState = (initialBetAmount = '1000000000000000000') => {
   // Store betAmount as string to avoid serialization issues
   const [betAmount, setBetAmountRaw] = useState(initialBetAmount);
-  const [chosenNumber, setChosenNumber] = useState(null);
+  const [chosenNumber, setChosenNumber] = useState(1);
   const lastBetAmountRef = useRef(initialBetAmount);
 
   const setBetAmount = useCallback(amount => {
@@ -63,7 +61,7 @@ const useBetState = (initialBetAmount = '1000000000000000000') => {
   // Reset function to clear bet state
   const resetBetState = useCallback(() => {
     setBetAmountRaw(initialBetAmount);
-    setChosenNumber(null);
+    setChosenNumber(1);
     lastBetAmountRef.current = initialBetAmount;
   }, [initialBetAmount]);
 
@@ -141,7 +139,7 @@ const setupSafetyTimeout = (timeoutRef, callback, timeoutMs = 60000) => {
 };
 
 /**
- * Custom hook for dice game logic
+ * Custom hook for Dice game logic
  * @param {Object} contracts - Contract instances
  * @param {String} account - User's account
  * @param {Function} onError - Error handler
@@ -152,11 +150,23 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   const queryClient = useQueryClient();
   const operationInProgress = useRef(false);
   const safetyTimeoutRef = useRef(null);
+  const DiceTimeoutRef = useRef(null);
   const [isApproving, setIsApproving] = useState(false);
   const [isBetting, withBetting] = useLoadingState(false);
+  const [isResolving, withResolving] = useLoadingState(false);
   const handleError = useErrorHandler(onError, addToast);
   const { contract: _contract } = useDiceContract();
   const { account: walletAccount } = useWallet();
+  const { gameStatus, refreshData } = usePollingService();
+  // Normalize dice contract naming: some parts of the app use `Dice`, others use `dice`
+  const diceContract =
+    contracts?.Dice ||
+    contracts?.dice ||
+    contracts?.diceContract ||
+    contracts?.DiceContract ||
+    null;
+  const diceAddress =
+    diceContract?.address || diceContract?.target || ethers.ZeroAddress;
   const [isProcessing, _setIsProcessing] = useState(false);
   const [error, _setError] = useState(null);
   const pendingTxRef = useRef(null);
@@ -166,20 +176,56 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   const { contractState: _contractState } = useContractState();
   const { stats } = useContractStats();
   const { userPendingRequest: _userPendingRequest } = useRequestTracking();
+  const balanceQueryKey = useMemo(
+    () => ['balance', walletAccount, contracts?.token ? true : false],
+    [walletAccount, contracts?.token]
+  );
 
   // Helper to batch multiple query invalidations
   const invalidateQueries = useCallback(
     (types = ['balance']) => {
-      if (!walletAccount) return;
-
-      const timestamp = Date.now(); // Add timestamp to ensure cache busting
-
       types.forEach(type => {
-        queryClient.invalidateQueries([type, walletAccount, timestamp]);
+        queryClient.invalidateQueries({ queryKey: [type] });
+
+        if (walletAccount) {
+          queryClient.invalidateQueries({ queryKey: [type, walletAccount] });
+        }
       });
     },
     [queryClient, walletAccount]
   );
+
+  const fetchBalanceData = useCallback(async () => {
+    if (!contracts?.token || !walletAccount) {
+      return {
+        balance: BigInt(0),
+        allowance: BigInt(0),
+      };
+    }
+
+    try {
+      const [balance, tokenAllowance] = await Promise.all([
+        contracts.token.balanceOf(walletAccount).catch(_err => {
+          return BigInt(0);
+        }),
+        contracts.token.allowance(walletAccount, diceAddress).catch(_err => {
+          return BigInt(0);
+        }),
+      ]);
+
+      return {
+        balance: balance ? BigInt(balance.toString()) : BigInt(0),
+        allowance: tokenAllowance
+          ? BigInt(tokenAllowance.toString())
+          : BigInt(0),
+      };
+    } catch (_error) {
+      return {
+        balance: BigInt(0),
+        allowance: BigInt(0),
+      };
+    }
+  }, [contracts, walletAccount]);
 
   // Always invalidate balance data when component mounts or account/contracts change
   useEffect(() => {
@@ -249,7 +295,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   // Add effect to detect and handle contract changes
   useEffect(() => {
     // When contracts change (typically after account change), we need to reset states
-    if (contracts?.token && contracts?.dice && walletAccount) {
+    if (contracts?.token && diceContract && walletAccount) {
       // Reset operation flags
       operationInProgress.current = false;
 
@@ -263,49 +309,8 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
   // Balance Query with optimized settings
   const { data: balanceData, isLoading: balanceLoading } = useQuery({
-    queryKey: ['balance', walletAccount, contracts?.token ? true : false],
-    queryFn: async () => {
-      if (!contracts?.token || !walletAccount) {
-        return {
-          balance: BigInt(0),
-          allowance: BigInt(0),
-        };
-      }
-
-      try {
-        const [balance, tokenAllowance] = await Promise.all([
-          contracts.token.balanceOf(walletAccount).catch(err => {
-            return BigInt(0);
-          }),
-          contracts.token
-            .allowance(
-              walletAccount,
-              contracts.dice?.address ||
-                contracts.dice?.target ||
-                ethers.ZeroAddress
-            )
-            .catch(err => {
-              return BigInt(0);
-            }),
-        ]);
-
-        // Force conversion to BigInt to ensure consistency
-        const balanceBigInt = balance ? BigInt(balance.toString()) : BigInt(0);
-        const allowanceBigInt = tokenAllowance
-          ? BigInt(tokenAllowance.toString())
-          : BigInt(0);
-
-        return {
-          balance: balanceBigInt,
-          allowance: allowanceBigInt,
-        };
-      } catch (error) {
-        return {
-          balance: BigInt(0),
-          allowance: BigInt(0),
-        };
-      }
-    },
+    queryKey: balanceQueryKey,
+    queryFn: fetchBalanceData,
     enabled: !!contracts?.token && !!walletAccount,
     staleTime: 30000, // Keep data fresh for 30 seconds
     cacheTime: 60000, // Cache for 1 minute
@@ -313,17 +318,23 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     refetchInterval: 5000, // Refetch data every 5 seconds
     refetchIntervalInBackground: true, // Continue refetching even when tab is not in focus
     refetchOnWindowFocus: true,
-    onError: error => {
+    onError: _error => {
       // Error handled silently
     },
   });
 
+  const syncBalanceData = useCallback(async () => {
+    const latestBalanceData = await fetchBalanceData();
+    queryClient.setQueryData(balanceQueryKey, latestBalanceData);
+    return latestBalanceData;
+  }, [balanceQueryKey, fetchBalanceData, queryClient]);
+
   // Handle approving tokens with optimistic updates
   const handleApproveToken = useCallback(async () => {
-    if (!contracts?.token || !contracts?.dice || !walletAccount) {
+    if (!contracts?.token || !diceContract || !walletAccount) {
       const errorMessage = !contracts?.token
         ? 'Token contract not connected'
-        : !contracts?.dice
+        : !contracts?.Dice
           ? 'Game contract not connected'
           : 'Wallet not connected';
 
@@ -347,7 +358,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     setProcessingState(true);
 
     // Setup safety timeout to reset state if the operation takes too long
-    const clearTimeout = setupSafetyTimeout(safetyTimeoutRef, () => {
+    const clearSafetyTimeout = setupSafetyTimeout(safetyTimeoutRef, () => {
       operationInProgress.current = false;
       setIsApproving(false);
       setProcessingState(false);
@@ -371,9 +382,8 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         // Silently handle network error
       }
 
-      // Get the dice contract address (target for v6 ethers, address for v5)
-      const diceContractAddress =
-        contracts.dice.target || contracts.dice.address;
+      // Get the Dice contract address (target for v6 ethers, address for v5)
+      const DiceContractAddress = diceAddress;
 
       // Show initial toast
       addToast('Starting token approval process...', 'info');
@@ -382,7 +392,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       // Use maxRetries=2 for up to 3 total attempts (initial + 2 retries)
       const success = await checkAndApproveToken(
         contracts.token,
-        diceContractAddress,
+        DiceContractAddress,
         walletAccount,
         isProcessing => setProcessingState(isProcessing),
         addToast,
@@ -395,8 +405,8 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           // Create a small delay to let blockchain state settle
           await new Promise(resolve => setTimeout(resolve, 2000));
 
-          // Refresh balance data
-          invalidateQueries(['balance']);
+          // Refresh balance data directly so approval state updates immediately
+          await syncBalanceData();
         } catch (refetchError) {
           // Continue despite refetch error, since approval was successful
         }
@@ -451,7 +461,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       }
     } finally {
       // Clean up resources and reset state
-      clearTimeout();
+      clearSafetyTimeout();
       operationInProgress.current = false;
       setIsApproving(false);
       setProcessingState(false);
@@ -461,11 +471,9 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     walletAccount,
     handleError,
     addToast,
-    queryClient,
     isApproving,
     setProcessingState,
-    checkAndApproveToken,
-    invalidateQueries,
+    syncBalanceData,
   ]);
 
   // Validate bet amount against contract limits
@@ -485,7 +493,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
   // Handle placing a bet with improved error handling and race condition prevention
   const handlePlaceBet = useCallback(async () => {
-    if (!contracts?.dice || !walletAccount) {
+    if (!diceContract || !walletAccount) {
       addToast({
         title: 'Connection Error',
         description: 'Cannot place bet: wallet or contract connection issue',
@@ -495,8 +503,8 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     }
 
     // Ensure we're using up-to-date contract instances
-    if (walletAccount && contracts?.dice?.signer) {
-      const currentSigner = await contracts.dice.signer
+    if (walletAccount && diceContract?.signer) {
+      const currentSigner = await diceContract.signer
         .getAddress()
         .catch(() => null);
 
@@ -565,16 +573,25 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       return;
     }
 
+    // Set the operation flag immediately to prevent multiple clicks
     operationInProgress.current = true;
+
+    // Update UI state immediately to show processing
+    setProcessingState(true);
 
     try {
       await withBetting(async () => {
-        // Update UI state immediately
-        setProcessingState(true);
+        // Update UI state to show rolling animation
         setRollingState(true);
 
+        // Clear any existing timeout
+        if (DiceTimeoutRef.current) {
+          clearTimeout(DiceTimeoutRef.current);
+          DiceTimeoutRef.current = null;
+        }
+
         // Setup safety timeout
-        const clearTimeout = setupSafetyTimeout(
+        const clearSafetyTimeout = setupSafetyTimeout(
           safetyTimeoutRef,
           () => {
             operationInProgress.current = false;
@@ -591,11 +608,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
         try {
           // Check contract availability
-          if (
-            !contracts.dice ||
-            (typeof contracts.dice.placeBet !== 'function' &&
-              typeof contracts.dice.playDice !== 'function')
-          ) {
+          if (!diceContract || typeof diceContract.playDice !== 'function') {
             throw new Error('Dice contract is not properly initialized');
           }
 
@@ -617,6 +630,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
               }
             } catch (balanceError) {
               handleContractError(balanceError, addToast);
+              clearSafetyTimeout();
               return;
             }
           }
@@ -628,49 +642,34 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
             type: 'info',
           });
 
-          // Convert chosen number to proper format
-          let chosenNumberBigInt;
-          try {
-            chosenNumberBigInt = BigInt(chosenNumber);
-            if (
-              chosenNumberBigInt < BigInt(1) ||
-              chosenNumberBigInt > BigInt(6)
-            ) {
-              throw new Error('Invalid dice number after conversion');
-            }
-          } catch (conversionError) {
-            throw new Error(
-              'Invalid dice number. Please select a number between 1 and 6.'
-            );
-          }
-
           // Add transaction options
           const txOptions = {};
 
           // Place bet
           let tx;
           try {
-            if (typeof contracts.dice.playDice === 'function') {
-              tx = await contracts.dice.playDice(
-                chosenNumberBigInt,
-                betAmount,
-                txOptions
-              );
-            } else {
-              throw new Error('playDice method not found in dice contract');
-            }
+            // Call the DiceCoin function with the chosen side (1=HEADS, 2=TAILS) and bet amount
+            tx = await diceContract.playDice(
+              chosenNumber,
+              betAmount,
+              txOptions
+            );
             pendingTxRef.current = tx;
+
+            // Show pending notification
+            addToast({
+              title: 'Bet Placed',
+              description: 'Bet placed! Waiting for confirmation...',
+              type: 'info',
+            });
           } catch (txError) {
             handleContractError(txError, addToast);
+            clearSafetyTimeout();
+            operationInProgress.current = false;
+            setProcessingState(false);
+            setRollingState(false);
             return;
           }
-
-          // Show pending notification
-          addToast({
-            title: 'Bet Placed',
-            description: 'Bet placed! Waiting for confirmation...',
-            type: 'info',
-          });
 
           // Wait for transaction confirmation
           try {
@@ -686,33 +685,82 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
               isPending: true,
               vrfPending: true,
             });
+
+            // We're still processing because we're waiting for VRF callback
+            // Don't reset operationInProgress flag here
+
+            // Setup a polling mechanism to check for VRF result
+            const pollForVrfResult = async () => {
+              try {
+                // Check game status from contract
+                const gameStatus =
+                  await diceContract.getGameStatus(walletAccount);
+
+                if (gameStatus.pendingResolution) {
+                  operationInProgress.current = false;
+                  setProcessingState(false);
+                  setRollingState(false);
+                  clearSafetyTimeout();
+                  await refreshData();
+                  addToast({
+                    title: 'Result Ready',
+                    description:
+                      'VRF has completed. Click Resolve Game to reveal the outcome.',
+                    type: 'success',
+                  });
+                  return;
+                }
+
+                // If the game is completed, reset processing state
+                if (!gameStatus.isActive || gameStatus.isCompleted) {
+                  operationInProgress.current = false;
+                  setProcessingState(false);
+                  setRollingState(false);
+                  clearSafetyTimeout();
+                  await refreshData();
+                  addToast({
+                    title: 'Game Completed',
+                    description: 'Your game has been completed!',
+                    type: 'success',
+                  });
+                  return;
+                }
+
+                // If still active and not completed, check again in a few seconds
+                DiceTimeoutRef.current = setTimeout(pollForVrfResult, 5000);
+              } catch (error) {
+                // In case of error, reset processing state to allow new bets
+                operationInProgress.current = false;
+                setProcessingState(false);
+                setRollingState(false);
+                clearSafetyTimeout();
+              }
+            };
+
+            // Start polling for VRF result
+            DiceTimeoutRef.current = setTimeout(pollForVrfResult, 5000);
           } catch (confirmError) {
             handleContractError(confirmError, addToast);
-          }
-        } catch (error) {
-          handleContractError(error, addToast);
-        } finally {
-          // Clean up resources
-          clearTimeout();
-          pendingTxRef.current = null;
-          operationInProgress.current = false;
-
-          // Reset processing state to allow new bets
-          setProcessingState(false);
-
-          // Only reset rolling state if we don't have a VRF-pending result
-          // This allows VRF popups and latest bet info to continue displaying
-          const currentResult = queryClient.getQueryData(['lastResult']);
-          if (!currentResult || !currentResult.vrfPending) {
+            clearSafetyTimeout();
+            operationInProgress.current = false;
+            setProcessingState(false);
             setRollingState(false);
           }
+        } catch (error) {
+          // Handle any other errors
+          handleError(error);
+          clearSafetyTimeout();
+          operationInProgress.current = false;
+          setProcessingState(false);
+          setRollingState(false);
         }
       });
     } catch (error) {
+      handleError(error);
+      // Reset operation flag if the overall try-catch fails
       operationInProgress.current = false;
       setProcessingState(false);
       setRollingState(false);
-      handleContractError(error, addToast);
     }
   }, [
     contracts,
@@ -720,14 +768,114 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     chosenNumber,
     betAmount,
     balanceData,
-    addToast,
-    queryClient,
     isBetting,
+    refreshData,
+    addToast,
+    invalidateQueries,
+    handleError,
     withBetting,
+    setLastResult,
     setProcessingState,
     setRollingState,
-    setLastResult,
+  ]);
+
+  const handleResolveGame = useCallback(async () => {
+    if (!diceContract || !walletAccount) {
+      addToast({
+        title: 'Connection Error',
+        description: 'Cannot resolve game: wallet or contract connection issue',
+        type: 'error',
+      });
+      return;
+    }
+
+    if (!gameStatus?.pendingResolution) {
+      addToast({
+        title: 'No Result Ready',
+        description: 'There is no fulfilled game waiting to be resolved.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    if (operationInProgress.current || isBetting || isResolving) {
+      addToast({
+        title: 'Operation in Progress',
+        description: 'Please wait for the current action to finish.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    operationInProgress.current = true;
+    setProcessingState(true);
+
+    try {
+      await withResolving(async () => {
+        addToast({
+          title: 'Resolving Result',
+          description: 'Submitting the resolve transaction...',
+          type: 'info',
+        });
+
+        const tx = await diceContract.resolveGame(walletAccount);
+        pendingTxRef.current = tx;
+
+        const receipt = await tx.wait();
+        const resolvedStatus = await diceContract
+          .getGameStatus(walletAccount)
+          .catch(() => null);
+
+        if (resolvedStatus?.isCompleted) {
+          setLastResult({
+            txHash: receipt.hash,
+            timestamp: Number(resolvedStatus.lastPlayTimestamp || 0),
+            chosenNumber: Number(resolvedStatus.chosenSide || 0),
+            rolledNumber: Number(resolvedStatus.result || 0),
+            amount: resolvedStatus.amount?.toString?.() || '0',
+            payout: resolvedStatus.payout?.toString?.() || '0',
+            isWin: Boolean(resolvedStatus.isWin),
+            isPending: false,
+            vrfPending: false,
+            awaitingResolution: false,
+          });
+        }
+
+        invalidateQueries([
+          'balance',
+          'gameStatus',
+          'betHistory',
+          'gameHistory',
+        ]);
+        await refreshData();
+
+        addToast({
+          title: 'Game Resolved',
+          description: 'Your Dice result has been revealed.',
+          type: 'success',
+        });
+      });
+    } catch (resolveError) {
+      handleContractError(resolveError, addToast);
+    } finally {
+      pendingTxRef.current = null;
+      operationInProgress.current = false;
+      setProcessingState(false);
+      setRollingState(false);
+    }
+  }, [
+    contracts,
+    walletAccount,
+    gameStatus?.pendingResolution,
+    isBetting,
+    isResolving,
+    addToast,
+    withResolving,
     invalidateQueries,
+    refreshData,
+    setLastResult,
+    setProcessingState,
+    setRollingState,
   ]);
 
   // Derived state from balance data
@@ -773,6 +921,69 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     }
   }, [balanceData, betAmount]);
 
+  // Keep approval state in sync even when approval happens outside this UI.
+  // Some providers miss token Approval events, so we also poll allowance directly.
+  useEffect(() => {
+    let cancelled = false;
+
+    const DiceContractAddress =
+      contracts?.Dice?.address || contracts?.Dice?.target || null;
+
+    const syncExternalApprovalState = async () => {
+      if (cancelled) return;
+      if (!contracts?.token || !walletAccount || !DiceContractAddress) return;
+
+      try {
+        const cachedBalanceData = queryClient.getQueryData(balanceQueryKey);
+        const latestBalanceData = await fetchBalanceData();
+
+        const cachedAllowance = cachedBalanceData?.allowance
+          ? BigInt(cachedBalanceData.allowance.toString())
+          : null;
+        const cachedBalance = cachedBalanceData?.balance
+          ? BigInt(cachedBalanceData.balance.toString())
+          : null;
+
+        if (
+          cachedAllowance !== latestBalanceData.allowance ||
+          cachedBalance !== latestBalanceData.balance
+        ) {
+          queryClient.setQueryData(balanceQueryKey, latestBalanceData);
+        }
+      } catch (_err) {
+        // ignore errors while polling
+      }
+    };
+
+    syncExternalApprovalState();
+
+    const intervalId = setInterval(syncExternalApprovalState, 4000);
+    const handleWindowFocus = () => {
+      syncExternalApprovalState();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncExternalApprovalState();
+      }
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [
+    balanceQueryKey,
+    contracts,
+    fetchBalanceData,
+    queryClient,
+    walletAccount,
+  ]);
+
   // Cancel any pending operation when component unmounts or user navigates away
   useEffect(() => {
     return () => {
@@ -789,6 +1000,12 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         clearTimeout(safetyTimeoutRef.current);
         safetyTimeoutRef.current = null;
       }
+
+      // Clean up coin Dice timeout
+      if (DiceTimeoutRef.current) {
+        clearTimeout(DiceTimeoutRef.current);
+        DiceTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -801,7 +1018,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   }, [gameState.lastResult, invalidateQueries]);
 
   // Add a function to check for VRF results in history
-  const checkVrfResultInHistory = async txHash => {
+  const _checkVrfResultInHistory = async txHash => {
     try {
       // Only proceed if we still have a pending VRF
       const currentResult = queryClient.getQueryData(['lastResult']);
@@ -863,7 +1080,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
               vrfRetryCount: (prev.vrfRetryCount || 0) + 1,
             }));
 
-            setTimeout(() => checkVrfResultInHistory(txHash), 5000);
+            setTimeout(() => _checkVrfResultInHistory(txHash), 5000);
           } else {
             // After max retries, mark the VRF as complete but with unknown result
             setLastResult(prev => ({
@@ -885,7 +1102,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         }
       } else {
         // If no history data, retry
-        setTimeout(() => checkVrfResultInHistory(txHash), 5000);
+        setTimeout(() => _checkVrfResultInHistory(txHash), 5000);
       }
     } catch (error) {
       // On error, make sure we stop the animation after a few retries
@@ -911,12 +1128,14 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     needsApproval,
     isApproving,
     isBetting,
+    isResolving,
     isProcessing,
     error,
     setChosenNumber,
     setBetAmount,
     handleApproveToken,
     handlePlaceBet,
+    handleResolveGame,
     invalidateQueries,
   };
 };

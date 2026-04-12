@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { useDiceContract } from './useDiceContract';
 import { useWallet } from '../components/wallet/WalletProvider';
+import { useDiceContract } from './useDiceContract';
 
 export const useRequestTracking = requestId => {
   const { contract } = useDiceContract();
@@ -101,6 +101,7 @@ export const useRequestTracking = requestId => {
               requestExists: false,
               requestProcessed: false,
               recoveryEligible: false,
+              pendingResolution: false,
             }),
           ]);
 
@@ -117,6 +118,7 @@ export const useRequestTracking = requestId => {
                 requestExists: false,
                 requestProcessed: false,
                 recoveryEligible: false,
+                pendingResolution: false,
               };
 
         return {
@@ -128,6 +130,7 @@ export const useRequestTracking = requestId => {
             requestExists: gameStatus.requestExists,
             requestProcessed: gameStatus.requestProcessed,
             recoveryEligible: gameStatus.recoveryEligible,
+            pendingResolution: gameStatus.pendingResolution,
           },
         };
       } catch (error) {

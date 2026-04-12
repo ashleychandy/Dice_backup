@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameRecovery } from '../../hooks/useGameRecovery';
 import { usePollingService } from '../../services/pollingService.jsx';
@@ -236,11 +236,13 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
 
                   <div>Verification:</div>
                   <div className="font-medium">
-                    {gameStatus?.requestProcessed
-                      ? 'Completed'
-                      : gameStatus?.recoveryEligible
-                        ? 'Ready for recovery'
-                        : 'In progress'}
+                    {gameStatus?.pendingResolution
+                      ? 'Ready to resolve'
+                      : gameStatus?.requestProcessed
+                        ? 'Completed'
+                        : gameStatus?.recoveryEligible
+                          ? 'Ready for recovery'
+                          : 'In progress'}
                   </div>
 
                   <div>Recovery Available:</div>
@@ -302,6 +304,17 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
                         }
                       >
                         {gameStatus?.requestProcessed ? 'Yes' : 'No'}
+                      </div>
+
+                      <div>Pending Resolve:</div>
+                      <div
+                        className={
+                          gameStatus?.pendingResolution
+                            ? 'text-emerald-600'
+                            : 'text-gray-600'
+                        }
+                      >
+                        {gameStatus?.pendingResolution ? 'Yes' : 'No'}
                       </div>
 
                       <div>Timestamp:</div>

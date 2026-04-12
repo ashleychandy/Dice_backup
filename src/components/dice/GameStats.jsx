@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import Card from '../ui/Card';
-import Button from '../ui/Button';
-import { formatTokenAmount, formatTimestamp } from '../../utils/formatting';
-import { useGameStatus } from '../../hooks/useGameStatus';
+import { useEffect, useState } from 'react';
 import { useGameRecovery } from '../../hooks/useGameRecovery';
+import { useGameStatus } from '../../hooks/useGameStatus';
 import { useRequestTracking } from '../../hooks/useRequestTracking';
+import { formatTimestamp } from '../../utils/formatting';
+import Button from '../ui/Button';
+import Card from '../ui/Card';
 
 // Helper function to format time elapsed
 const formatTimeElapsed = seconds => {
@@ -183,6 +183,18 @@ const GameStats = ({ account, onError, addToast }) => {
             </span>
           </div>
           <div className="flex justify-between">
+            <span className="text-white/80">Pending Resolve:</span>
+            <span
+              className={
+                gameStatus?.pendingResolution
+                  ? 'text-green-500'
+                  : 'text-gray-400'
+              }
+            >
+              {gameStatus?.pendingResolution ? 'Yes' : 'No'}
+            </span>
+          </div>
+          <div className="flex justify-between">
             <span className="text-white/80">Last Played:</span>
             <span className="text-secondary-400">
               {gameStatus?.lastPlayTimestamp
@@ -253,6 +265,18 @@ const GameStats = ({ account, onError, addToast }) => {
                     }
                   >
                     {requestInfo.gameStatus?.recoveryEligible ? 'Yes' : 'No'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/80">Pending Resolve:</span>
+                  <span
+                    className={
+                      requestInfo.gameStatus?.pendingResolution
+                        ? 'text-green-500'
+                        : 'text-gray-500'
+                    }
+                  >
+                    {requestInfo.gameStatus?.pendingResolution ? 'Yes' : 'No'}
                   </span>
                 </div>
               </>

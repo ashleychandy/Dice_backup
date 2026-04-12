@@ -129,6 +129,7 @@ export const PollingProvider = ({
               lastPlayTimestamp: Number(status.lastPlayTimestamp),
               requestExists: status.requestExists,
               requestProcessed: status.requestProcessed,
+              pendingResolution: Boolean(status.pendingResolution),
               // Derive requestFulfilled from requestProcessed which is what the contract returns
               requestFulfilled: status.requestProcessed,
             };
